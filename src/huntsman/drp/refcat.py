@@ -3,7 +3,7 @@ from contextlib import suppress
 import numpy as np
 import pandas as pd
 from astroquery.utils.tap.core import TapPlus
-from huntsman.utils.base import HuntsmanBase
+from huntsman.drp.base import HuntsmanBase
 
 
 class TapReferenceCatalogue(HuntsmanBase):
@@ -14,8 +14,8 @@ class TapReferenceCatalogue(HuntsmanBase):
 
         # Extract attribute values from config
         self._cone_search_radius = self.config["refcat"]["cone_search_radius"]
-        self._ra_key = self.config["refcat"].get("ra_key", "raj2000")
-        self._dec_key = self.config["refcat"].get("dec_key", "dej2000")
+        self._ra_key = self.config["refcat"]["ra_key"]
+        self._dec_key = self.config["refcat"]["dec_key"]
         self._unique_key = self.config["refcat"]["unique_source_key"]
 
         self._tap_url = self.config["refcat"]["tap_url"]
@@ -77,7 +77,7 @@ class TapReferenceCatalogue(HuntsmanBase):
         with NamedTemporaryFile(delete=True) as tempfile:
             for ra, dec in zip(ra_list, dec_list):
                 # Do the cone search and get result
-                df = self.cone_search(self, ra, dec, filename=tempfile.name)
+                df = self.cone_search(ra, dec, filename=tempfile.name)
                 # First iteration
                 if result is None:
                     result = df
@@ -85,7 +85,8 @@ class TapReferenceCatalogue(HuntsmanBase):
                 # Remove existing sources & concat
                 is_new = np.isin(df[self._unique_key].values, result[self._unique_key].values,
                                  invert=True)
-                result = pd.concat(result, df[is_new], ignore_index=False)
+                result = pd.concat([result, df[is_new]], ignore_index=False)
+        self.logger.debug(f"{result.shape[0]} sources in reference catalogue.")
         if filename is not None:
-            pd.to_csv(filename)
-        return df
+            result.to_csv(filename)
+        return result
