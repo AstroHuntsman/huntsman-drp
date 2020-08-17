@@ -2,7 +2,7 @@
 """
 import pytest
 from .conftest import make_fake_image
-from ..calibs import get_simple_image_data_stats
+from ..utils import get_simple_image_data_stats
 
 
 @pytest.fixture
