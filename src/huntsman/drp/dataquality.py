@@ -39,6 +39,7 @@ class TemporaryButler():
         """Get calexp metadata"""
         pass
 
+      
     def _initialise_directory(self):
         """Initialise a new butler repository."""
         # Add the mapper file to each subdirectory, making directory if necessary
@@ -81,3 +82,23 @@ def generate_science_data_quality(meta_database=None, table="calexp_qc"):
         calexp_metadata = butler_repo.get_calexp_metadata()
         for metadata in calexp_metadata:
             meta_database.insert(metadata, table=table)
+
+
+def generate_calib_data_quality(mdb,
+                                date_min,
+                                date_max):
+    """Populate meta DB with data quality metrics for
+    calibration data taken over the given date range.
+
+    Args:
+        mdb (MetaDatabase): Instance of the meta DB.
+        date_min (datetime): Start of date to query.
+        date_max (datetime): End of date to query
+    """
+    filename_list = mdb.retrieve_files(data_type="calib",
+                                       date_min=date_min,
+                                       date_max=date_max)
+
+    stats_dict = get_simple_image_data_stats(filename_list)
+
+    mdb.ingest_calib_stats(stats_dict)
