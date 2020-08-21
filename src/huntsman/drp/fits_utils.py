@@ -67,7 +67,7 @@ class FitsHeaderTranslator(HuntsmanBase):
         date_obs = md['DATE-OBS']  # This is a string
         datestr = ''.join([s for s in date_obs if s.isdigit()])
         assert len(datestr) == 17, "Date string expected to contain 17 numeric characters."
-        return datestr
+        return int(datestr)
 
     def translate_ccd(self, md):
         """Get a unique integer corresponding to the CCD."""
