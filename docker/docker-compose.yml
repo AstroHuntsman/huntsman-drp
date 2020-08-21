@@ -2,13 +2,15 @@ version: '3'
 services:
   lsst_stack:
     image: huntsmanarray/drp:develop
+    build:
+      context: "${HUNTSMAN_DRP}/docker"
     user: root
-    network: host
+    network_mode: "host"
     stdin_open: true
     tty: true
     volumes:
-      - "${OBS_HUNTSMAN}:/opt/lsst/software/stack/stack/current/Linux64/obs_huntsman"
-      - "${HUNTSMAN_DRP}:/opt/lsst/software/stack/stack/current/Linux64/huntsman-drp"
+      - ${OBS_HUNTSMAN}:/opt/lsst/software/stack/obs_huntsman
+      - ${HUNTSMAN_DRP}:/opt/lsst/software/stack/huntsman-drp
     environment:
       - OBS_HUNTSMAN=/opt/lsst/software/stack/stack/current/Linux64/obs_huntsman
       - HUNTSMAN_DRP:/opt/lsst/software/stack/stack/current/Linux64/huntsman-drp

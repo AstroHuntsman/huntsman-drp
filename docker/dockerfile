@@ -4,8 +4,9 @@ FROM ${base_image}
 ENV LSST_HOME /opt/lsst/software/stack
 
 USER root
+RUN yum install -y wget && \
   #Install git-LFS
-RUN export GITLFS=git-lfs-linux-amd64-v2.10.0.tar.gz && \
+  export GITLFS=git-lfs-linux-amd64-v2.10.0.tar.gz && \
   cd "${LSST_HOME}/_build" && \
   wget "https://github.com/git-lfs/git-lfs/releases/download/v2.10.0/${GITLFS}" && \
   tar -zxf ${GITLFS} && \
@@ -25,5 +26,5 @@ RUN export GITLFS=git-lfs-linux-amd64-v2.10.0.tar.gz && \
   pip install ipython
 
 WORKDIR ${LSST_HOME}
-ADD ./docker/startup.sh .
+ADD startup.sh .
 CMD ["sh", "./startup.sh"]
