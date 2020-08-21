@@ -20,8 +20,6 @@ RUN export GITLFS=git-lfs-linux-amd64-v2.10.0.tar.gz && \
   touch ~/.git-credentials && \
   echo "https://:@lsst-sqre-prod-git-lfs.s3-us-west-2.amazonaws.com" >> ~/.git-credentials && \
   echo "https://:@s3.lsst.codes" >> ~/.git-credentials && \
-  #Make directory for Hunstman obs packge
-  mkdir -p ${STACK}/obs_huntsman && \
   # Install ipython into LSST conda env
   . ${LSST_HOME}/loadLSST.bash && \
   pip install ipython

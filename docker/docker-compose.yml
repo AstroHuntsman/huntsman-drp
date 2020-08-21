@@ -3,15 +3,16 @@ services:
   lsst_stack:
     image: huntsmanarray/drp:develop
     user: root
+    network: host
     stdin_open: true
     tty: true
-    network: host
     volumes:
-      - "$OBS_HUNTSMAN:/opt/lsst/software/stack/stack/current/Linux64/obs_huntsman"
-      - "$HUNTSMAN_DRP:/opt/lsst/software/stack/stack/current/Linux64/huntsman-drp"
+      - "${OBS_HUNTSMAN}:/opt/lsst/software/stack/stack/current/Linux64/obs_huntsman"
+      - "${HUNTSMAN_DRP}:/opt/lsst/software/stack/stack/current/Linux64/huntsman-drp"
     environment:
       - OBS_HUNTSMAN=/opt/lsst/software/stack/stack/current/Linux64/obs_huntsman
       - HUNTSMAN_DRP:/opt/lsst/software/stack/stack/current/Linux64/huntsman-drp
+      - FIREFLY_URL="${FIREFLY_URL}"
   lsst_firefly:
     image: ipac/firefly:lsst-dev
     ports:
