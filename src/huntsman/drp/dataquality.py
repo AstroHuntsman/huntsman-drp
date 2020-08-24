@@ -32,7 +32,7 @@ class TemporaryButler():
         make_recent_calibs(bulter_directory=self._tempdir.name)
 
     def make_calexps(self):
-        """Make calexps from ingested raw data."""
+        """Make calibrated science exposures (calexps) from ingested raw data."""
         pass
 
     def get_calexp_metadata(self):
