@@ -36,7 +36,7 @@ class TemporaryButler():
         pass
 
     def get_calexp_metadata(self):
-        """Get calexp metadata"""
+        """Get calibrated science exposure (calexp) metadata"""
         pass
 
       
