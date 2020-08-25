@@ -1,8 +1,12 @@
 from dateutil.parser import parse as parse_date
-from huntsman.drp.meta import MetaDatabase
 
 import lsst.daf.persistence as dafPersist
+from huntsman.drp.meta import MetaDatabase
 from lsst.utils import getPackageDir
+from lsst.pipe.tasks.ingestCalibs import IngestCalibsTask
+from lsst.pipe.drivers.constructCalibs import BiasTask
+from lsst.pipe.drivers.constructCalibs import FlatTask
+IngestCalibsTask.parseAndRun()
 
 
 def constructHuntsmanBiases(data_dir,
@@ -85,6 +89,16 @@ def constructHuntsmanBiases(data_dir,
             # Construct the calib for this ccd/exptime combination
             # TODO: Replace visit with imageId
             # TODO: create function that can generate these shell cmd strings?
+            visit = {'^'.join([f'{id}' for id in image_ids])}
+            BiasTask.Run(datadir,
+                         rerun=rerun,
+                         calib=calibdir,
+                         id=visit,
+                         exptime=exptime,
+                         nodes=nodes,
+                         procs=procs,
+                         calib=(expTime, date)
+            BiasTask.parseAndRun([""])
             cmd = f"constructBias.py {datadir} --rerun {rerun}"
             cmd += f" --calib {calibdir}"
             cmd += f" --id visit={'^'.join([f'{id}' for id in image_ids])}"
@@ -235,7 +249,7 @@ def make_recent_calibs(date,
     date_range = datetime.timedelta(days=date_range)
 
     db.retreive_files(output_dir,
-                      date_min=date_parsed-date_range,
-                      date_max=date_parsed-date_range)
+                      date_min=date_parsed - date_range,
+                      date_max=date_parsed - date_range)
     constructHuntsmanBiases(butler_directory, min_num_exposures, **kwargs)
     constructHuntsmanFlats(butler_directory, min_num_exposures, **kwargs)
