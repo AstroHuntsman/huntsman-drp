@@ -89,16 +89,6 @@ def constructHuntsmanBiases(data_dir,
             # Construct the calib for this ccd/exptime combination
             # TODO: Replace visit with imageId
             # TODO: create function that can generate these shell cmd strings?
-            visit = {'^'.join([f'{id}' for id in image_ids])}
-            BiasTask.Run(datadir,
-                         rerun=rerun,
-                         calib=calibdir,
-                         id=visit,
-                         exptime=exptime,
-                         nodes=nodes,
-                         procs=procs,
-                         calib=(expTime, date)
-            BiasTask.parseAndRun([""])
             cmd = f"constructBias.py {datadir} --rerun {rerun}"
             cmd += f" --calib {calibdir}"
             cmd += f" --id visit={'^'.join([f'{id}' for id in image_ids])}"
@@ -106,7 +96,10 @@ def constructHuntsmanBiases(data_dir,
             cmd += f" --nodes {nodes} --procs {procs}"
             cmd += f" --calibId expTime={exptime} calibDate={date}"
             print(f'The command is: {cmd}')
-            subprocess.call(cmd, shell=True)
+            # subprocess.call(cmd, shell=True)
+            # rather than running as a subprocess, split cmd by spaces and
+            # supply the resulting list of strings to `parseAndRun`
+            BiasTask.parseAndRun(cmd.split()[1:])
 
     # Ingest the master calibs
     # TODO: Lookup the correct directory
@@ -119,7 +112,10 @@ def constructHuntsmanBiases(data_dir,
     cmd += " --config clobber=True"
     cmd += f" --configfile {config_file}"
     print(f'The ingest command is: {cmd}')
-    subprocess.call(cmd, shell=True)
+    # subprocess.call(cmd, shell=True)
+    # rather than running as a subprocess, split cmd by spaces and
+    # supply the resulting list of strings to `parseAndRun`
+    IngestCalibsTask.parseAndRun(cmd.split()[1:])
     # TODO: alert/log message when subprocess completes
 
 
@@ -202,7 +198,10 @@ def constructHuntsmanFlats(data_dir,
             cmd += f" --nodes {nodes} --procs {procs}"
             cmd += f" --calibId filter={filter} calibDate={date}"
             print(f'The command is: {cmd}')
-            subprocess.call(cmd, shell=True)
+            # subprocess.call(cmd, shell=True)
+            # rather than running as a subprocess, split cmd by spaces and
+            # supply the resulting list of strings to `parseAndRun`
+            FlatTask.parseAndRun(cmd.split()[1:])
 
     # Ingest the master calibs
     # TODO: Lookup the correct directory
@@ -215,7 +214,10 @@ def constructHuntsmanFlats(data_dir,
     cmd += " --config clobber=True"
     cmd += f" --configfile {config_file}"
     print(f'The ingest command is: {cmd}')
-    subprocess.call(cmd, shell=True)
+    # subprocess.call(cmd, shell=True)
+    # rather than running as a subprocess, split cmd by spaces and
+    # supply the resulting list of strings to `parseAndRun`
+    IngestCalibsTask.parseAndRun(cmd.split()[1:])
     # TODO: alert/log message when subprocess completes
 
 
