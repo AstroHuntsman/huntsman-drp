@@ -1,6 +1,7 @@
 """Unit tests for calibration data.
 """
 import pytest
+from huntsman.drp.dataquality import get_simple_image_data_stats
 #from .conftest import make_fake_image
 #from ..utils import get_simple_image_data_stats
 
