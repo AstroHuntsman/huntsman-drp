@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 from astropy.io import fits
 
+from huntsman.
 from huntsman.drp.metadb import SimulatedMetaDatabase
 
 
@@ -46,6 +47,11 @@ def make_test_data(filename, dateObs, dataType, camera=1, filter="g2", shape=(30
     hdu.header['DATE-OBS'] = dateObs
     # Write as a FITS file
     hdu.writeto(filename, overwrite=True)
+
+
+@pytest.fixture(scope="session")
+def fits_header_translator():
+    return FitsHeaderTranslator()
 
 
 @pytest.fixture(scope="session")
