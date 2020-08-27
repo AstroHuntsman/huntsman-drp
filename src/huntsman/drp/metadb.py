@@ -1,6 +1,7 @@
 """Code to interface with the metadatabase."""
 import os
 import shutil
+from contextlib import suppress
 from abc import ABC, abstractmethod
 from astropy.io import fits
 from dateutil.parser import parse as parse_date
@@ -54,10 +55,16 @@ class AbstractMetaDatabase(ABC):
 
     def _is_within_date_range(self, date, date_min=None, date_max=None):
         """Check if date is within range."""
+        with suppress(TypeError):
+            date = parse_date(date)
         if date_min is not None:
+            with suppress(TypeError):
+                date_min = parse_date(date_min)
             if date < date_min:
                 return False
         if date_max is not None:
+            with suppress(TypeError):
+                date_max = parse_date(date_max)
             if date >= date_max:
                 return False
         return True
@@ -89,7 +96,7 @@ class SimulatedMetaDatabase(AbstractMetaDatabase):
         result = []
         for filename in self._filenames:
             header = fits.getheader(filename)
-            date = self._translator.translate_dateObs(header)
+            date = parse_date(self._translator.translate_dateObs(header))
             if self._is_within_date_range(date, date_min, date_max):
                 result.append(date)
         return result
