@@ -3,17 +3,18 @@ import pytest
 from dateutil.parser import parse as parse_date
 
 
-def test_query_by_date(metadatabase):
-    date_min = parse_date("2021-08-20")
-    date_max = parse_date("2022-08-20")
-    filenames = metadatabase.query_files(date_min=date_min, date_max=date_max)
-    assert len(filenames) == 6
-    date_min = parse_date("2020-08-20")
-    date_max = parse_date("2021-08-20")
-    filenames = metadatabase.query_files(date_min=date_min, date_max=date_max)
-    assert len(filenames) == 6
-    date_min = parse_date("2020-08-20")
-    date_max = parse_date("2022-08-20")
-    filenames = metadatabase.query_files(date_min=date_min, date_max=date_max)
-    
-    assert len(filenames) == 12
+def test_query_by_date(metadatabase, fits_header_translator):
+    # Get list of all dates in the database
+    dates = sorted(metadatabase.query_dates())
+    date_max = dates[-1]
+    for date_min in dates[:-1]:
+        # Get filenames between dates
+        filenames = metadatabase.query_files(date_min=date_min, date_max=date_max)
+        assert len(filenames) < n_files  # This holds because we sorted the dates
+        n_files = len(filenames)
+        for filename in filenames:
+            # Assert date is within expected range
+            header = fits.getheader(filename)
+            date = parse_date(fits_header_translator.translate_dateObs(header))
+            assert date >= date_min
+            assert date < date_max

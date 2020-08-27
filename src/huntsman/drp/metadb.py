@@ -19,10 +19,16 @@ class AbstractMetaDatabase(ABC):
     @abstractmethod
     def query_files(self, *args, **kwargs):
         """
-        Arguments:
-
         Returns:
             List of filenames.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def query_dates(self, *args, **kwargs):
+        """
+        Returns:
+            List of DateTime objects.
         """
         raise NotImplementedError
 
@@ -46,18 +52,23 @@ class AbstractMetaDatabase(ABC):
             newfilename = os.path.join(directory, basename)
             shutil.copyfile(filename, newfilename)
 
-    def _is_within_date_range(self, date, date_min, date_max):
+    def _is_within_date_range(self, date, date_min=None, date_max=None):
         """Check if date is within range."""
-        date = parse_date(date)
-        date_min = parse_date(date_min)
-        date_max = parse_date(date_max)
-        return (date >= date_min) and (date < date_max)
+        if date_min is not None:
+            if date < date_min:
+                return False
+        if date_max is not None:
+            if date >= date_max:
+                return False
+        return True
 
 
-def SimulatedMetaDatabase(AbstractMetaDatabase):
-    """A simulated meta database for testing purposes."""
+class SimulatedMetaDatabase(AbstractMetaDatabase):
+    """A simulated meta database for testing purposes. Should be replaced by simulated mongodb
+    in future."""
 
-    def __init__(self, data_directory, data_info):
+    def __init__(self, data_directory, data_info, **kwargs):
+        super().__init__(**kwargs)
         self._data_info = data_info
         self._translator = FitsHeaderTranslator()
         self._filenames = []
@@ -65,11 +76,20 @@ def SimulatedMetaDatabase(AbstractMetaDatabase):
             if filename.endswith(".fits"):
                 self._filenames.append(os.path.join(data_directory, filename))
 
-    def query_files(self, date_min=None, date_max=None, data_type=None):
+    def query_files(self, date_min=None, date_max=None):
         result = []
         for filename in self._filenames:
             header = fits.getheader(filename)
             date = self._translator.translate_dateObs(header)
             if self._is_within_date_range(date, date_min, date_max):
                 result.append(filename)
+        return result
+
+    def query_dates(self, date_min=None, date_max=None):
+        result = []
+        for filename in self._filenames:
+            header = fits.getheader(filename)
+            date = self._translator.translate_dateObs(header)
+            if self._is_within_date_range(date, date_min, date_max):
+                result.append(date)
         return result
