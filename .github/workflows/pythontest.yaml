@@ -23,8 +23,8 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
   test:
     env:
-      HUNTSMAN_DRP: ${PWD}/huntsman-drp
-      OBS_HUNTSMAN: ${PWD}/obs_huntsman
+      HUNTSMAN_DRP: ${{ github.workspace }}/huntsman-drp
+      OBS_HUNTSMAN: ${{ github.workspace }}/obs_huntsman
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -33,15 +33,15 @@ jobs:
       - name: Checkout huntsman-drp
         uses: actions/checkout@v2
         with:
-          path: ${{env.HUNTSMAN_DRP}}
+          path: huntsman-drp
       - name: Checkout obs_huntsman
         uses: actions/checkout@v2
         with:
           repository: AstroHuntsman/obs_huntsman
-          path: ${{env.OBS_HUNTSMAN}}
+          path: obs_huntsman
       - name: Build docker image
-        working-directory: ${{env.HUNTSMAN_DRP}}/docker
+        working-directory: ${{ env.HUNTSMAN_DRP }}/docker
         run: docker-compose build
       - name: Test with pytest in huntsman-drp container
-        working-directory: ${{env.HUNTSMAN_DRP}}/docker
+        working-directory: ${{ env.HUNTSMAN_DRP }}/docker
         run: docker-compose run lsst_stack ./run_tests.sh
