@@ -1,7 +1,7 @@
 from astropy import stats
 import astropy.io.fits as fits
 
-from huntsman.drp.metadatabase import MetaDatabase
+from huntsman.drp.metadb import MetaDatabase
 from huntsman.drp.butler import TemporaryButlerRepository
 
 
