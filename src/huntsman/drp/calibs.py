@@ -59,7 +59,7 @@ def constructHuntsmanBiases(data_dir,
     exposures = defaultdict(dict)
     for (ccd, exptime, dateobs, imageId) in metalist:
 
-        Reject exposures outside of date range
+        # Reject exposures outside of date range
         dateobs = parse_date(dateobs)
         if (dateobs < date_start) or (dateobs > date_end):
             continue
