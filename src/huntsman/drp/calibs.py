@@ -8,7 +8,7 @@ from lsst.pipe.drivers.constructCalibs import BiasTask, FlatTask
 from lsst.pipe.tasks.ingestCalibs import IngestCalibsTask
 from lsst.utils import getPackageDir
 
-from huntsman.drp.meta import MetaDatabase
+from huntsman.drp.metadb import MetaDatabase
 
 
 def constructHuntsmanBiases(data_dir,
