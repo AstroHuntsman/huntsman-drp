@@ -44,5 +44,5 @@ jobs:
         working-directory: ${{ env.HUNTSMAN_DRP }}/docker
         run: docker-compose build
       - name: Test with pytest in huntsman-drp container
-        working-directory: ${{ env.HUNTSMAN_DRP }}/docker
-        run: docker-compose run lsst_stack ./run_tests.sh
+        working-directory: ${{ env.HUNTSMAN_DRP }}/docker/testing
+        run: docker-compose up --abort-on-container-exit --exit-code-from python_tests

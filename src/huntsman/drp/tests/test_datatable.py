@@ -1,9 +1,9 @@
-import pytest
 from astropy.io import fits
-from dateutil.parser import parse as parse_date
+from huntsman.drp.utils import parse_date
 
 
 def test_query_by_date(raw_data_table, fits_header_translator):
+    """ """
     # Get list of all dates in the database
     dates = sorted(raw_data_table.query_column("dateObs"))
     date_max = dates[-1]

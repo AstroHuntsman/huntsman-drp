@@ -28,7 +28,7 @@ raw_data:
     dataType: 'bias'
     camera: 2
   - taiObs: '2020-08-21T07:30:00.000(UTC)'
-    dataType: 'bias')
+    dataType: 'bias'
   - taiObs: '2020-08-21T07:30:00.000(UTC)'
     dataType: 'bias'
     camera: 2
