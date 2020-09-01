@@ -1,30 +1,15 @@
 import os
 import pytest
+import yaml
 import numpy as np
 from astropy.io import fits
 
 from huntsman.drp.fitsutil import FitsHeaderTranslator
-from huntsman.drp.metadb import SimulatedMetaDatabase
+from huntsman.drp.metadb import RawDataTable
 from huntsman.drp.butler import TemporaryButlerRepository
 
 
-IMAGES = [dict(dateObs='2020-08-21T09:30:00.000(UTC)', dataType='science'),
-          dict(dateObs='2020-08-21T09:30:00.000(UTC)', dataType='science', camera=2),
-          dict(dateObs='2020-08-20T09:30:00.000(UTC)', dataType='science'),
-          dict(dateObs='2020-08-20T09:30:00.000(UTC)', dataType='science', camera=2),
-
-          dict(dateObs='2020-08-21T08:30:00.000(UTC)', dataType='flat'),
-          dict(dateObs='2020-08-21T08:30:00.000(UTC)', dataType='flat', camera=2),
-          dict(dateObs='2020-08-20T08:30:00.000(UTC)', dataType='flat'),
-          dict(dateObs='2020-08-20T08:30:00.000(UTC)', dataType='flat', camera=2),
-
-          dict(dateObs='2020-08-21T07:30:00.000(UTC)', dataType='bias'),
-          dict(dateObs='2020-08-21T07:30:00.000(UTC)', dataType='bias', camera=2),
-          dict(dateObs='2020-08-20T07:30:00.000(UTC)', dataType='bias'),
-          dict(dateObs='2020-08-20T07:30:00.000(UTC)', dataType='bias', camera=2)]
-
-
-def make_test_data(filename, dateObs, dataType, camera=1, filter="g2", shape=(30, 50), bias=32,
+def make_test_data(filename, taiObs, dataType, camera=1, filter="g2", shape=(30, 50), bias=32,
                    ra=100, dec=-30, exposure_time=30):
     """Make fake FITS images with realistic headers."""
     # Make the fake image data
@@ -48,7 +33,7 @@ def make_test_data(filename, dateObs, dataType, camera=1, filter="g2", shape=(30
     hdu.header['EXPTIME'] = exposure_time
     hdu.header['FILTER'] = filter
     hdu.header['FIELD'] = field
-    hdu.header['DATE-OBS'] = dateObs
+    hdu.header['DATE-OBS'] = taiObs
     hdu.header["IMAGETYP"] = image_type
     hdu.header["INSTRUME"] = f"TESTCAM{camera:02d}"
     hdu.header["IMAGEID"] = "TestImageId"
@@ -57,18 +42,33 @@ def make_test_data(filename, dateObs, dataType, camera=1, filter="g2", shape=(30
 
 
 @pytest.fixture(scope="session")
-def data_directory(tmp_path_factory):
+def test_data():
+    """List of dictionaries of test data."""
+    filename = os.path.join(os.environ["HUNTSMAN_DRP"], "tests", "test_data.yaml")
+    with open(filename, 'r') as f:
+        data = yaml.safe_load(f)
+    return data
+
+
+@pytest.fixture(scope="session")
+def raw_data_directory(tmp_path_factory, test_data):
     """Create a temporary directory populated with fake FITS images."""
     tempdir = tmp_path_factory.mktemp("testdata")
-    for i, image_dict in enumerate(IMAGES):
+    for i, data_dict in enumerate(test_data["raw_data"]):
         filename = os.path.join(tempdir, f"testdata_{i}.fits")
-        make_test_data(filename=filename, **image_dict)
+        # Make the FITS images
+        make_test_data(filename=filename, **data_dict)
+        # Add the filename to test_data
+        test_data["raw_data"][i]["filename"] = filename
     return tempdir
 
 
 @pytest.fixture(scope="session")
-def metadatabase(data_directory):
-    return SimulatedMetaDatabase(data_directory=data_directory, data_info=IMAGES)
+def raw_data_table(raw_data_directory, raw_test_data):
+    """Create a data table with test data inserted."""
+    data_table = RawDataTable()
+    data_table.insert_many(raw_test_data)
+    return data_table
 
 
 @pytest.fixture(scope="session")
