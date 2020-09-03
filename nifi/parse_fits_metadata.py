@@ -15,6 +15,9 @@ if __name__ == "__main__":
     # Parse the header
     meta = FitsHeaderTranslator().parse_header(header)
 
+    # Add the filename to the metadata
+    meta["filename"] = filename
+
     # Print as json
     meta_json = json.dumps(meta)
     print(meta_json)
