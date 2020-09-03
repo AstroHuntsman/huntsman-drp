@@ -1,6 +1,23 @@
 from copy import copy
 from functools import partial
+from astropy.io import fits
 from huntsman.drp.base import HuntsmanBase
+
+
+def read_fits_header(filename):
+    """ Read the FITS header for a given filename.
+    Args:
+        filename (str): The filename.
+    Returns:
+        dict: The header dictionary.
+    """
+    if filename.endswith(".fits"):
+        ext = 0
+    elif filename.endswith(".fits.fz"):  # <----- CHECK THIS
+        ext = 1
+    else:
+        raise ValueError(f"Unrecognised FITS extension for {filename}.")
+    return fits.getheader(filename, ext=ext)
 
 
 class FitsHeaderTranslatorBase(HuntsmanBase):

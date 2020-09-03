@@ -22,10 +22,6 @@ camera_mappings:
   TESTCAM02: 2
   83F010774: 1
 
-ngas:
-  server: localhost
-  port: 7778
-
 mongodb:
   hostname: "localhost"
   port: 27017
