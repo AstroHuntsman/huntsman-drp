@@ -1,6 +1,6 @@
 import json
 import argparse
-from huntsman.drp.fitsutil import read_header, FitsHeaderTranslator
+from huntsman.drp.fitsutil import read_fits_header, FitsHeaderTranslator
 
 if __name__ == "__main__":
 
@@ -10,7 +10,7 @@ if __name__ == "__main__":
     filename = parser.parse_args().filename
 
     # Read the header
-    header = read_header(filename)
+    header = read_fits_header(filename)
 
     # Parse the header
     meta = FitsHeaderTranslator().parse_header(header)
