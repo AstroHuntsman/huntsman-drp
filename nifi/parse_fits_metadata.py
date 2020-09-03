@@ -1,3 +1,4 @@
+"""Python script to output metadata as json given an input filename."""
 import json
 import argparse
 from huntsman.drp.fitsutil import read_fits_header, FitsHeaderTranslator
