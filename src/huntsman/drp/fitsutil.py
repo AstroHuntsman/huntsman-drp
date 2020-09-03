@@ -111,12 +111,11 @@ class FitsHeaderTranslator(FitsHeaderTranslatorBase):
         Args:
             header (dict): Raw FITS header.
         """
+        # Copy the whole header
         result = dict()
         for key, value in header.items():
-            # Try translating the key value pair
-            try:
-                result[key] = getattr(self, f"translate_{key}")(header)
-            # If no translator, keep the key value pair as is
-            except AttributeError:
-                result[key] = value
+            result[key] = value
+        # Also store mappings, overwriting if necessary
+        for column in self.config["fits_header"]["required_columns"]:
+            result[column] = getattr(self, f"translate_{column}")(header)
         return result

@@ -5,6 +5,17 @@ fits_header:
     expId: "IMAGEID"
     taiObs: "DATE-OBS"
     field: "FIELD"
+  required_columns:
+    - "expTime"
+    - "taiObs"
+    - "field"
+    - "expId"
+    - "ccdTemp"
+    - "dateObs"
+    - "dataType"
+    - "filter"
+    - "visit"
+    - "ccd"
 
 camera_mappings:
   "1815420013090900": 1
