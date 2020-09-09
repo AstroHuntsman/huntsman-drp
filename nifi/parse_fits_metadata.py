@@ -32,7 +32,7 @@ def test_main(glob_strings_list):
                 print(filename, err)
 
     print(f"\n\n\nTested {count} fits files using the following glob strings:")
-    for glob_string in glob_strings:
+    for glob_string in glob_strings_list:
         print(glob_string)
 
 
