@@ -4,7 +4,7 @@ import argparse
 from huntsman.drp.fitsutil import read_fits_header, FitsHeaderTranslator
 
 
-def main(filename):
+def main(filename, print_stdout=True):
     # Read the header
     header = read_fits_header(filename)
 
@@ -16,7 +16,8 @@ def main(filename):
 
     # Print as json
     meta_json = json.dumps(meta)
-    print(meta_json)
+    if print_stdout:
+        print(meta_json)
 
 
 if __name__ == "__main__":
