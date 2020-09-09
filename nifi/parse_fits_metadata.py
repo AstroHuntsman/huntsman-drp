@@ -1,4 +1,5 @@
-"""Python script to output metadata as json given an input filename."""
+"""Python script to output metadata as json given an input filename.
+"""
 import json
 import glob
 import argparse
@@ -6,6 +7,13 @@ from huntsman.drp.fitsutil import read_fits_header, FitsHeaderTranslator
 
 
 def main(filename, print_stdout=True):
+    """Print to stdout FitsHeaderTranslator-parsed fits header 
+    for use in nifi data archive system. 
+
+    Args:
+        filename (str): Filename of fits file. Can be compressed.
+        print_stdout (bool, optional): Print to stdout or not.
+    """
     # Read the header
     header = read_fits_header(filename)
 
@@ -22,6 +30,12 @@ def main(filename, print_stdout=True):
 
 
 def test_main(glob_strings_list):
+    """Will run the FitsHeaderTranslator on fits files, catching and printing
+    any keyword errors. Can be used to isolate old or faulty fits files.
+
+    Args:
+        glob_strings_list (list): List of strings for glob'ing fits files.
+    """
     count = 0
     for glob_string in glob_strings_list:
         for filename in glob.glob(glob_string):
@@ -38,7 +52,7 @@ def test_main(glob_strings_list):
 
 if __name__ == "__main__":
 
-    # Parse the filename
+    # Parse the filename and test mode.
     parser = argparse.ArgumentParser()
     parser.add_argument('filename', type=str)
     parser.add_argument('--test-mode', dest='test_mode', action='store_true')
