@@ -20,11 +20,35 @@ def main(filename, print_stdout=True):
         print(meta_json)
 
 
+def test_main(glob_strings):
+    count = 0
+    for glob_string in glob_strings:
+        for filename in glob.glob(glob_string):
+            count += 1
+            try:
+                main(filename, print_stdout=False)
+            except KeyError as err:
+                print(filename, err)
+
+    print(f"\n\n\nTested {count} fits files using the following glob strings:")
+    for glob_string in glob_strings:
+        print(glob_string)
+
+
 if __name__ == "__main__":
 
     # Parse the filename
     parser = argparse.ArgumentParser()
     parser.add_argument('filename', type=str)
-    filename = parser.parse_args().filename
+    parser.add_argument('--test-mode', dest='test_mode', action='store_true')
 
-    main(filename)
+    filename = parser.parse_args().filename
+    test_mode = parser.parse_args().test_mode
+
+    if test_mode:
+        glob_strings = ["/var/huntsman/images/fields/*/*/*/*.fits*",
+                        "/var/huntsman/images/flats/*/*/*.fits*",
+                        "/var/huntsman/images/darks/*/*/*.fits*"]
+        test_main(glob_strings)
+    else:
+        main(filename)
