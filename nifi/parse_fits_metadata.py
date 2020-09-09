@@ -21,9 +21,9 @@ def main(filename, print_stdout=True):
         print(meta_json)
 
 
-def test_main(glob_strings):
+def test_main(glob_strings_list):
     count = 0
-    for glob_string in glob_strings:
+    for glob_string in glob_strings_list:
         for filename in glob.glob(glob_string):
             count += 1
             try:
@@ -47,9 +47,9 @@ if __name__ == "__main__":
     test_mode = parser.parse_args().test_mode
 
     if test_mode:
-        glob_strings = ["/var/huntsman/images/fields/*/*/*/*.fits*",
-                        "/var/huntsman/images/flats/*/*/*.fits*",
-                        "/var/huntsman/images/darks/*/*/*.fits*"]
-        test_main(glob_strings)
+        glob_strings_list = ["/var/huntsman/images/fields/*/*/*/*.fits*",
+                             "/var/huntsman/images/flats/*/*/*.fits*",
+                             "/var/huntsman/images/darks/*/*/*.fits*"]
+        test_main(glob_strings_list)
     else:
         main(filename)
