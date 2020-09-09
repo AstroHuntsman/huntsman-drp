@@ -3,13 +3,8 @@ import json
 import argparse
 from huntsman.drp.fitsutil import read_fits_header, FitsHeaderTranslator
 
-if __name__ == "__main__":
 
-    # Parse the filename
-    parser = argparse.ArgumentParser()
-    parser.add_argument('filename', type=str)
-    filename = parser.parse_args().filename
-
+def main(filename):
     # Read the header
     header = read_fits_header(filename)
 
@@ -22,3 +17,13 @@ if __name__ == "__main__":
     # Print as json
     meta_json = json.dumps(meta)
     print(meta_json)
+
+
+if __name__ == "__main__":
+
+    # Parse the filename
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filename', type=str)
+    filename = parser.parse_args().filename
+
+    main(filename)
