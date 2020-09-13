@@ -1,4 +1,4 @@
-ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-v20_0_0
+ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-v19_0_0
 FROM ${base_image}
 
 ENV LSST_HOME /opt/lsst/software/stack
@@ -23,7 +23,13 @@ RUN yum install -y wget vim && \
   echo "https://:@s3.lsst.codes" >> ~/.git-credentials && \
   # Install extra python stuff into LSST conda env
   . ${LSST_HOME}/loadLSST.bash && \
-  pip install ipython pymongo
+  pip install ipython pymongo && \
+  # Create directory for Butler to store data
+  cd $LSST_HOME && \
+  mkdir DATA && \
+  mkdir DATA/CALIB && \
+  echo "lsst.obs.huntsman.HuntsmanMapper" > DATA/_mapper && \
+  echo "lsst.obs.huntsman.HuntsmanMapper" > DATA/CALIB/_mapper
 
 WORKDIR ${LSST_HOME}
 ADD bash_config.sh .
