@@ -1,4 +1,4 @@
-ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-v19_0_0
+ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-v20_0_0
 FROM ${base_image}
 
 ENV LSST_HOME /opt/lsst/software/stack
