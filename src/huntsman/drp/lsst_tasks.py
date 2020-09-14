@@ -1,5 +1,8 @@
 import subprocess
+from collections import defaultdict
 from lsst.pipe.tasks.ingest import IngestTask
+
+from huntsman.drp.utils import date_to_ymd
 
 
 def ingest_raw_data(filename_list, butler_directory, mode="link"):
@@ -12,6 +15,44 @@ def ingest_raw_data(filename_list, butler_directory, mode="link"):
 
     # Ingest the files
     task.ingestFiles(filename_list)
+
+
+def make_master_biases(self, calib_date, rerun, nodes=1, procs=1):
+    """
+
+    """
+    metalist = self.butler.queryMetadata('raw', ['ccd', 'expTime', 'dateObs', 'visit'],
+                                         dataId={'dataType': 'bias'})
+
+    # Select the exposures we are interested in
+    exposures = defaultdict(dict)
+    for (ccd, exptime, dateobs, visit) in metalist:
+        if exptime not in exposures[ccd].keys():
+            exposures[ccd][exptime] = []
+        exposures[ccd][exptime].append(visit)
+
+    # Parse the calib date
+    calib_date = date_to_ymd(calib_date)
+
+    for ccd, exptimes in exposures.items():
+        for exptime, image_ids in exptimes.items():
+            self.logger.debug(f'Making master biases for ccd {ccd} using {len(image_ids)}'
+                              f' exposures of {exptime}s.')
+
+            # Construct the calib for this ccd/exptime combination (do we need this split?)
+            cmd = f"constructBias.py {self.butlerdir} --rerun {rerun}"
+            cmd += f" --calib {self.calibdir}"
+            cmd += f" --id visit={'^'.join([f'{id}' for id in image_ids])}"
+            cmd += f" expTime={exptime}"
+            cmd += f" ccd={ccd}"
+            cmd += f" --nodes {nodes} --procs {procs}"
+            cmd += f" --calibId expTime={exptime} calibDate={calib_date}"
+            self.logger.debug(f'Calling command: {cmd}')
+            subprocess.call(cmd, shell=True)
+
+
+
+
 
 
 def ingest_master_bias(date, butler_directory='DATA', calibdir='DATA/CALIB',
