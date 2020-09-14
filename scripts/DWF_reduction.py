@@ -18,6 +18,7 @@ from dateutil.parser import parse as parse_date
 import datetime.datetime as datetime
 from huntsman.drp.datatable import RawDataTable
 import argparse
+import subprocess
 
 
 def ingest_master_bias(date, bias_config_file, datadir='DATA',
