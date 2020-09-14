@@ -15,10 +15,14 @@ class ButlerRepository():
         self.butlerdir = directory
         if (calibdir is None) and (directory is not None):
             calibdir = os.path.join(directory, "CALIB")
-        self.calibdir = calibdir
+        self._calibdir = calibdir
         self.butler = None
         if initialise:
             self._initialise()
+
+    @property
+    def calibdir(self):
+        return self._calibdir
 
     def ingest_raw_data(self, filenames):
         """Ingest raw data into the repository."""
