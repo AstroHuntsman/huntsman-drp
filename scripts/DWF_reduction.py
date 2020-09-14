@@ -99,7 +99,8 @@ def assembleCoadd(filter, datadir='DATA', calibdir='DATA/CALIB',
     subprocess.call(cmd, shell=True)
 
 
-def process_concurrent_exposures(files, datadir='DATA', calibdir='DATA/CALIB',
+def process_concurrent_exposures(file_list, master_bias_date, master_flat_date,
+                                 datadir='DATA', calibdir='DATA/CALIB',
                                  validity=1000):
     """Function that takes list of science exposures and processes them to
     produce a coadd. Master calibs are assumed to have already been produced
@@ -118,13 +119,13 @@ def process_concurrent_exposures(files, datadir='DATA', calibdir='DATA/CALIB',
     bias_config_file = os.path.join(getPackageDir("obs_huntsman"), "config",
                                     "ingestBiases.py")
 
-    ingest_master_bias(date, bias_config_file, datadir='DATA',
+    ingest_master_bias(master_bias_date, bias_config_file, datadir='DATA',
                        calibdir='DATA/CALIB', rerun='processCcdOutputs',
                        validity=1000)
 
-    ingest_master_flat(date, filter, flat_config_file, datadir='DATA',
-                       calibdir='DATA/CALIB', rerun='processCcdOutputs',
-                       validity=1000)
+    ingest_master_flat(master_flat_date, filter, flat_config_file,
+                       datadir='DATA', calibdir='DATA/CALIB',
+                       rerun='processCcdOutputs', validity=1000)
 
     ingest_sci_images(file_list, datadir='DATA', calibdir='DATA/CALIB')
 
