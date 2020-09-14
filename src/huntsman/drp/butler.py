@@ -4,14 +4,17 @@ from collections import defaultdict
 from tempfile import TemporaryDirectory
 
 import lsst.daf.persistence as dafPersist
+
 import huntsman.drp.lsst_tasks as lsst
+from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils import date_to_ymd
 
 
-class ButlerRepository():
+class ButlerRepository(HuntsmanBase):
     _mapper = "lsst.obs.huntsman.HuntsmanMapper"
 
-    def __init__(self, directory, calibdir=None, initialise=True):
+    def __init__(self, directory, calibdir=None, initialise=True, **kwargs):
+        super().__init__(**kwargs)
         self.butlerdir = directory
         if (calibdir is None) and (directory is not None):
             calibdir = os.path.join(directory, "CALIB")
