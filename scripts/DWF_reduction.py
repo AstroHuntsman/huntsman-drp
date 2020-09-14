@@ -38,7 +38,7 @@ def ingest_master_bias(date, bias_config_file, datadir='DATA',
     subprocess.call(cmd, shell=True)
 
 
-def ingest_master_flat(date, filter flat_config_file, datadir='DATA',
+def ingest_master_flat(date, filter, flat_config_file, datadir='DATA',
                        calibdir='DATA/CALIB', rerun='processCcdOutputs',
                        validity=1000):
     """Ingest the master flat of a given date."""
