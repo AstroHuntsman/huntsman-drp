@@ -30,7 +30,7 @@ class HuntsmanBase():
         if logger is None:
             logger = self._get_logger()
         self.logger = logger
-        
+
         # Load the config
         if config is None:
             config = self._load_config()
@@ -45,7 +45,7 @@ class HuntsmanBase():
             config_local = _load_yaml(os.path.join(dir, "config_local.yaml"))
             config = _update_config(config, config_local)
         except FileNotFoundError:
-            self.logger.debug("No local config file found.")
+            pass
         return config
 
     def _get_logger(self):
