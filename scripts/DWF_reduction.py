@@ -144,5 +144,5 @@ if __name__ == '__main__':
     # parser = argparse.ArgumentParser()
     # parser.add_argument('abc', type=str, help='abc.')
     # args = parser.parse_args()
-
-    process_concurrent_exposures(files)
+    pass
+    # process_concurrent_exposures(files)
