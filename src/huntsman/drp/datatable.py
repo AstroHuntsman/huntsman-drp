@@ -27,7 +27,7 @@ class DataTable(HuntsmanBase):
         if "username" in self.config["mongodb"].keys():
             username = quote_plus(self.config["mongodb"]["username"])
             password = quote_plus(self.config["mongodb"]["password"])
-            uri = f"mongodb://{username}:{password}@{hostname}?ssl=true"
+            uri = f"mongodb://{username}:{password}@{hostname}/{db_name}?ssl=true"
             self._client = MongoClient(uri)
         else:
             self._client = MongoClient(hostname, port)
