@@ -25,6 +25,7 @@ def get_recent_calibs(interval):
 if __name__ == "__main__":
 
     interval = 7  # Days
+    rerun = "dwfrerun"
 
     # Get filenames
     filenames = get_recent_calibs(interval)
@@ -35,4 +36,4 @@ if __name__ == "__main__":
         butler_repo.ingest_raw_data(filenames)
 
         # Make master calibs
-        butler_repo.make_master_calibs()
+        butler_repo.make_master_calibs(calib_date=datetime.utcnow(), rerun=rerun)

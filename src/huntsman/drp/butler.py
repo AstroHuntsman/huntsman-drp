@@ -20,13 +20,21 @@ class ButlerRepository():
         if initialise:
             self._initialise()
 
+    def ingest_raw_data(self, filenames):
+        """Ingest raw data into the repository."""
+        lsst.ingest_raw_data(filenames, butler_directory=self.butlerdir)
+
+    def make_master_calibs(self, calib_date, rerun, **kwargs):
+        """Make master calibs from ingested raw calibs."""
+        self.make_master_biases(calib_date, rerun, **kwargs)
+        self.make_master_flats(calib_date, rerun, **kwargs)
+
     def make_master_biases(self, calib_date, rerun, nodes=1, procs=1):
         """
 
         """
         metalist = self.butler.queryMetadata('raw', ['ccd', 'expTime', 'dateObs', 'visit'],
                                              dataId={'dataType': 'bias'})
-
         # Select the exposures we are interested in
         exposures = defaultdict(dict)
         for (ccd, exptime, dateobs, visit) in metalist:
@@ -37,27 +45,39 @@ class ButlerRepository():
         # Parse the calib date
         calib_date = date_to_ymd(calib_date)
 
+        # Construct the calib for this ccd/exptime combination (do we need this split?)
         for ccd, exptimes in exposures.items():
             for exptime, image_ids in exptimes.items():
                 self.logger.debug(f'Making master biases for ccd {ccd} using {len(image_ids)}'
                                   f' exposures of {exptime}s.')
-                # Construct the calib for this ccd/exptime combination (do we need this split?)
                 lsst.constructBias(butlerdir=self.butlerdir, rerun=rerun, calibdir=self.calibdir,
                                    id=image_ids, exptime=exptime, ccd=ccd, nodes=nodes,
                                    procs=procs, calib_date=calib_date)
 
-    def ingest_raw_data(self, filenames):
-        """Ingest raw data into the repository."""
-        lsst.ingest_raw_data(filenames, butler_directory=self.directory.name)
+    def make_master_flats(self, calib_date, rerun, nodes=1, procs=1):
+        """
 
-    def make_master_calibs(self):
-        """Make master calibs from ingested raw calibs."""
-        self.make_master_biases()
-        self.make_master_flats()
+        """
+        metalist = self.butler.queryMetadata('raw', ['ccd', 'expTime', 'dateObs', 'visit'],
+                                             dataId={'dataType': 'bias'})
+        # Select the exposures we are interested in
+        exposures = defaultdict(dict)
+        for (ccd, filter, dateobs, expId) in metalist:
+            if filter not in exposures[ccd].keys():
+                exposures[ccd][filter] = []
+            exposures[ccd][filter].append(expId)
 
-    def make_master_flats(self):
-        """ """
-        lsst.make_master_flats(butler_directory=self.directory.name)
+        # Parse the calib date
+        calib_date = date_to_ymd(calib_date)
+
+        # Construct the calib for this ccd/filter combination (do we need this split?)
+        for ccd, exptimes in exposures.items():
+            for filter, image_ids in exptimes.items():
+                self.logger.debug(f'Making master flats for ccd {ccd} using {len(image_ids)}'
+                                  f' exposures in {filter} filter.')
+                lsst.constructFlat(butlerdir=self.butlerdir, rerun=rerun, calibdir=self.calibdir,
+                                   id=image_ids, filter=filter, ccd=ccd, nodes=nodes,
+                                   procs=procs, calib_date=calib_date)
 
     def make_calexps(self):
         """Make calibrated science exposures (calexps) from ingested raw data."""
@@ -71,7 +91,7 @@ class ButlerRepository():
         """Initialise a new butler repository."""
         # Add the mapper file to each subdirectory, making directory if necessary
         for subdir in ["", "CALIB"]:
-            dir = os.path.join(self.directory.name, subdir)
+            dir = os.path.join(self.butlerdir, subdir)
             with suppress(FileExistsError):
                 os.mkdir(dir)
             filename_mapper = os.path.join(dir, "_mapper")
