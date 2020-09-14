@@ -14,9 +14,10 @@ for doing coadds.... also need skymapper catalogue for region of interest
 -will have a mounted output directory in the docker container, make this a
 parameter output_directory
 """
+from lsst.utils import getPackageDir
+
 from dateutil.parser import parse as parse_date
 import datetime.datetime as datetime
-from huntsman.drp.datatable import RawDataTable
 import argparse
 import subprocess
 import os
