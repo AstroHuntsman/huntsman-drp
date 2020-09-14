@@ -71,7 +71,7 @@ def processCcd(dataType='science', datadir='DATA', calibdir='DATA/CALIB',
 def makeDiscreteSkyMap(datadir='DATA', rerun='processCcdOutputs:coadd'):
     """Create a sky map that covers processed exposures."""
     cmd = f"makeDiscreteSkyMap.py {datadir}} --id --rerun {rerun} "
-    cmd += f"--config skyMap.projection="TAN""
+    cmd += f"--config skyMap.projection='TAN'"
     subprocess.call(cmd, shell=True)
 
 
