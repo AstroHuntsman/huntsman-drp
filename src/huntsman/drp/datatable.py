@@ -60,8 +60,9 @@ class DataTable(HuntsmanBase):
             if date_end is not None:
                 date_dict["$lt"] = parse_date(date_end)
             query_dict[self._date_key] = date_dict
-        self.logger.debug(f"Query returned {len(query_dict)} results.")
-        return list(self._table.find(query_dict))
+        result = list(self._table.find(query_dict))
+        self.logger.debug(f"Query returned {len(result)} results.")
+        return result
 
     def query_column(self, column_name, **kwargs):
         """
