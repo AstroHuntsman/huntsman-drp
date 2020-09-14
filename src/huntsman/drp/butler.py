@@ -22,6 +22,7 @@ class ButlerRepository():
 
     def ingest_raw_data(self, filenames):
         """Ingest raw data into the repository."""
+        self.logger.debug(f"Ingesting {len(filenames)} files.")
         lsst.ingest_raw_data(filenames, butler_directory=self.butlerdir)
 
     def make_master_calibs(self, calib_date, rerun, **kwargs):
@@ -58,25 +59,25 @@ class ButlerRepository():
         """
 
         """
-        metalist = self.butler.queryMetadata('raw', ['ccd', 'expTime', 'dateObs', 'visit'],
+        metalist = self.butler.queryMetadata('raw', ['ccd', 'filter', 'dateObs', 'visit'],
                                              dataId={'dataType': 'bias'})
         # Select the exposures we are interested in
         exposures = defaultdict(dict)
-        for (ccd, filter, dateobs, expId) in metalist:
-            if filter not in exposures[ccd].keys():
-                exposures[ccd][filter] = []
-            exposures[ccd][filter].append(expId)
+        for (ccd, filter_name, dateobs, expId) in metalist:
+            if filter_name not in exposures[ccd].keys():
+                exposures[ccd][filter_name] = []
+            exposures[ccd][filter_name].append(expId)
 
         # Parse the calib date
         calib_date = date_to_ymd(calib_date)
 
         # Construct the calib for this ccd/filter combination (do we need this split?)
         for ccd, exptimes in exposures.items():
-            for filter, image_ids in exptimes.items():
+            for filter_name, image_ids in exptimes.items():
                 self.logger.debug(f'Making master flats for ccd {ccd} using {len(image_ids)}'
-                                  f' exposures in {filter} filter.')
+                                  f' exposures in {filter_name} filter.')
                 lsst.constructFlat(butlerdir=self.butlerdir, rerun=rerun, calibdir=self.calibdir,
-                                   id=image_ids, filter=filter, ccd=ccd, nodes=nodes,
+                                   id=image_ids, filter_name=filter_name, ccd=ccd, nodes=nodes,
                                    procs=procs, calib_date=calib_date)
 
     def make_calexps(self):
