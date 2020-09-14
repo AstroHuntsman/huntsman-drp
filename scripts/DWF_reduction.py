@@ -19,6 +19,7 @@ import datetime.datetime as datetime
 from huntsman.drp.datatable import RawDataTable
 import argparse
 import subprocess
+import os
 
 
 def ingest_master_bias(date, bias_config_file, datadir='DATA',
@@ -37,11 +38,11 @@ def ingest_master_bias(date, bias_config_file, datadir='DATA',
     subprocess.call(cmd, shell=True)
 
 
-def ingest_master_flat(date, filter, flat_config_file, datadir='DATA',
+def ingest_master_flat(date, filter flat_config_file, datadir='DATA',
                        calibdir='DATA/CALIB', rerun='processCcdOutputs',
                        validity=1000):
     """Ingest the master flat of a given date."""
-    print(f"Ingesting master {filter} filter flats frames for ccd {ccd}.")
+    print(f"Ingesting master {filter} filter flats frames.")
     cmd = f"ingestCalibs.py {datadir}"
     cmd += f" {datadir}/rerun/{rerun}/calib/flat/{date}/*/*.fits"
     cmd += f" --validity {validity}"
