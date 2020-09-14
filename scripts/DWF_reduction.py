@@ -14,16 +14,19 @@ for doing coadds.... also need skymapper catalogue for region of interest
 -will have a mounted output directory in the docker container, make this a
 parameter output_directory
 """
+from lsst.utils import getPackageDir
+
 from dateutil.parser import parse as parse_date
 import datetime.datetime as datetime
-from huntsman.drp.datatable import RawDataTable
 import argparse
+import subprocess
+import os
 
 
 def ingest_master_bias(date, bias_config_file, datadir='DATA',
                        calibdir='DATA/CALIB', rerun='processCcdOutputs',
                        validity=1000):
-    """Ingest the master bias of a given date.""""
+    """Ingest the master bias of a given date."""
 
     print(f"Ingesting master bias frames.")
     cmd = f"ingestCalibs.py {datadir}"
@@ -40,7 +43,7 @@ def ingest_master_flat(date, filter, flat_config_file, datadir='DATA',
                        calibdir='DATA/CALIB', rerun='processCcdOutputs',
                        validity=1000):
     """Ingest the master flat of a given date."""
-    print(f"Ingesting master {filter} filter flats frames for ccd {ccd}.")
+    print(f"Ingesting master {filter} filter flats frames.")
     cmd = f"ingestCalibs.py {datadir}"
     cmd += f" {datadir}/rerun/{rerun}/calib/flat/{date}/*/*.fits"
     cmd += f" --validity {validity}"
@@ -70,8 +73,8 @@ def processCcd(dataType='science', datadir='DATA', calibdir='DATA/CALIB',
 
 def makeDiscreteSkyMap(datadir='DATA', rerun='processCcdOutputs:coadd'):
     """Create a sky map that covers processed exposures."""
-    cmd = f"makeDiscreteSkyMap.py {datadir}} --id --rerun {rerun} "
-    cmd += f"--config skyMap.projection="TAN""
+    cmd = f"makeDiscreteSkyMap.py {datadir} --id --rerun {rerun} "
+    cmd += f"--config skyMap.projection='TAN'"
     subprocess.call(cmd, shell=True)
 
 
@@ -141,5 +144,5 @@ if __name__ == '__main__':
     # parser = argparse.ArgumentParser()
     # parser.add_argument('abc', type=str, help='abc.')
     # args = parser.parse_args()
-
-    process_concurrent_exposures(files)
+    pass
+    # process_concurrent_exposures(files)
