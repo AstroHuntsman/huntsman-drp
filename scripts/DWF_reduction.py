@@ -23,7 +23,7 @@ import argparse
 def ingest_master_bias(date, bias_config_file, datadir='DATA',
                        calibdir='DATA/CALIB', rerun='processCcdOutputs',
                        validity=1000):
-    """Ingest the master bias of a given date.""""
+    """Ingest the master bias of a given date."""
 
     print(f"Ingesting master bias frames.")
     cmd = f"ingestCalibs.py {datadir}"
