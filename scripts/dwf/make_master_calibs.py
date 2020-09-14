@@ -30,7 +30,8 @@ if __name__ == "__main__":
     # Get filenames
     filenames = get_recent_calibs(interval)
 
-    with TemporaryButlerRepository() as butler_repo:
+    butler_repo = TemporaryButlerRepository()
+    with butler_repo:
 
         # Ingest raw data
         butler_repo.ingest_raw_data(filenames)
