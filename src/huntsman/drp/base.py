@@ -26,15 +26,15 @@ class HuntsmanBase():
 
     def __init__(self, config=None, logger=None):
 
-        # Load the config
-        if config is None:
-            config = self._load_config()
-        self.config = config
-
         # Load the logger
         if logger is None:
             logger = self._get_logger()
         self.logger = logger
+        
+        # Load the config
+        if config is None:
+            config = self._load_config()
+        self.config = config
 
     def _load_config(self, config_dir=None):
         """Load the config file"""
