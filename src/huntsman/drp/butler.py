@@ -69,12 +69,15 @@ class ButlerRepository(HuntsmanBase):
         metalist = self.butler.queryMetadata('raw', ['ccd', 'filter', 'dateObs', 'visit'],
                                              dataId={'dataType': 'flat'})
 
+        print(len(metalist))
+
         # Select the exposures we are interested in
         exposures = defaultdict(dict)
         for (ccd, filter_name, dateobs, visit) in metalist:
             if filter_name not in exposures[ccd].keys():
                 exposures[ccd][filter_name] = []
             exposures[ccd][filter_name].append(visit)
+            print("hello")
 
         # Parse the calib date
         calib_date = date_to_ymd(calib_date)
