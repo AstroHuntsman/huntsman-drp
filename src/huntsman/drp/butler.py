@@ -39,7 +39,7 @@ class ButlerRepository(HuntsmanBase):
         self.make_master_biases(calib_date, rerun, **kwargs)
         self.make_master_flats(calib_date, rerun, **kwargs)
 
-    def make_master_biases(self, calib_date, rerun, nodes=1, procs=1):
+    def make_master_biases(self, calib_date, rerun, nodes=1, procs=1, ingest=True):
         """
 
         """
@@ -64,8 +64,10 @@ class ButlerRepository(HuntsmanBase):
                                    calib_directory=self.calib_directory, data_ids=data_ids,
                                    exptime=exptime, ccd=ccd, nodes=nodes, procs=procs,
                                    calib_date=calib_date)
+        if ingest:
+            self.ingest_master_biases(calib_date, rerun=rerun)
 
-    def make_master_flats(self, calib_date, rerun, nodes=1, procs=1):
+    def make_master_flats(self, calib_date, rerun, nodes=1, procs=1, ingest=True):
         """
 
         """
@@ -91,6 +93,11 @@ class ButlerRepository(HuntsmanBase):
                                    calib_directory=self.calib_directory, data_ids=data_ids,
                                    filter_name=filter_name, ccd=ccd, nodes=nodes,
                                    procs=procs, calib_date=calib_date)
+
+    def ingest_master_biases(self, calib_date, rerun, validity=1000):
+        """ """
+        lsst.ingest_master_bias(calib_date, self.butler_directory, self.calib_directory, rerun,
+                                validity=validity)
 
     def make_calexps(self):
         """Make calibrated science exposures (calexps) from ingested raw data."""
