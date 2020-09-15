@@ -29,6 +29,7 @@ def constructBias(calib_date, exptime, ccd, butler_directory, calib_directory, r
     cmd = f"constructBias.py {butler_directory} --rerun {rerun}"
     cmd += f" --calib {calib_directory}"
     cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
+    cmd += " dataType='bias'"
     cmd += f" expTime={exptime}"
     cmd += f" ccd={ccd}"
     cmd += f" --nodes {nodes} --procs {procs}"
@@ -45,14 +46,14 @@ def constructFlat(calib_date, filter_name, ccd, butler_directory, calib_director
     cmd = f"constructFlat.py {butler_directory} --rerun {rerun}"
     cmd += f" --calib {calib_directory}"
     cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
-    cmd += " dataType='flat'"  # TODO: remove
+    cmd += " dataType='flat'"
     cmd += f" filter={filter_name}"
     cmd += f" --nodes {nodes} --procs {procs}"
     cmd += f" --calibId filter={filter_name} calibDate={calib_date}"
     subprocess.call(cmd, shell=True)
 
 
-def ingest_master_bias(calib_date, butler_directory, calib_directory, rerun, validity=1000):
+def ingest_master_biases(calib_date, butler_directory, calib_directory, rerun, validity=1000):
     """
     Ingest the master bias of a given date.
     """
@@ -71,15 +72,22 @@ def ingest_master_bias(calib_date, butler_directory, calib_directory, rerun, val
     subprocess.call(cmd, shell=True)
 
 
-def ingest_master_flat(date, filter, butler_directory='DATA', calib_directory='DATA/CALIB',
-                       rerun='processCcdOutputs', validity=1000):
-    """Ingest the master flat of a given date."""
-    print(f"Ingesting master {filter} filter flats frames.")
+def ingest_master_flat(calib_date, butler_directory, calib_directory, rerun, validity=1000):
+    """
+    Ingest the master flat of a given date.
+    """
+    calib_date = date_to_ymd(calib_date)
     cmd = f"ingestCalibs.py {butler_directory}"
-    cmd += f" {butler_directory}/rerun/{rerun}/calib/flat/{date}/*/*.fits"
+    # TODO - Remove hard-coded directory structure
+    cmd += f" {butler_directory}/rerun/{rerun}/calib/flat/{calib_date}/*/*.fits"
     cmd += f" --validity {validity}"
     cmd += f" --calib {calib_directory} --mode=link"
-    print(f'The ingest command is: {cmd}')
+
+    # For some reason we have to provide the config explicitly
+    config_file = os.path.join(getPackageDir("obs_huntsman"), "config", "ingestFlats.py")
+    cmd += " --config clobber=True"
+    cmd += f" --configfile {config_file}"
+
     subprocess.call(cmd, shell=True)
 
 
