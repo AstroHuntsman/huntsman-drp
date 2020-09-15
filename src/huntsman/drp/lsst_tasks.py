@@ -28,7 +28,7 @@ def constructBias(calib_date, exptime, ccd, butlerdir, calibdir, rerun, data_ids
     cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
     cmd += f" expTime={exptime}"
     cmd += f" ccd={ccd}"
-    cmd += f" --nodes {nodes} --procs {procs}"
+    # cmd += f" --nodes {nodes} --procs {procs}"
     cmd += f" --calibId expTime={exptime} calibDate={calib_date}"
     BiasTask.parseAndRun(cmd.split()[1:])
 
