@@ -13,26 +13,26 @@ from huntsman.drp.utils import date_to_ymd
 class ButlerRepository(HuntsmanBase):
     _mapper = "lsst.obs.huntsman.HuntsmanMapper"
 
-    def __init__(self, directory, calibdir=None, initialise=True, **kwargs):
+    def __init__(self, directory, calib_directory=None, initialise=True, **kwargs):
         super().__init__(**kwargs)
-        self.butlerdir = directory
-        if (calibdir is None) and (directory is not None):
-            calibdir = os.path.join(directory, "CALIB")
-        self._calibdir = calibdir
+        self.butler_directory = directory
+        if (calib_directory is None) and (directory is not None):
+            calib_directory = os.path.join(directory, "CALIB")
+        self._calib_directory = calib_directory
         self.butler = None
         if initialise:
             self._initialise()
 
     @property
-    def calibdir(self):
-        return self._calibdir
+    def calib_directory(self):
+        return self._calib_directory
 
     def ingest_raw_data(self, filenames):
         """Ingest raw data into the repository."""
         self.logger.debug(f"Ingesting {len(filenames)} files.")
-        lsst.ingest_raw_data(filenames, butler_directory=self.butlerdir)
+        lsst.ingest_raw_data(filenames, butler_directory=self.butler_directory)
         # For some reason we need to make a new butler object...
-        self.butler = dafPersist.Butler(inputs=self.butlerdir)
+        self.butler = dafPersist.Butler(inputs=self.butler_directory)
 
     def make_master_calibs(self, calib_date, rerun, **kwargs):
         """Make master calibs from ingested raw calibs."""
@@ -60,9 +60,10 @@ class ButlerRepository(HuntsmanBase):
             for exptime, data_ids in exptimes.items():
                 self.logger.debug(f'Making master biases for ccd {ccd} using {len(data_ids)}'
                                   f' exposures of {exptime}s.')
-                lsst.constructBias(butlerdir=self.butlerdir, rerun=rerun, calibdir=self.calibdir,
-                                   data_ids=data_ids, exptime=exptime, ccd=ccd, nodes=nodes,
-                                   procs=procs, calib_date=calib_date)
+                lsst.constructBias(butler_directory=self.butler_directory, rerun=rerun,
+                                   calib_directory=self.calib_directory, data_ids=data_ids,
+                                   exptime=exptime, ccd=ccd, nodes=nodes, procs=procs,
+                                   calib_date=calib_date)
 
     def make_master_flats(self, calib_date, rerun, nodes=1, procs=1):
         """
@@ -86,8 +87,9 @@ class ButlerRepository(HuntsmanBase):
             for filter_name, data_ids in filter_names.items():
                 self.logger.debug(f'Making master flats for ccd {ccd} using {len(data_ids)}'
                                   f' exposures in {filter_name} filter.')
-                lsst.constructFlat(butlerdir=self.butlerdir, rerun=rerun, calibdir=self.calibdir,
-                                   data_ids=data_ids, filter_name=filter_name, ccd=ccd, nodes=nodes,
+                lsst.constructFlat(butler_directory=self.butler_directory, rerun=rerun,
+                                   calib_directory=self.calib_directory, data_ids=data_ids,
+                                   filter_name=filter_name, ccd=ccd, nodes=nodes,
                                    procs=procs, calib_date=calib_date)
 
     def make_calexps(self):
@@ -102,13 +104,13 @@ class ButlerRepository(HuntsmanBase):
         """Initialise a new butler repository."""
         # Add the mapper file to each subdirectory, making directory if necessary
         for subdir in ["", "CALIB"]:
-            dir = os.path.join(self.butlerdir, subdir)
+            dir = os.path.join(self.butler_directory, subdir)
             with suppress(FileExistsError):
                 os.mkdir(dir)
             filename_mapper = os.path.join(dir, "_mapper")
             with open(filename_mapper, "w") as f:
                 f.write(self._mapper)
-        self.butler = dafPersist.Butler(inputs=self.butlerdir)
+        self.butler = dafPersist.Butler(inputs=self.butler_directory)
 
 
 class TemporaryButlerRepository(ButlerRepository):
@@ -120,17 +122,17 @@ class TemporaryButlerRepository(ButlerRepository):
     def __enter__(self):
         """Create temporary directory and initialise as a Bulter repository."""
         self._tempdir = TemporaryDirectory()
-        self.butlerdir = self._tempdir.name
+        self.butler_directory = self._tempdir.name
         self._initialise()
 
     def __exit__(self, *args, **kwargs):
         """Close temporary directory."""
         self.butler = None
         self._tempdir.cleanup()
-        self.butlerdir = None
+        self.butler_directory = None
 
     @property
-    def calibdir(self):
-        if self.butlerdir is None:
+    def calib_directory(self):
+        if self.butler_directory is None:
             return None
-        return os.path.join(self.butlerdir, "CALIB")
+        return os.path.join(self.butler_directory, "CALIB")
