@@ -74,8 +74,8 @@ def process_data_async(queue):
         # Create temp butler repo
         butler_repo = TemporaryButlerRepository()
         with butler_repo:
-            process_exposures(filenames, butler_directory=butler_repo.directory,
-                              master_bias_date=date, master_flat_date=date)
+            process_exposures(filenames, butler_directory=butler_repo.butlerdir,
+                              calib_date=date)
         queue.task_done()
 
 
