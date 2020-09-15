@@ -47,14 +47,6 @@ if __name__ == "__main__":
     # Ingest raw data
     butler_repo.ingest_raw_data(filenames)
 
-    metalist = butler_repo.butler.queryMetadata('raw', ['ccd', 'expTime', 'dateObs', 'visit'],
-                                                dataId={'dataType': 'bias'})
-    print(len(metalist))
-
-    metalist = butler_repo.butler.queryMetadata('raw', ['ccd', 'filter', 'dateObs', 'visit'],
-                                                dataId={'dataType': 'flat'})
-    print(len(metalist))
-
     # Make master calibs
     butler_repo.make_master_calibs(calib_date=datetime.utcnow(), rerun=rerun)
 
