@@ -34,8 +34,8 @@ class ButlerRepository(HuntsmanBase):
 
     def make_master_calibs(self, calib_date, rerun, **kwargs):
         """Make master calibs from ingested raw calibs."""
-        self.make_master_biases(calib_date, rerun, **kwargs)
-        # self.make_master_flats(calib_date, rerun, **kwargs)
+        # self.make_master_biases(calib_date, rerun, **kwargs)
+        self.make_master_flats(calib_date, rerun, **kwargs)
 
     def make_master_biases(self, calib_date, rerun, nodes=1, procs=1):
         """
