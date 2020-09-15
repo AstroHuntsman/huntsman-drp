@@ -77,7 +77,6 @@ class ButlerRepository(HuntsmanBase):
             if filter_name not in exposures[ccd].keys():
                 exposures[ccd][filter_name] = []
             exposures[ccd][filter_name].append(visit)
-            print("hello")
 
         # Parse the calib date
         calib_date = date_to_ymd(calib_date)

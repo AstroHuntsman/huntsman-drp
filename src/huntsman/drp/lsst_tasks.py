@@ -41,7 +41,7 @@ def constructFlat(calib_date, filter_name, ccd, butlerdir, calibdir, rerun, data
     calib_date = date_to_ymd(calib_date)
     cmd = f"constructFlat.py {butlerdir} --rerun {rerun}"
     cmd += f" --calib {calibdir}"
-    cmd += f" --id expId={'^'.join([f'{id}' for id in data_ids])}"
+    cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
     cmd += " dataType='flat'"  # TODO: remove
     cmd += f" filter={filter}"
     cmd += f" --nodes {nodes} --procs {procs}"
