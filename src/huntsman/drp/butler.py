@@ -31,12 +31,12 @@ class ButlerRepository(HuntsmanBase):
         """Ingest raw data into the repository."""
         self.logger.debug(f"Ingesting {len(filenames)} files.")
         lsst.ingest_raw_data(filenames, butler_directory=self.butlerdir)
-        # For some reason this is necessary...
+        # For some reason we need to make a new butler object...
         self.butler = dafPersist.Butler(inputs=self.butlerdir)
 
     def make_master_calibs(self, calib_date, rerun, **kwargs):
         """Make master calibs from ingested raw calibs."""
-        # self.make_master_biases(calib_date, rerun, **kwargs)
+        self.make_master_biases(calib_date, rerun, **kwargs)
         self.make_master_flats(calib_date, rerun, **kwargs)
 
     def make_master_biases(self, calib_date, rerun, nodes=1, procs=1):
@@ -70,8 +70,6 @@ class ButlerRepository(HuntsmanBase):
         """
         metalist = self.butler.queryMetadata('raw', ['ccd', 'filter', 'dateObs', 'visit'],
                                              dataId={'dataType': 'flat'})
-
-        print(len(metalist))
 
         # Select the exposures we are interested in
         exposures = defaultdict(dict)

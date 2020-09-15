@@ -44,8 +44,6 @@ if __name__ == "__main__":
 
     butler_repo = ButlerRepository("/opt/lsst/software/stack/DATA")
 
-    # with butler_repo:
-
     # Ingest raw data
     butler_repo.ingest_raw_data(filenames)
 
@@ -58,6 +56,6 @@ if __name__ == "__main__":
     print(len(metalist))
 
     # Make master calibs
-    # butler_repo.make_master_calibs(calib_date=datetime.utcnow(), rerun=rerun)
+    butler_repo.make_master_calibs(calib_date=datetime.utcnow(), rerun=rerun)
 
     print("Finished.")
