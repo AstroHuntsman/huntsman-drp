@@ -31,6 +31,8 @@ class ButlerRepository(HuntsmanBase):
         """Ingest raw data into the repository."""
         self.logger.debug(f"Ingesting {len(filenames)} files.")
         lsst.ingest_raw_data(filenames, butler_directory=self.butlerdir)
+        # For some reason this is necessary...
+        self.butler = dafPersist.Butler(inputs=self.butlerdir)
 
     def make_master_calibs(self, calib_date, rerun, **kwargs):
         """Make master calibs from ingested raw calibs."""
