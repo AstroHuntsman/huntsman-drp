@@ -3,7 +3,8 @@ import argparse
 from datetime import datetime, timedelta
 
 from huntsman.drp.datatable import RawDataTable
-from huntsman.drp.butler import TemporaryButlerRepository
+# from huntsman.drp.butler import TemporaryButlerRepository
+from huntsman.drp.butler import ButlerRepository
 
 
 def get_recent_calibs(interval):
@@ -41,7 +42,8 @@ if __name__ == "__main__":
     # Get filenames
     filenames = get_recent_calibs(interval)
 
-    butler_repo = TemporaryButlerRepository()
+    butler_repo = ButlerRepository(butlerdir="/opt/lsst/software/stack/DATA")
+
     with butler_repo:
 
         # Ingest raw data
