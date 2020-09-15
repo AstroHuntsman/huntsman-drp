@@ -31,7 +31,6 @@ def constructBias(calib_date, exptime, ccd, butlerdir, calibdir, rerun, data_ids
     cmd += f" --nodes {nodes} --procs {procs}"
     cmd += f" --calibId expTime={exptime} calibDate={calib_date}"
     subprocess.call(cmd, shell=True)
-    # BiasTask.parseAndRun(cmd.split()[1:])
 
 
 def constructFlat(calib_date, filter_name, ccd, butlerdir, calibdir, rerun, data_ids, nodes=1,
@@ -47,7 +46,7 @@ def constructFlat(calib_date, filter_name, ccd, butlerdir, calibdir, rerun, data
     cmd += f" filter={filter}"
     cmd += f" --nodes {nodes} --procs {procs}"
     cmd += f" --calibId filter={filter} calibDate={calib_date}"
-    FlatTask.parseAndRun(cmd.split()[1:])
+    subprocess.call(cmd, shell=True)
 
 
 def ingest_master_bias(date, butler_directory='DATA', calibdir='DATA/CALIB',
