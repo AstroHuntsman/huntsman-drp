@@ -1,4 +1,5 @@
 """Code to make a master calibs from most recent files for each camera."""
+import argparse
 from datetime import datetime, timedelta
 
 from huntsman.drp.datatable import RawDataTable
@@ -27,7 +28,11 @@ def get_recent_calibs(interval):
 
 if __name__ == "__main__":
 
-    interval = 7  # Days
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--interval', type=int, default=7, help='Time interval in days.')
+    args = parser.parse_args()
+    interval = args.interval  # Days
+
     rerun = "dwfrerun"
 
     # Get filenames
