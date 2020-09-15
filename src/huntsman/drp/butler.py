@@ -55,11 +55,11 @@ class ButlerRepository(HuntsmanBase):
 
         # Construct the calib for this ccd/exptime combination (do we need this split?)
         for ccd, exptimes in exposures.items():
-            for exptime, image_ids in exptimes.items():
-                self.logger.debug(f'Making master biases for ccd {ccd} using {len(image_ids)}'
+            for exptime, data_ids in exptimes.items():
+                self.logger.debug(f'Making master biases for ccd {ccd} using {len(data_ids)}'
                                   f' exposures of {exptime}s.')
                 lsst.constructBias(butlerdir=self.butlerdir, rerun=rerun, calibdir=self.calibdir,
-                                   id=image_ids, exptime=exptime, ccd=ccd, nodes=nodes,
+                                   data_ids=data_ids, exptime=exptime, ccd=ccd, nodes=nodes,
                                    procs=procs, calib_date=calib_date)
 
     def make_master_flats(self, calib_date, rerun, nodes=1, procs=1):
@@ -80,11 +80,11 @@ class ButlerRepository(HuntsmanBase):
 
         # Construct the calib for this ccd/filter combination (do we need this split?)
         for ccd, exptimes in exposures.items():
-            for filter_name, image_ids in exptimes.items():
-                self.logger.debug(f'Making master flats for ccd {ccd} using {len(image_ids)}'
+            for filter_name, data_ids in exptimes.items():
+                self.logger.debug(f'Making master flats for ccd {ccd} using {len(data_ids)}'
                                   f' exposures in {filter_name} filter.')
                 lsst.constructFlat(butlerdir=self.butlerdir, rerun=rerun, calibdir=self.calibdir,
-                                   id=image_ids, filter_name=filter_name, ccd=ccd, nodes=nodes,
+                                   data_ids=data_ids, filter_name=filter_name, ccd=ccd, nodes=nodes,
                                    procs=procs, calib_date=calib_date)
 
     def make_calexps(self):
