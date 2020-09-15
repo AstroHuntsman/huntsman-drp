@@ -34,11 +34,8 @@ class ButlerRepository(HuntsmanBase):
 
     def make_master_calibs(self, calib_date, rerun, **kwargs):
         """Make master calibs from ingested raw calibs."""
-        print("a")
         self.make_master_biases(calib_date, rerun, **kwargs)
-        print("b")
-        self.make_master_flats(calib_date, rerun, **kwargs)
-        print("c")
+        # self.make_master_flats(calib_date, rerun, **kwargs)
 
     def make_master_biases(self, calib_date, rerun, nodes=1, procs=1):
         """
@@ -71,19 +68,22 @@ class ButlerRepository(HuntsmanBase):
         """
         metalist = self.butler.queryMetadata('raw', ['ccd', 'filter', 'dateObs', 'visit'],
                                              dataId={'dataType': 'flat'})
+
+        print(len(metalist))
         # Select the exposures we are interested in
         exposures = defaultdict(dict)
-        for (ccd, filter_name, dateobs, expId) in metalist:
+        for (ccd, filter_name, dateobs, visit) in metalist:
             if filter_name not in exposures[ccd].keys():
                 exposures[ccd][filter_name] = []
-            exposures[ccd][filter_name].append(expId)
+            exposures[ccd][filter_name].append(visit)
+            print("hello")
 
         # Parse the calib date
         calib_date = date_to_ymd(calib_date)
 
         # Construct the calib for this ccd/filter combination (do we need this split?)
-        for ccd, exptimes in exposures.items():
-            for filter_name, data_ids in exptimes.items():
+        for ccd, filter_names in exposures.items():
+            for filter_name, data_ids in filter_names.items():
                 self.logger.debug(f'Making master flats for ccd {ccd} using {len(data_ids)}'
                                   f' exposures in {filter_name} filter.')
                 lsst.constructFlat(butlerdir=self.butlerdir, rerun=rerun, calibdir=self.calibdir,
