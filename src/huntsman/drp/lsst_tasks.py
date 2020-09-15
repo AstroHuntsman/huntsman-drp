@@ -1,5 +1,8 @@
+import os
 import subprocess
+
 from lsst.pipe.tasks.ingest import IngestTask
+from lsst.utils import getPackageDir
 
 # from lsst.pipe.drivers.constructCalibs import BiasTask, FlatTask
 from huntsman.drp.utils import date_to_ymd
@@ -46,18 +49,25 @@ def constructFlat(calib_date, filter_name, ccd, butler_directory, calib_director
     cmd += f" filter={filter_name}"
     cmd += f" --nodes {nodes} --procs {procs}"
     cmd += f" --calibId filter={filter_name} calibDate={calib_date}"
-    print(cmd)
     subprocess.call(cmd, shell=True)
 
 
 def ingest_master_bias(calib_date, butler_directory, calib_directory, rerun, validity=1000):
-    """Ingest the master bias of a given date."""
+    """
+    Ingest the master bias of a given date.
+    """
     calib_date = date_to_ymd(calib_date)
     cmd = f"ingestCalibs.py {butler_directory}"
     # TODO - Remove hard-coded directory structure
     cmd += f" {butler_directory}/rerun/{rerun}/calib/bias/{calib_date}/*/*.fits"
     cmd += f" --validity {validity}"
     cmd += f" --calib {calib_directory} --mode=link"
+
+    # For some reason we have to provide the config explicitly
+    config_file = os.path.join(getPackageDir("obs_huntsman"), "config", "ingestBiases.py")
+    cmd += " --config clobber=True"
+    cmd += f" --configfile {config_file}"
+
     subprocess.call(cmd, shell=True)
 
 
