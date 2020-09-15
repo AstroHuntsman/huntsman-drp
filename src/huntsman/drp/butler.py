@@ -70,7 +70,7 @@ class ButlerRepository(HuntsmanBase):
 
         """
         metalist = self.butler.queryMetadata('raw', ['ccd', 'filter', 'dateObs', 'visit'],
-                                             dataId={'dataType': 'bias'})
+                                             dataId={'dataType': 'flat'})
         # Select the exposures we are interested in
         exposures = defaultdict(dict)
         for (ccd, filter_name, dateobs, expId) in metalist:
