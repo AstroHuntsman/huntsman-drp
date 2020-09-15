@@ -42,7 +42,7 @@ if __name__ == "__main__":
     # Get filenames
     filenames = get_recent_calibs(interval)
 
-    butler_repo = ButlerRepository(butlerdir="/opt/lsst/software/stack/DATA")
+    butler_repo = ButlerRepository("/opt/lsst/software/stack/DATA")
 
     with butler_repo:
 
