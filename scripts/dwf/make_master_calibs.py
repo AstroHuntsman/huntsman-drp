@@ -49,3 +49,5 @@ if __name__ == "__main__":
 
         # Make master calibs
         butler_repo.make_master_calibs(calib_date=datetime.utcnow(), rerun=rerun)
+
+        print("Finished.")
