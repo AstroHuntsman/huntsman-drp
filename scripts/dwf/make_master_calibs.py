@@ -20,7 +20,7 @@ def get_recent_calibs(interval):
     # Get flat filenames
     # This is a hack to cope with the non-standard field naming
     metalist = datatable.query(date_start=date_start, date_end=date_end)
-    filenames_flat = [m["filename"] for m in metalist if m["FIELD"].startswith("Day_Flats")]
+    filenames_flat = [m["filename"] for m in metalist if m["FIELD"].startswith("Flat")]
     print(f"Found {len(filenames_flat)} flat fields.")
 
     return [*filenames_bias, *filenames_flat]
