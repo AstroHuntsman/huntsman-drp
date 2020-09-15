@@ -14,10 +14,13 @@ def get_recent_calibs(interval):
     # Get bias filenames
     filenames_bias = datatable.query_column("filename", date_start=date_start, date_end=date_end,
                                             dataType="bias")
+    print(f"Found {len(filenames_bias)} bias fields.")
+
     # Get flat filenames
     # This is a hack to cope with the non-standard field naming
     metalist = datatable.query(date_start=date_start, date_end=date_end)
     filenames_flat = [m["filename"] for m in metalist if m["FIELD"].startswith("Day_Flats")]
+    print(f"Found {len(filenames_flat)} flat fields.")
 
     return [*filenames_bias, *filenames_flat]
 
