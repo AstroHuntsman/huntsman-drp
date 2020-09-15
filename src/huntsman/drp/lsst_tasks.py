@@ -1,7 +1,7 @@
 import subprocess
 from lsst.pipe.tasks.ingest import IngestTask
 
-from lsst.pipe.drivers.constructCalibs import BiasTask, FlatTask
+# from lsst.pipe.drivers.constructCalibs import BiasTask, FlatTask
 from huntsman.drp.utils import date_to_ymd
 
 
@@ -43,9 +43,9 @@ def constructFlat(calib_date, filter_name, ccd, butlerdir, calibdir, rerun, data
     cmd += f" --calib {calibdir}"
     cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
     cmd += " dataType='flat'"  # TODO: remove
-    cmd += f" filter={filter}"
+    cmd += f" filter={filter_name}"
     cmd += f" --nodes {nodes} --procs {procs}"
-    cmd += f" --calibId filter={filter} calibDate={calib_date}"
+    cmd += f" --calibId filter={filter_name} calibDate={calib_date}"
     print(cmd)
     subprocess.call(cmd, shell=True)
 
