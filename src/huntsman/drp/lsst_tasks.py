@@ -30,7 +30,8 @@ def constructBias(calib_date, exptime, ccd, butlerdir, calibdir, rerun, data_ids
     cmd += f" ccd={ccd}"
     # cmd += f" --nodes {nodes} --procs {procs}"
     cmd += f" --calibId expTime={exptime} calibDate={calib_date}"
-    BiasTask.parseAndRun(cmd.split()[1:])
+    subprocess.call(cmd, shell=True)
+    # BiasTask.parseAndRun(cmd.split()[1:])
 
 
 def constructFlat(calib_date, filter_name, ccd, butlerdir, calibdir, rerun, data_ids, nodes=1,
