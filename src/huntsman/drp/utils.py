@@ -1,4 +1,5 @@
 """Generic functions for huntsman-drp."""
+from contextlib import suppress
 from datetime import datetime
 from dateutil.parser import parse as parse_date_dateutil
 
@@ -13,6 +14,8 @@ def parse_date(object):
     Returns:
         A `datetime.datetime` object.
     """
+    with suppress(AttributeError):
+        object = object.strip("(UTC)")
     if type(object) is datetime:
         return object
     return parse_date_dateutil(object)
