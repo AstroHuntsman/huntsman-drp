@@ -17,14 +17,14 @@ def ingest_raw_data(filename_list, butler_directory, mode="link"):
     task.ingestFiles(filename_list)
 
 
-def constructBias(calib_date, exptime, ccd, butlerdir, calibdir, rerun, data_ids, nodes=1,
-                  procs=1):
+def constructBias(calib_date, exptime, ccd, butler_directory, calib_directory, rerun, data_ids,
+                  nodes=1, procs=1):
     """
 
     """
     calib_date = date_to_ymd(calib_date)
-    cmd = f"constructBias.py {butlerdir} --rerun {rerun}"
-    cmd += f" --calib {calibdir}"
+    cmd = f"constructBias.py {butler_directory} --rerun {rerun}"
+    cmd += f" --calib {calib_directory}"
     cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
     cmd += f" expTime={exptime}"
     cmd += f" ccd={ccd}"
@@ -33,14 +33,14 @@ def constructBias(calib_date, exptime, ccd, butlerdir, calibdir, rerun, data_ids
     subprocess.call(cmd, shell=True)
 
 
-def constructFlat(calib_date, filter_name, ccd, butlerdir, calibdir, rerun, data_ids, nodes=1,
-                  procs=1):
+def constructFlat(calib_date, filter_name, ccd, butler_directory, calib_directory, rerun, data_ids,
+                  nodes=1, procs=1):
     """
 
     """
     calib_date = date_to_ymd(calib_date)
-    cmd = f"constructFlat.py {butlerdir} --rerun {rerun}"
-    cmd += f" --calib {calibdir}"
+    cmd = f"constructFlat.py {butler_directory} --rerun {rerun}"
+    cmd += f" --calib {calib_directory}"
     cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
     cmd += " dataType='flat'"  # TODO: remove
     cmd += f" filter={filter_name}"
@@ -50,43 +50,42 @@ def constructFlat(calib_date, filter_name, ccd, butlerdir, calibdir, rerun, data
     subprocess.call(cmd, shell=True)
 
 
-def ingest_master_bias(date, butler_directory='DATA', calibdir='DATA/CALIB',
-                       rerun='processCcdOutputs', validity=1000):
+def ingest_master_bias(calib_date, butler_directory, calib_directory, rerun, validity=1000):
     """Ingest the master bias of a given date."""
-    print(f"Ingesting master bias frames.")
+    calib_date = date_to_ymd(calib_date)
     cmd = f"ingestCalibs.py {butler_directory}"
-    cmd += f" {butler_directory}/rerun/{rerun}/calib/bias/{date}/*/*.fits"
+    # TODO - Remove hard-coded directory structure
+    cmd += f" {butler_directory}/rerun/{rerun}/calib/bias/{calib_date}/*/*.fits"
     cmd += f" --validity {validity}"
-    cmd += f" --calib {calibdir} --mode=link"
-    print(f'The ingest command is: {cmd}')
+    cmd += f" --calib {calib_directory} --mode=link"
     subprocess.call(cmd, shell=True)
 
 
-def ingest_master_flat(date, filter, butler_directory='DATA', calibdir='DATA/CALIB',
+def ingest_master_flat(date, filter, butler_directory='DATA', calib_directory='DATA/CALIB',
                        rerun='processCcdOutputs', validity=1000):
     """Ingest the master flat of a given date."""
     print(f"Ingesting master {filter} filter flats frames.")
     cmd = f"ingestCalibs.py {butler_directory}"
     cmd += f" {butler_directory}/rerun/{rerun}/calib/flat/{date}/*/*.fits"
     cmd += f" --validity {validity}"
-    cmd += f" --calib {calibdir} --mode=link"
+    cmd += f" --calib {calib_directory} --mode=link"
     print(f'The ingest command is: {cmd}')
     subprocess.call(cmd, shell=True)
 
 
-def ingest_sci_images(file_list, butler_directory='DATA', calibdir='DATA/CALIB'):
+def ingest_sci_images(file_list, butler_directory='DATA', calib_directory='DATA/CALIB'):
     """Ingest science images to be processed."""
     cmd = f"ingestImages.py {butler_directory}"
-    cmd += f" testdata/science/*.fits --mode=link --calib {calibdir}"
+    cmd += f" testdata/science/*.fits --mode=link --calib {calib_directory}"
     print(f'The command is: {cmd}')
     subprocess.call(cmd, shell=True)
 
 
-def processCcd(dataType='science', butler_directory='DATA', calibdir='DATA/CALIB',
+def processCcd(dataType='science', butler_directory='DATA', calib_directory='DATA/CALIB',
                rerun='processCcdOutputs'):
     """Process ingested exposures."""
     cmd = f"processCcd.py {butler_directory} --rerun {rerun}"
-    cmd += f" --calib {calibdir} --id dataType={dataType}"
+    cmd += f" --calib {calib_directory} --id dataType={dataType}"
     print(f'The command is: {cmd}')
     subprocess.call(cmd, shell=True)
 
@@ -98,7 +97,7 @@ def makeDiscreteSkyMap(butler_directory='DATA', rerun='processCcdOutputs:coadd')
     subprocess.call(cmd, shell=True)
 
 
-def makeCoaddTempExp(filter, butler_directory='DATA', calibdir='DATA/CALIB',
+def makeCoaddTempExp(filter, butler_directory='DATA', calib_directory='DATA/CALIB',
                      rerun='coadd'):
     """Warp exposures onto sky map."""
     cmd = f"makeCoaddTempExp.py {butler_directory} --rerun {rerun} "
@@ -109,7 +108,7 @@ def makeCoaddTempExp(filter, butler_directory='DATA', calibdir='DATA/CALIB',
     subprocess.call(cmd, shell=True)
 
 
-def assembleCoadd(filter, butler_directory='DATA', calibdir='DATA/CALIB',
+def assembleCoadd(filter, butler_directory='DATA', calib_directory='DATA/CALIB',
                   rerun='coadd'):
     """Assemble the warped exposures into a coadd"""
     cmd = f"assembleCoadd.py {butler_directory} --rerun {rerun} "
