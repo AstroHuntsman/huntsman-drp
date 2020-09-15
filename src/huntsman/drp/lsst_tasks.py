@@ -46,6 +46,7 @@ def constructFlat(calib_date, filter_name, ccd, butlerdir, calibdir, rerun, data
     cmd += f" filter={filter}"
     cmd += f" --nodes {nodes} --procs {procs}"
     cmd += f" --calibId filter={filter} calibDate={calib_date}"
+    print(cmd)
     subprocess.call(cmd, shell=True)
 
 
