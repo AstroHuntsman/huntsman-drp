@@ -5,15 +5,19 @@ from lsst.pipe.tasks.ingest import IngestTask
 from lsst.utils import getPackageDir
 
 # from lsst.pipe.drivers.constructCalibs import BiasTask, FlatTask
+from lsst.pipe.tasks.ingest import IngestConfig
 from huntsman.drp.utils import date_to_ymd
 
 
-def ingest_raw_data(filename_list, butler_directory, mode="link"):
+def ingest_raw_data(filename_list, butler_directory, mode="link", allow_error=False):
     """
 
     """
+    config = IngestConfig()
+    config.allowError = allow_error
+
     # Create the ingest task
-    task = IngestTask()
+    task = IngestTask(config=config)
     task = task.prepareTask(root=butler_directory, mode=mode)
 
     # Ingest the files

@@ -27,10 +27,10 @@ class ButlerRepository(HuntsmanBase):
     def calib_directory(self):
         return self._calib_directory
 
-    def ingest_raw_data(self, filenames):
+    def ingest_raw_data(self, filenames, **kwargs):
         """Ingest raw data into the repository."""
         self.logger.debug(f"Ingesting {len(filenames)} files.")
-        lsst.ingest_raw_data(filenames, butler_directory=self.butler_directory)
+        lsst.ingest_raw_data(filenames, butler_directory=self.butler_directory, **kwargs)
         # For some reason we need to make a new butler object...
         self.butler = dafPersist.Butler(inputs=self.butler_directory)
 
