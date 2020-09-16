@@ -35,8 +35,6 @@ class FitsHeaderTranslatorBase(HuntsmanBase):
         keyword_mapping = self.huntsman_config["fits_header"]["mappings"]
         for varname, header_key in keyword_mapping.items():
             funcname = f"translate_{varname}"
-            if hasattr(self, funcname):
-                raise AttributeError(f"Attribute {funcname} already set in {self}.")
             setattr(self, funcname, partial(self._map_header_key, header_key=header_key))
 
     def translate_dataType(self, md):
