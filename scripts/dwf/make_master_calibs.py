@@ -52,6 +52,6 @@ if __name__ == "__main__":
     butler_repo.ingest_raw_data(filenames, ignore_ingested=True)
 
     # Make master calibs
-    butler_repo.make_master_calibs(calib_date=datetime.utcnow(), rerun=rerun, skip_bias=False)
+    butler_repo.make_master_calibs(calib_date=datetime.utcnow(), rerun=rerun, skip_bias=True)
 
     print("Finished.")

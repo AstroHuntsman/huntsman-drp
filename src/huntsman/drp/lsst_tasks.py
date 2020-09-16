@@ -48,6 +48,7 @@ def constructFlat(calib_date, filter_name, ccd, butler_directory, calib_director
     cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
     cmd += " dataType='flat'"
     cmd += f" filter={filter_name}"
+    cmd += f" ccd={ccd}"
     cmd += f" --nodes {nodes} --procs {procs}"
     cmd += f" --calibId filter={filter_name} calibDate={calib_date}"
     subprocess.call(cmd, shell=True)
