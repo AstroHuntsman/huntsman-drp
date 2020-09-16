@@ -8,14 +8,13 @@ from lsst.utils import getPackageDir
 from huntsman.drp.utils import date_to_ymd
 
 
-def ingest_raw_data(filename_list, butler_directory, mode="link", allow_error=False):
+def ingest_raw_data(filename_list, butler_directory, mode="link", ignore_ingested=False):
     """
 
     """
     # Create the ingest task
     task = IngestTask()
-    task = task.prepareTask(root=butler_directory, mode=mode)
-    task.config.allowError = allow_error
+    task = task.prepareTask(root=butler_directory, mode=mode, ignoreIngested=ignore_ingested)
 
     # Ingest the files
     task.ingestFiles(filename_list)
