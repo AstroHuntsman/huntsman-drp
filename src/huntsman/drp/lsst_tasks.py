@@ -34,7 +34,7 @@ def constructBias(calib_date, exptime, ccd, butler_directory, calib_directory, r
     cmd += f" ccd={ccd}"
     cmd += f" --nodes {nodes} --procs {procs}"
     cmd += f" --calibId expTime={exptime} calibDate={calib_date}"
-    subprocess.call(cmd, shell=True)
+    subprocess.check_output(cmd, shell=True)
 
 
 def constructFlat(calib_date, filter_name, ccd, butler_directory, calib_directory, rerun, data_ids,
@@ -51,7 +51,7 @@ def constructFlat(calib_date, filter_name, ccd, butler_directory, calib_director
     cmd += f" ccd={ccd}"
     cmd += f" --nodes {nodes} --procs {procs}"
     cmd += f" --calibId filter={filter_name} calibDate={calib_date}"
-    subprocess.call(cmd, shell=True)
+    subprocess.check_output(cmd, shell=True)
 
 
 def ingest_master_biases(calib_date, butler_directory, calib_directory, rerun, validity=1000):
@@ -70,10 +70,10 @@ def ingest_master_biases(calib_date, butler_directory, calib_directory, rerun, v
     cmd += " --config clobber=True"
     cmd += f" --configfile {config_file}"
 
-    subprocess.call(cmd, shell=True)
+    subprocess.check_output(cmd, shell=True)
 
 
-def ingest_master_flat(calib_date, butler_directory, calib_directory, rerun, validity=1000):
+def ingest_master_flats(calib_date, butler_directory, calib_directory, rerun, validity=1000):
     """
     Ingest the master flat of a given date.
     """
@@ -89,7 +89,7 @@ def ingest_master_flat(calib_date, butler_directory, calib_directory, rerun, val
     cmd += " --config clobber=True"
     cmd += f" --configfile {config_file}"
 
-    subprocess.call(cmd, shell=True)
+    subprocess.check_output(cmd, shell=True)
 
 
 def ingest_sci_images(file_list, butler_directory='DATA', calib_directory='DATA/CALIB'):
@@ -97,7 +97,7 @@ def ingest_sci_images(file_list, butler_directory='DATA', calib_directory='DATA/
     cmd = f"ingestImages.py {butler_directory}"
     cmd += f" testdata/science/*.fits --mode=link --calib {calib_directory}"
     print(f'The command is: {cmd}')
-    subprocess.call(cmd, shell=True)
+    subprocess.check_output(cmd, shell=True)
 
 
 def processCcd(dataType='science', butler_directory='DATA', calib_directory='DATA/CALIB',
@@ -106,14 +106,14 @@ def processCcd(dataType='science', butler_directory='DATA', calib_directory='DAT
     cmd = f"processCcd.py {butler_directory} --rerun {rerun}"
     cmd += f" --calib {calib_directory} --id dataType={dataType}"
     print(f'The command is: {cmd}')
-    subprocess.call(cmd, shell=True)
+    subprocess.check_output(cmd, shell=True)
 
 
 def makeDiscreteSkyMap(butler_directory='DATA', rerun='processCcdOutputs:coadd'):
     """Create a sky map that covers processed exposures."""
     cmd = f"makeDiscreteSkyMap.py {butler_directory} --id --rerun {rerun} "
     cmd += f"--config skyMap.projection='TAN'"
-    subprocess.call(cmd, shell=True)
+    subprocess.check_output(cmd, shell=True)
 
 
 def makeCoaddTempExp(filter, butler_directory='DATA', calib_directory='DATA/CALIB',
@@ -124,7 +124,7 @@ def makeCoaddTempExp(filter, butler_directory='DATA', calib_directory='DATA/CALI
     cmd += f"patch=0,0^0,1^0,2^1,0^1,1^1,2^2,0^2,1^2,2 "
     cmd += f"--config doApplyUberCal=False"
     print(f'The command is: {cmd}')
-    subprocess.call(cmd, shell=True)
+    subprocess.check_output(cmd, shell=True)
 
 
 def assembleCoadd(filter, butler_directory='DATA', calib_directory='DATA/CALIB',
@@ -134,4 +134,4 @@ def assembleCoadd(filter, butler_directory='DATA', calib_directory='DATA/CALIB',
     cmd += f"--selectId filter={filter} --id filter={filter} tract=0 "
     cmd += f"patch=0,0^0,1^0,2^1,0^1,1^1,2^2,0^2,1^2,2"
     print(f'The command is: {cmd}')
-    subprocess.call(cmd, shell=True)
+    subprocess.check_output(cmd, shell=True)
