@@ -45,7 +45,7 @@ if __name__ == "__main__":
     butler_repo = ButlerRepository("/opt/lsst/software/stack/DATA")
 
     # Ingest raw data
-    butler_repo.ingest_raw_data(filenames)
+    butler_repo.ingest_raw_data(filenames, allow_error=True)
 
     # Make master calibs
     butler_repo.make_master_calibs(calib_date=datetime.utcnow(), rerun=rerun)
