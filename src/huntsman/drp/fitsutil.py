@@ -57,13 +57,6 @@ class FitsHeaderTranslatorBase(HuntsmanBase):
                                       f"{md['IMAGETYP']}")
         return dataType
 
-    def translate_filter(self, md):
-        """
-        Translate the given filter name to the abstract filter name.
-        For Huntsman, we strip of the serial number.
-        """
-        return "_".join(md["FILTER"].split("_")[:-1])
-
     def translate_dateObs(self, md):
         """Return the date of observation as a string."""
         return md['DATE-OBS'][:10]

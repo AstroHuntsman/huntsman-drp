@@ -43,7 +43,7 @@ if __name__ == "__main__":
     rerun = "dwfrerun"
 
     # Get filenames
-    filenames = get_recent_calibs(interval, ccd=2)
+    filenames = get_recent_calibs(interval, ccd=2, FILTER="g_band")
 
     # Make butler repository
     butler_repo = ButlerRepository("/opt/lsst/software/stack/DATA")
