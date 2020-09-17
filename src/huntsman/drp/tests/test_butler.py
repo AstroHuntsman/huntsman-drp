@@ -7,5 +7,4 @@ def test_ingest(raw_data_table, temp_butler_repo):
         assert len(data_ids) == 0
         temp_butler_repo.ingest_raw_data(filenames)
         data_ids = temp_butler_repo.butler.queryMetadata('raw', ['visit', 'ccd'])
-        print(data_ids)
         assert len(data_ids) == len(filenames)
