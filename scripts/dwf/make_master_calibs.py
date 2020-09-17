@@ -1,7 +1,7 @@
 """Code to make a master calibs from most recent files for each camera."""
 import argparse
-from datetime import datetime, timedelta
 
+from huntsman.drp.utils import current_date
 from huntsman.drp.datatable import RawDataTable
 from huntsman.drp.butler import ButlerRepository
 
@@ -51,6 +51,6 @@ if __name__ == "__main__":
         butler_repo.ingest_raw_data(filenames, ignore_ingested=True)
 
         # Make master calibs
-        butler_repo.make_master_calibs(calib_date=datetime.utcnow(), rerun=rerun, skip_bias=False)
+        butler_repo.make_master_calibs(calib_date=current_date(), rerun=rerun, skip_bias=False)
 
     print("Finished.")
