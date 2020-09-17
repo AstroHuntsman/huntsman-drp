@@ -100,12 +100,10 @@ def ingest_sci_images(file_list, butler_directory='DATA', calib_directory='DATA/
     subprocess.check_output(cmd, shell=True)
 
 
-def processCcd(dataType='science', butler_directory='DATA', calib_directory='DATA/CALIB',
-               rerun='processCcdOutputs'):
+def processCcd(butler_directory, calib_directory, rerun, dataType='science'):
     """Process ingested exposures."""
     cmd = f"processCcd.py {butler_directory} --rerun {rerun}"
     cmd += f" --calib {calib_directory} --id dataType={dataType}"
-    print(f'The command is: {cmd}')
     subprocess.check_output(cmd, shell=True)
 
 

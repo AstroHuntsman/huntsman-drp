@@ -107,6 +107,10 @@ class ButlerRepository(HuntsmanBase):
         lsst.ingest_master_flats(calib_date, self.butler_directory, self.calib_directory, rerun,
                                  validity=validity)
 
+    def make_calexps(self, rerun):
+        """Make calexps by running `processCcd.py`."""
+        lsst.processCcd(self.butler_directory, self.calib_directory, rerun)
+
     def make_coadd(self, filter_names, rerun):
         """
         Produce a coadd image.
