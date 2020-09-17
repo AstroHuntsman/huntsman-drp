@@ -4,6 +4,7 @@ import subprocess
 from lsst.pipe.tasks.ingest import IngestTask
 from lsst.utils import getPackageDir
 
+from lsst.meas.algorithms import IngestIndexedReferenceTask
 # from lsst.pipe.drivers.constructCalibs import BiasTask, FlatTask
 from huntsman.drp.utils import date_to_ymd
 
@@ -20,38 +21,26 @@ def ingest_raw_data(filename_list, butler_directory, mode="link", ignore_ingeste
     task.ingestFiles(filename_list)
 
 
-def constructBias(calib_date, exptime, ccd, butler_directory, calib_directory, rerun, data_ids,
-                  nodes=1, procs=1):
+def ingest_reference_catalogue(butler_directory, filenames, output_directory=None):
     """
 
     """
-    calib_date = date_to_ymd(calib_date)
-    cmd = f"constructBias.py {butler_directory} --rerun {rerun}"
-    cmd += f" --calib {calib_directory}"
-    cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
-    cmd += " dataType='bias'"
-    cmd += f" expTime={exptime}"
-    cmd += f" ccd={ccd}"
-    cmd += f" --nodes {nodes} --procs {procs}"
-    cmd += f" --calibId expTime={exptime} calibDate={calib_date}"
-    subprocess.check_output(cmd, shell=True)
+    if output_directory is None:
+        output_directory = butler_directory
 
+    # Load the config file
+    pkgdir = getPackageDir("obs_huntsman")
+    config_file = os.path.join(pkgdir, "config", "ingestSkyMapperReference.py")
+    config = IngestIndexedReferenceTask.ConfigClass()
+    config.load(config_file)
 
-def constructFlat(calib_date, filter_name, ccd, butler_directory, calib_directory, rerun, data_ids,
-                  nodes=1, procs=1):
-    """
-
-    """
-    calib_date = date_to_ymd(calib_date)
-    cmd = f"constructFlat.py {butler_directory} --rerun {rerun}"
-    cmd += f" --calib {calib_directory}"
-    cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
-    cmd += " dataType='flat'"
-    cmd += f" filter={filter_name}"
-    cmd += f" ccd={ccd}"
-    cmd += f" --nodes {nodes} --procs {procs}"
-    cmd += f" --calibId filter={filter_name} calibDate={calib_date}"
-    subprocess.check_output(cmd, shell=True)
+    # Convert the files into the correct format and place them into the repository
+    args = [butler_directory,
+            "--configfile", config_file,
+            "--output", output_directory,
+            "--clobber-config",
+            *filenames]
+    IngestIndexedReferenceTask.parseAndRun(args=args)
 
 
 def ingest_master_biases(calib_date, butler_directory, calib_directory, rerun, validity=1000):
@@ -92,11 +81,37 @@ def ingest_master_flats(calib_date, butler_directory, calib_directory, rerun, va
     subprocess.check_output(cmd, shell=True)
 
 
-def ingest_sci_images(file_list, butler_directory='DATA', calib_directory='DATA/CALIB'):
-    """Ingest science images to be processed."""
-    cmd = f"ingestImages.py {butler_directory}"
-    cmd += f" testdata/science/*.fits --mode=link --calib {calib_directory}"
-    print(f'The command is: {cmd}')
+def constructBias(calib_date, exptime, ccd, butler_directory, calib_directory, rerun, data_ids,
+                  nodes=1, procs=1):
+    """
+
+    """
+    calib_date = date_to_ymd(calib_date)
+    cmd = f"constructBias.py {butler_directory} --rerun {rerun}"
+    cmd += f" --calib {calib_directory}"
+    cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
+    cmd += " dataType='bias'"
+    cmd += f" expTime={exptime}"
+    cmd += f" ccd={ccd}"
+    cmd += f" --nodes {nodes} --procs {procs}"
+    cmd += f" --calibId expTime={exptime} calibDate={calib_date}"
+    subprocess.check_output(cmd, shell=True)
+
+
+def constructFlat(calib_date, filter_name, ccd, butler_directory, calib_directory, rerun, data_ids,
+                  nodes=1, procs=1):
+    """
+
+    """
+    calib_date = date_to_ymd(calib_date)
+    cmd = f"constructFlat.py {butler_directory} --rerun {rerun}"
+    cmd += f" --calib {calib_directory}"
+    cmd += f" --id visit={'^'.join([f'{id}' for id in data_ids])}"
+    cmd += " dataType='flat'"
+    cmd += f" filter={filter_name}"
+    cmd += f" ccd={ccd}"
+    cmd += f" --nodes {nodes} --procs {procs}"
+    cmd += f" --calibId filter={filter_name} calibDate={calib_date}"
     subprocess.check_output(cmd, shell=True)
 
 

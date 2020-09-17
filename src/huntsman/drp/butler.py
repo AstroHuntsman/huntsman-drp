@@ -34,6 +34,10 @@ class ButlerRepository(HuntsmanBase):
         # For some reason we need to make a new butler object...
         self.butler = dafPersist.Butler(inputs=self.butler_directory)
 
+    def ingest_reference_catalogue(self, filenames):
+        """ """
+        lsst.ingest_reference_catalogue(self.butler_directory, filenames)
+
     def make_master_calibs(self, calib_date, rerun, skip_bias=False, **kwargs):
         """Make master calibs from ingested raw calibs."""
         if not skip_bias:
