@@ -125,7 +125,6 @@ class DataTable(HuntsmanBase):
         return self.query(date_start=date_start, **kwargs)
 
 
-
 class RawDataTable(DataTable):
     """ """
     _table_key = "raw_data"

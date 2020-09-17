@@ -37,8 +37,7 @@ def process_data_async(queue, filter_names=FILTER_NAMES, make_coadd=False, rerun
 
         try:
             # Create temp butler repo
-            butler_repository = TemporaryButlerRepository()
-            with butler_repository:
+            with TemporaryButlerRepository() as butler_repository:
 
                 # Ingest raw data
                 butler_repository.ingest_raw_data(filenames)

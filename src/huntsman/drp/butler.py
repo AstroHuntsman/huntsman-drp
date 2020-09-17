@@ -23,6 +23,12 @@ class ButlerRepository(HuntsmanBase):
         if initialise:
             self._initialise()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self):
+        pass
+
     @property
     def calib_directory(self):
         return self._calib_directory
