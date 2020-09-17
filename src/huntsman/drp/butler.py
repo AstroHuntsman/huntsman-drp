@@ -107,6 +107,21 @@ class ButlerRepository(HuntsmanBase):
         lsst.ingest_master_flats(calib_date, self.butler_directory, self.calib_directory, rerun,
                                  validity=validity)
 
+    def make_coadd(self, filter_names, rerun):
+        """
+        Produce a coadd image.
+        Args:
+            filter_names (iterable of str): Iterable of filter names to make coadds with.
+            rerun (str): Name of rerun.
+        """
+        lsst.makeDiscreteSkyMap(butler_directory=self.butler_directory, rerun=f'{rerun}:coadd')
+        for filter_name in filter_names:
+            self.logger.debig(f"Making coadd in {filter_name} filter.")
+            lsst.makeCoaddTempExp(filter_name, butler_directory=self.butler_directory,
+                                  calib_directory=self.calib_directory, rerun=f'{rerun}:coadd')
+            lsst.assembleCoadd(filter_name, butler_directory=self.butler_directory,
+                               calib_directory=self.calib_directory, rerun=f'{rerun}:coadd')
+
     def make_calexps(self):
         """Make calibrated science exposures (calexps) from ingested raw data."""
         pass

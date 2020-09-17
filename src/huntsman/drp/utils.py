@@ -31,3 +31,13 @@ def date_to_ymd(object):
     """
     date = parse_date(object)
     return date.strftime('%Y-%m-%d')
+
+
+def get_current_date_ymd():
+    """
+    Get the UTC date now in YYYY-MM-DD format.
+    Returns:
+        str: The date.
+    """
+    date = datetime.utcnow()
+    return date_to_ymd(date)
