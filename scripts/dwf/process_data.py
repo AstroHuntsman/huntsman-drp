@@ -8,6 +8,9 @@ from huntsman.drp.datatable import RawDataTable
 from huntsman.drp.bulter import TemporaryButlerRepository
 
 
+FILTER_NAMES = ["g_band", "r_band", "luminance"]
+
+
 def query_latest_files(datatable, interval):
     """
     Get latest filenames specified by a time interval.
@@ -26,7 +29,7 @@ def query_latest_files(datatable, interval):
     return filenames
 
 
-def process_data_async(queue, make_coadd=False, rerun="dwfrerun"):
+def process_data_async(queue, filter_names=FILTER_NAMES, make_coadd=False, rerun="dwfrerun"):
     """Get queued filename list and start processing it."""
     while True:
         # Get the next set of filenames
@@ -41,8 +44,9 @@ def process_data_async(queue, make_coadd=False, rerun="dwfrerun"):
                 butler_repository.ingest_raw_data(filenames)
 
                 # Make calexps
-                butler_repository.processCcd(dataType="science", rerun=rerun)
-
+                for filter_name in filter_names:
+                    butler_repository.processCcd(dataType="science", rerun=rerun,
+                                                 filter_name=filter_name)
                 # Assemble coadd
                 if make_coadd:
                     butler_repository.make_coadd(rerun=rerun)
