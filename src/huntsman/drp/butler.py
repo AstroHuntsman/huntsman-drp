@@ -133,7 +133,7 @@ class ButlerRepository(HuntsmanBase):
     def make_calexps(self, filter_name, rerun):
         """Make calibrated science exposures (calexps) by running `processCcd.py`."""
         lsst.processCcd(self.butler_directory, self.calib_directory,
-                        rerun, filter_name=filter_name)
+                        rerun=rerun, filter_name=filter_name)
 
     def make_coadd(self, filter_names, rerun):
         """

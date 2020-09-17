@@ -115,7 +115,7 @@ def constructFlat(calib_date, filter_name, ccd, butler_directory, calib_director
     subprocess.check_output(cmd, shell=True)
 
 
-def processCcd(butler_directory, calib_directory, filter_name, rerun, dataType='science'):
+def processCcd(butler_directory, calib_directory, rerun, filter_name, dataType='science'):
     """Process ingested exposures."""
     cmd = f"processCcd.py {butler_directory} --rerun {rerun}"
     cmd += f" --id dataType={dataType} --filter={filter_name}"
