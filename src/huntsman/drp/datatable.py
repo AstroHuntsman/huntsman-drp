@@ -109,9 +109,9 @@ class DataTable(HuntsmanBase):
         Convenience function to query the latest files in the db.
 
         Args:
-            days (int)
-            hours (int)
-            seconds (int)
+            days (int): default 0.
+            hours (int): default 0.
+            seconds (int): default 0.
             column_name (int, optional): If given, call `datatable.query_column` with
                 `column_name` as its first argument.
             **kwargs: Passed to the query.
