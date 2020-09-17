@@ -108,7 +108,7 @@ class ButlerRepository(HuntsmanBase):
                                  validity=validity)
 
     def make_calexps(self, rerun):
-        """Make calexps by running `processCcd.py`."""
+        """Make calibrated science exposures (calexps) by running `processCcd.py`."""
         lsst.processCcd(self.butler_directory, self.calib_directory, rerun)
 
     def make_coadd(self, filter_names, rerun):
@@ -125,10 +125,6 @@ class ButlerRepository(HuntsmanBase):
                                   calib_directory=self.calib_directory, rerun=f'{rerun}:coadd')
             lsst.assembleCoadd(filter_name, butler_directory=self.butler_directory,
                                calib_directory=self.calib_directory, rerun=f'{rerun}:coadd')
-
-    def make_calexps(self):
-        """Make calibrated science exposures (calexps) from ingested raw data."""
-        pass
 
     def get_calexp_metadata(self):
         """Get calibrated science exposure (calexp) metadata"""
