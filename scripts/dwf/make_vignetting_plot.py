@@ -3,6 +3,7 @@ Make vignetting test plot for flat fields.
 """
 from multiprocessing import Pool
 import matplotlib.pyplot as plt
+import numpy as np
 from astropy.io import fits
 
 from huntsman.drp.datatable import RawDataTable
@@ -30,20 +31,24 @@ if __name__ == "__main__":
     # This is a hack to cope with the non-standard field naming
     metalist = datatable.query_latest(days=interval_days, dataType="science")
     filenames = []
+    ccd_names = []
     for m in metalist:
         if m["FIELD"].startswith("Flat"):
             filenames.append(m["filename"])
+            ccd_names.append(m["ccd"])
 
     # Calculate asymmetry statistics
     print(f"Processing {len(filenames)} flat fields.")
     with Pool(NPROC) as pool:
         results = pool.map(calculate_asymmetry, filenames)
 
-    plt.figure()
-    x = [r[0] for r in results]
-    y = [r[1] for r in results]
-    plt.plot(x, y, 'ko', markersize=1.75)
+    for ccd_name in np.unique(ccd_names):
+        plt.figure()
+        x = [r[0] for c, r in zip(ccd_names, results) if c == ccd_name]
+        y = [r[1] for c, r in zip(ccd_names, results) if c == ccd_name]
+        plt.plot(x, y, marker='o', markersize=1.75, linestyle=None, label=f"ccd={ccd_name}")
     plt.grid()
     plt.xlabel("Horizontal Asymmetry [ADU]")
     plt.ylabel("Vertical Asymmetry [ADU]")
+    plt.legend(loc="best")
     plt.savefig(OUTPUT_FILENAME, bbox_inches="tight", dpi=150)
