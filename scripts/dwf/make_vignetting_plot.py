@@ -42,11 +42,12 @@ if __name__ == "__main__":
     with Pool(NPROC) as pool:
         results = pool.map(calculate_asymmetry, filenames)
 
+    plt.figure()
     for ccd_name in np.unique(ccd_names):
-        plt.figure()
         x = [r[0] for c, r in zip(ccd_names, results) if c == ccd_name]
         y = [r[1] for c, r in zip(ccd_names, results) if c == ccd_name]
-        plt.plot(x, y, marker='o', markersize=1.75, linestyle=None, label=f"ccd={ccd_name}")
+        plt.plot(x, y, marker='o', markersize=1.75, linestyle=None, label=f"ccd={ccd_name}",
+                 linewidth=0)
     plt.grid()
     plt.xlabel("Horizontal Asymmetry [ADU]")
     plt.ylabel("Vertical Asymmetry [ADU]")
