@@ -12,7 +12,7 @@ def calculate_asymmetry_statistics(data):
     std_horizontal = (data-data_flip).std()
 
     # Vertical flip
-    data_flip = data[:, ::-1]
+    data_flip = data[::-1, :]
     std_vertical = (data-data_flip).std()
 
     return std_horizontal, std_vertical
