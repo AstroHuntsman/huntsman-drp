@@ -10,14 +10,12 @@ from huntsman.drp.quality.vignetting import calculate_asymmetry_statistics
 
 INTERVAL = 7
 OUTPUT_FILENAME = "vignetting_flats.png"
-CCD = 2
-FILTER_NAME = "g_band"
 NPROC = 8
 
 
 def calculate_asymmetry(filename):
     """Load data and calculate statistics."""
-    data = fits.getdata(filename)
+    data = fits.getdata(filename).astype("float")
     return calculate_asymmetry_statistics(data)
 
 
@@ -26,8 +24,6 @@ if __name__ == "__main__":
     # Move these to script args
     interval_days = INTERVAL
     output_filename = OUTPUT_FILENAME
-    ccd = CCD
-    filter_name = FILTER_NAME
 
     # Get recent flat field images
     datatable = RawDataTable()
