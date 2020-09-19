@@ -50,5 +50,5 @@ if __name__ == "__main__":
     plt.grid()
     plt.xlabel("Horizontal Asymmetry [ADU]")
     plt.ylabel("Vertical Asymmetry [ADU]")
-    plt.legend(loc="best")
+    plt.legend(loc="best", fontsize=9)
     plt.savefig(OUTPUT_FILENAME, bbox_inches="tight", dpi=150)
