@@ -8,7 +8,7 @@ from astropy.io import fits
 from huntsman.drp.datatable import RawDataTable
 from huntsman.drp.quality.vignetting import calculate_asymmetry_statistics
 
-INTERVAL = 3
+INTERVAL = 7
 OUTPUT_FILENAME = "vignetting_flats.png"
 CCD = 2
 FILTER_NAME = "g_band"
@@ -32,8 +32,7 @@ if __name__ == "__main__":
     # Get recent flat field images
     datatable = RawDataTable()
     # This is a hack to cope with the non-standard field naming
-    metalist = datatable.query_latest(days=interval_days, dataType="science", ccd=ccd,
-                                      FILTER=filter_name)
+    metalist = datatable.query_latest(days=interval_days, dataType="science")
     filenames = []
     for m in metalist:
         if m["FIELD"].startswith("Flat"):
