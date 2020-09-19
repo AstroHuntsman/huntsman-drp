@@ -42,8 +42,8 @@ if __name__ == "__main__":
     plt.figure()
     x = [r[0] for r in results]
     y = [r[1] for r in results]
-    plt.plot(x, y, 'ko', markersize=1.5)
+    plt.plot(x, y, 'ko', markersize=1.75)
     plt.grid()
     plt.xlabel("Horizontal Asymmetry [ADU]")
-    plt.xlabel("Vertical Asymmetry [ADU]")
+    plt.ylabel("Vertical Asymmetry [ADU]")
     plt.savefig(OUTPUT_FILENAME, bbox_inches="tight", dpi=150)
