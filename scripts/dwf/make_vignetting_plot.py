@@ -35,7 +35,7 @@ if __name__ == "__main__":
     for m in metalist:
         if m["FIELD"].startswith("Flat"):
             filenames.append(m["filename"])
-            ccd_names.append(m["ccd"])
+            ccd_names.append(m["INSTRUME"])
 
     # Calculate asymmetry statistics
     print(f"Processing {len(filenames)} flat fields.")
@@ -46,8 +46,7 @@ if __name__ == "__main__":
     for ccd_name in np.unique(ccd_names):
         x = [r[0] for c, r in zip(ccd_names, results) if c == ccd_name]
         y = [r[1] for c, r in zip(ccd_names, results) if c == ccd_name]
-        plt.plot(x, y, marker='o', markersize=1.75, linestyle=None, label=f"ccd={ccd_name}",
-                 linewidth=0)
+        plt.plot(x, y, marker='o', markersize=1.75, linestyle=None, label=ccd_name, linewidth=0)
     plt.grid()
     plt.xlabel("Horizontal Asymmetry [ADU]")
     plt.ylabel("Vertical Asymmetry [ADU]")
