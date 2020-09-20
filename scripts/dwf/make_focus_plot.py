@@ -28,7 +28,7 @@ if __name__ == "__main__":
             ccd_names.append(m["INSTRUME"])
     unique_ccd_names = np.unique(ccd_names)
 
-    plt.figure(figsize=(4, 4*len(ccd_names)))
+    plt.figure(figsize=(4, 4*len(unique_ccd_names)))
     rng = min(focus_positions), max(focus_positions)
     for i, ccd_name in enumerate(unique_ccd_names):
         ax = plt.subplot(len(unique_ccd_names), 1, i+1)
