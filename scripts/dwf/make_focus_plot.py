@@ -8,7 +8,7 @@ from huntsman.drp.datatable import RawDataTable
 
 INTERVAL = 7
 OUTPUT_FILENAME = "focus_positions.png"
-BINS = 10
+BINWIDTH = 10
 
 if __name__ == "__main__":
 
@@ -30,10 +30,11 @@ if __name__ == "__main__":
 
     plt.figure(figsize=(4, 4*len(unique_ccd_names)))
     rng = min(focus_positions), max(focus_positions)
+    nbins = (rng[1]-rng[0])/BINWIDTH
     for i, ccd_name in enumerate(unique_ccd_names):
         ax = plt.subplot(len(unique_ccd_names), 1, i+1)
         x = [f for c, f in zip(ccd_names, focus_positions) if c == ccd_name]
-        ax.hist(x, range=rng, density=True, bins=BINS)
+        ax.hist(x, range=rng, density=False, bins=nbins)
         ax.set_title(ccd_name)
     ax.set_xlabel("Focus Position")
     plt.savefig(OUTPUT_FILENAME, bbox_inches="tight", dpi=150)
