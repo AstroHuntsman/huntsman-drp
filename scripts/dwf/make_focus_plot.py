@@ -26,16 +26,17 @@ if __name__ == "__main__":
         if not m["FIELD"].startswith("Flat"):
             focus_positions.append(m["FOC-POS"])
             ccd_names.append(m["INSTRUME"])
-            
-    unique_ccd_names = np.unique(ccd_names)
-    rng = min(focus_positions), max(focus_positions)
-    nbins = int(np.ceil((rng[1]-rng[0])/BINWIDTH))
 
-    plt.figure(figsize=(4, 4*len(unique_ccd_names)))
+    unique_ccd_names = np.unique(ccd_names)
+    hist_range = min(focus_positions), max(focus_positions)
+    nbins = int(np.ceil((hist_range[1]-hist_range[0])/BINWIDTH))
+
+    plt.figure(figsize=(4, 2*len(unique_ccd_names)))
     for i, ccd_name in enumerate(unique_ccd_names):
         ax = plt.subplot(len(unique_ccd_names), 1, i+1)
         x = [f for c, f in zip(ccd_names, focus_positions) if c == ccd_name]
-        ax.hist(x, range=rng, density=False, bins=nbins)
+        ax.hist(x, range=hist_range, density=False, bins=nbins)
         ax.set_title(ccd_name)
     ax.set_xlabel("Focus Position")
+    plt.tight_layout()
     plt.savefig(OUTPUT_FILENAME, bbox_inches="tight", dpi=150)

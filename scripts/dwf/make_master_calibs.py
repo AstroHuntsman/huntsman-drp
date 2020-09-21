@@ -36,13 +36,17 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--interval', type=int, default=1, help='Time interval in days.')
+    parser.add_argument('--ccd', default=None, help='CCD number.')
     args = parser.parse_args()
     interval_days = args.interval  # Days
+    ccd = args.ccd
+    if ccd is not None:
+        ccd = int(ccd)
 
     rerun = "dwfrerun"
 
     # Get filenames
-    filenames = get_recent_calibs(interval_days, ccd=2)
+    filenames = get_recent_calibs(interval_days, ccd=ccd)
 
     # Make butler repository
     with ButlerRepository("/opt/lsst/software/stack/DATA") as butler_repo:
