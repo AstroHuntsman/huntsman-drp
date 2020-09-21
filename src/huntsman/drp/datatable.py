@@ -53,7 +53,7 @@ class DataTable(HuntsmanBase):
         Returns:
             list of dict: Dictionary of query results.
         """
-        query_dict = {key: value for key, value in kwargs if value is not None}
+        query_dict = {key: value for key, value in kwargs.items() if value is not None}
         if (date_start is not None) or (date_end is not None):
             # TODO - reinstate this code once nifi ingests proper dates
             """
