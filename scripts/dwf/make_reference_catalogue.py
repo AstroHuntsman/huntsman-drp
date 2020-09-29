@@ -1,3 +1,8 @@
+"""
+This code produces a reference catalogue centred on the two FRB fields, used
+for astrometric and photometric calibration. The catalogue is ingested into
+the default butler repository.
+"""
 from tempfile import NamedTemporaryFile
 
 from huntsman.drp.butler import ButlerRepository
