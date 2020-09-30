@@ -25,7 +25,14 @@ RUN yum install -y wget vim && \
   . ${LSST_HOME}/loadLSST.bash && \
   pip install ipython pymongo astroquery
 
-# install astrometry.net dependencies:
+
+# add epel:
+RUN yum -y install epel-release
+
+# update:
+RUN yum update -y
+
+# astrometry.net dependencies
 RUN yum install -y bzip2
 RUN yum install -y bzip2-devel
 RUN yum install -y cairo-devel
@@ -37,18 +44,20 @@ RUN yum install -y netpbm-progs
 RUN yum install -y netpbm
 RUN yum install -y xorg-x11-proto-devel
 RUN yum install -y zlib-devel
-# NB: yum install was failing to find the wcslib package
-RUN wget https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/w/wcslib-4.25.1-1.el7.1.x86_64.rpm
-RUN wget https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/w/wcslib-devel-4.25.1-1.el7.1.x86_64.rpm
-RUN rpm -Uvh wcslib-4*rpm
-RUN rpm -Uvh wcslib-de*.rpm
+RUN yum install -y wcslib-devel.x86_64
+# NB: yum install was failing to findwcslib-devel.x86_64 the wcslib package
+#RUN wget https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/w/wcslib-4.25.1-1.el7.1.x86_64.rpm
+#RUN wget https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/w/wcslib-devel-4.25.1-1.el7.1.x86_64.rpm
+#RUN rpm -Uvh wcslib-4*rpm
+#RUN rpm -Uvh wcslib-de*.rpm
 #RUN rpm -ivh wcslib-devel-4.25.1-1.el7.1.x86_64.rpm
-RUN yum install wcslib
-RUN yum install wcslib-devel
+#RUN yum install wcslib
+#RUN yum install wcslib-devel
 RUN yum install -y python3 python3-devel
 RUN yum install -y swig.x86_64
 
 # install latest cfitsio
+RUN yum install -y git gcc make
 RUN CFITS_URL=http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz && \
   curl -L  $CFITS_URL > cfitsio.tar.gz && \
   tar zxvf cfitsio*.tar.gz && \
