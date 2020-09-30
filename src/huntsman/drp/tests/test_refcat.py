@@ -1,6 +1,9 @@
+import pytest
 import numpy as np
 from contextlib import suppress
 
+
+@pytest.mark.skip(reason="Skymapper queries only allowed from Australia.")
 def test_create_refcat(reference_catalogue, config, tolerance=0.2):
 
     # Do the cone searches
