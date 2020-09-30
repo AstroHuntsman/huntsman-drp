@@ -72,8 +72,8 @@ RUN python3 -m pip install fitsio astropy
 
 # Astrometry.net installation
 ADD ./astrometry_compile.sh ${LSST_HOME}/
-WORKDIR /
-RUN ["${LSST_HOME}/astrometry_compile.sh"]
+WORKDIR ${LSST_HOME}
+RUN ["astrometry_compile.sh"]
 ENV PATH="/usr/local/astrometry/bin:${PATH}"
 ENV PYTHONPATH="${LSST_HOME}/astrometry.net"
 
