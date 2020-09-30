@@ -4,12 +4,13 @@ import numpy as np
 from astropy.io import fits
 from datetime import timedelta
 
+from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils import parse_date
 
 
 def load_test_config():
     """Load config for the tests themselves."""
-    filename = os.path.join(os.environ["HUNTSMAN_DRP"], "config", "testing.yaml")
+    filename = os.path.join(os.environ["HUNTSMAN_DRP"], "config", "test_config.yaml")
     with open(filename, 'r') as f:
         test_config = yaml.safe_load(f)
     return test_config
@@ -35,14 +36,16 @@ def make_hdu(data, date, cam_name, exposure_time, field, ccd_temp=0, filter="Bla
     return hdu
 
 
-class FakeExposureSequence():
+class FakeExposureSequence(HuntsmanBase):
 
-    def __init__(self):
-        self.config = load_test_config()["exposure_sequence"]
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.config = self.config["testing"]["exposure_sequence"]
         self.file_count = 0
         self.shape = self.config["size_y"], self.config["size_x"]
         self.dtype = self.config["dtype"]
         self.saturate = self.config["saturate"]
+        self.bias = self.config["bias"]
         self.hdu_dict = {}
 
     def generate_fake_data(self, directory):
@@ -63,28 +66,29 @@ class FakeExposureSequence():
 
             # Assume synchronous exposures between CCDs
             for cam_number in range(self.config["n_cameras"]):
-                cam_name = f"TESTCAM{cam_number:02d}"
-                for filter in self.config["filters"]:
+                cam_name = f"TESTCAM{cam_number+1:02d}"
 
+                # Loop over filters to create science exposures and flat fields
+                for filter in self.config["filters"]:
                     # Create the flats
                     for flat in range(self.config["n_flat"]):
                         hdu = self._make_flat_data(date=dtime, cam_name=cam_name,
                                                    exposure_time=exptime_flat, filter=filter)
-                        self._write_data(hdu=hdu)
-                        dtime += timedelta(seconds=exptime_flat)
+                        self._write_data(hdu=hdu, directory=directory)
+                        dtime += timedelta(seconds=exptime_flat)  # Increment time
                     # Create the science exposures
                     for sci in range(self.config["n_science"]):
                         hdu = self._make_sci_data(date=dtime, cam_name=cam_name,
                                                   exposure_time=exptime_sci, filter=filter)
-                        self._write_data(hdu=hdu)
-                        dtime += timedelta(seconds=exptime_flat)
+                        self._write_data(hdu=hdu, directory=directory)
+                        dtime += timedelta(seconds=exptime_flat)  # Increment time
 
-                # Create the dark frames
+                # Create the dark frames using given exposure times
                 for exptime in exptimes:
-                    hdu = self._make_dark_frame_data(date=dtime, cam_name=cam_name,
-                                                     exposure_time=exptime)
-                    self._write_data(hdu=hdu)
-                    dtime += timedelta(seconds=exptime)
+                    hdu = self._make_dark_frame(date=dtime, cam_name=cam_name,
+                                                exposure_time=exptime)
+                    self._write_data(hdu=hdu, directory=directory)
+                    dtime += timedelta(seconds=exptime)  # Increment time
 
     def _get_bias_level(self, exposure_time, ccd_temp=0):
         # TODO: Implement realistic scaling with exposure time
@@ -104,10 +108,10 @@ class FakeExposureSequence():
         """Make a light frame (either a science image or flat field)."""
         adu = self._get_target_brightness(exposure_time=exposure_time, filter=filter)
         data = np.ones(self.shape, dtype=self.dtype) * adu
-        data[:, :] = np.random.poisson(data) + self.get_bias_level(exposure_time)
+        data[:, :] = np.random.poisson(data) + self._get_bias_level(exposure_time)
         data[data > self.saturate] = self.saturate
         # Create the header object
-        hdu = make_hdu(data=data, date=date, cam_nam=cam_name, exposure_time=exposure_time,
+        hdu = make_hdu(data=data, date=date, cam_name=cam_name, exposure_time=exposure_time,
                        field=field, filter=filter)
         return hdu
 
@@ -115,10 +119,10 @@ class FakeExposureSequence():
         """Make a dark frame (bias or dark)."""
         adu = self._get_target_brightness(exposure_time=exposure_time, filter=filter)
         data = np.ones(self.shape, dtype=self.dtype) * adu
-        data[:, :] = np.random.poisson(data) + self.get_bias_level(exposure_time)
+        data[:, :] = np.random.poisson(data) + self._get_bias_level(exposure_time)
         data[data > self.saturate] = self.saturate
         # Create the header object
-        hdu = make_hdu(data=data, date=date, cam_nam=cam_name, exposure_time=exposure_time,
+        hdu = make_hdu(data=data, date=date, cam_name=cam_name, exposure_time=exposure_time,
                        field=field)
         return hdu
 

@@ -34,7 +34,3 @@ def test_datatable_query_by_date(raw_data_table, fits_header_translator):
             date = parse_date(fits_header_translator.translate_dateObs(header))
             assert date >= parse_date(date_start)
             assert date < parse_date(date_end)
-
-
-def test_datatable_insert_many(raw_data_table, test_data):
-    raw_data_table.insert_many(test_data['raw_data'])

@@ -1,9 +1,7 @@
-import os
 import pytest
-import yaml
 
 from huntsman.drp.base import load_config
-from huntsman.drp.tests import FakeExposureSequence
+from huntsman.drp.tests.testdata import FakeExposureSequence
 from huntsman.drp.fitsutil import FitsHeaderTranslator
 from huntsman.drp.datatable import RawDataTable
 from huntsman.drp.refcat import TapReferenceCatalogue
@@ -16,15 +14,6 @@ from huntsman.drp.butler import ButlerRepository, TemporaryButlerRepository
 @pytest.fixture(scope="session")
 def config():
     return load_config(ignore_local=True)
-
-
-def load_test_config():
-    """Load config for the tests themselves."""
-    filename = os.path.join(os.environ["HUNTSMAN_DRP"], "config", "testing.yaml")
-    with open(filename, 'r') as f:
-        test_config = yaml.safe_load(f)
-    return test_config
-
 
 # ===========================================================================
 # Reference catalogue
@@ -71,7 +60,7 @@ def raw_data_table(tmp_path_factory, config, fits_header_translator):
     """
     # Generate the fake data
     tempdir = tmp_path_factory.mktemp("test_exposure_sequence")
-    expseq = FakeExposureSequence()
+    expseq = FakeExposureSequence(config=config)
     expseq.generate_fake_data(directory=tempdir)
 
     # Populate the database
