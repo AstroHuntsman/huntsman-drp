@@ -71,11 +71,11 @@ RUN CFITS_URL=http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.
 RUN python3 -m pip install fitsio astropy
 
 # Astrometry.net installation
-COPY ./astrometry /install/astrometry
+ADD ./astrometry_compile.sh ${LSST_HOME}/
 WORKDIR /
-RUN ["/install/astrometry/compile_astrometry.sh"]
+RUN ["${LSST_HOME}/astrometry_compule.sh"]
 ENV PATH="/usr/local/astrometry/bin:${PATH}"
-ENV PYTHONPATH="/astrometry.net"
+ENV PYTHONPATH="${LSST_HOME}/astrometry.net"
 
 # POCS utils installation
 RUN python3 -m pip install panoptes-utils
