@@ -1,7 +1,0 @@
-mongodb:
-  hostname: "dcdb1.datacentral.org.au"
-  username: "huntsman_nifi"
-  password: "Ju$t@BigSp1der!"
-  db_name: "huntsman_team"
-  tables:
-    raw_data: "huntsman_team"
