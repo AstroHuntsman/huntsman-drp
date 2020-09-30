@@ -27,19 +27,19 @@ RUN yum install -y wget vim && \
 
 # install astrometry.net dependencies:
 RUN yum install -y bzip2 && \
-  bzip2-devel && \
-  cairo-devel && \
-  libjpeg-devel && \
-  libpng-devel && \
-  libXrender-devel && \
-  netpbm-devel && \
-  netpbm-progs && \
-  netpbm && \
-  xorg-x11-proto-devel && \
-  zlib-devel && \
-  wcslib-devel.x86_64 && \
-  python3 python3-devel && \
-  swig.x86_64
+  yum install -y bzip2-devel && \
+  yum install -y cairo-devel && \
+  yum install -y libjpeg-devel && \
+  yum install -y libpng-devel && \
+  yum install -y libXrender-devel && \
+  yum install -y netpbm-devel && \
+  yum install -y netpbm-progs && \
+  yum install -y netpbm && \
+  yum install -y xorg-x11-proto-devel && \
+  yum install -y zlib-devel && \
+  yum install -y wcslib-devel.x86_64 && \
+  yum install -y python3 python3-devel && \
+  yum install -y swig.x86_64
 
 # install latest cfitsio
 RUN CFITS_URL=http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz && \
