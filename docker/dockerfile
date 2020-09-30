@@ -25,7 +25,52 @@ RUN yum install -y wget vim && \
   . ${LSST_HOME}/loadLSST.bash && \
   pip install ipython pymongo astroquery
 
+# install astrometry.net dependencies:
+RUN yum install -y bzip2 && \
+  bzip2-devel && \
+  cairo-devel && \
+  libjpeg-devel && \
+  libpng-devel && \
+  libXrender-devel && \
+  netpbm-devel && \
+  netpbm-progs && \
+  netpbm && \
+  xorg-x11-proto-devel && \
+  zlib-devel && \
+  wcslib-devel.x86_64 && \
+  python3 python3-devel && \
+  swig.x86_64
+
+# install latest cfitsio
+RUN CFITS_URL=http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz && \
+  curl -L  $CFITS_URL > cfitsio.tar.gz && \
+  tar zxvf cfitsio*.tar.gz && \
+  cd cfitsio*/ && \
+  ./configure --prefix=/usr && \
+  make && \
+  make install && \
+  ln -s /usr/lib/pkgconfig/cfitsio.pc /usr/lib64/pkgconfig/cfitsio.pc && \
+  cd .. && \
+  rm -rf cfitsio/ && \
+  rm -f cfitsio.tar.gz
+
+# python:
+RUN python3 -m pip install fitsio astropy
+
+# Astrometry.net installation
+COPY ./astrometry /install/astrometry
+WORKDIR /
+RUN ["/install/astrometry/compile_astrometry.sh"]
+ENV PATH="/usr/local/astrometry/bin:${PATH}"
+ENV PYTHONPATH="/astrometry.net"
+
+# POCS utils installation
+RUN python3 -m pip install panoptes-utils
+RUN yum -y install fpack
+
+
 WORKDIR ${LSST_HOME}
+ADD ./../scripts/plate_solve_directory.py .
 ADD bash_config.sh .
 RUN cat bash_config.sh >> ~/.bashrc
 CMD ["/bin/bash"]
