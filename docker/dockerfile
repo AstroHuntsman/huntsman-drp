@@ -38,7 +38,7 @@ RUN yum install -y netpbm
 RUN yum install -y xorg-x11-proto-devel
 RUN yum install -y zlib-devel
 # NB: yum install was failing to find the wcslib package
-ADD https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/w/wcslib-devel-4.25.1-1.el7.1.x86_64.rpm /wcslib-devel-4.25.1-1.el7.1.x86_64.rpm
+RUN wget https://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/w/wcslib-devel-4.25.1-1.el7.1.x86_64.rpm
 RUN rpm -ivh wcslib-devel-4.25.1-1.el7.1.x86_64.rpm
 RUN yum install -y python3 python3-devel
 RUN yum install -y swig.x86_64
