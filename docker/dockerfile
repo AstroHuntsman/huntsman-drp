@@ -29,9 +29,6 @@ RUN yum install -y wget vim && \
 # add epel:
 RUN yum -y install epel-release
 
-# update:
-RUN yum update -y
-
 # astrometry.net dependencies
 RUN yum install -y bzip2
 RUN yum install -y bzip2-devel
