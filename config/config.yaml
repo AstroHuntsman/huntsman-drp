@@ -60,7 +60,7 @@ refcat:
 
 testing:
   exposure_sequence:
-    start_date: "2020-09-30"
+    start_date: "2020-02-04"
     n_cameras: 2
     n_days: 3   # Simulate this number of nights
     n_flat: 2   # Per (filter, camera) pair
