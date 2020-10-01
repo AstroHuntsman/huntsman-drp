@@ -40,6 +40,11 @@ def make_hdu(data, date, cam_name, exposure_time, field, image_type, ccd_temp=0,
 
 
 class FakeExposureSequence(HuntsmanBase):
+    """
+    The `FakeExposureSequence` is responsible for generating fake FITS files based on settings
+    in the config. The basic idea is to create semi-realistic daily observation sets for testing
+    purposes.
+    """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -49,7 +54,7 @@ class FakeExposureSequence(HuntsmanBase):
         self.dtype = self.config["dtype"]
         self.saturate = self.config["saturate"]
         self.bias = self.config["bias"]
-        self.hdu_dict = {}
+        self.header_dict = {}
 
     def generate_fake_data(self, directory):
         """
@@ -75,14 +80,16 @@ class FakeExposureSequence(HuntsmanBase):
                 for filter in self.config["filters"]:
                     # Create the flats
                     for flat in range(self.config["n_flat"]):
-                        hdu = self._make_flat_data(date=dtime, cam_name=cam_name,
-                                                   exposure_time=exptime_flat, filter=filter)
+                        hdu = self._make_light_frame(date=dtime, cam_name=cam_name,
+                                                     field="FlatDither0", filter=filter,
+                                                     exposure_time=exptime_flat)
                         self._write_data(hdu=hdu, directory=directory)
                         dtime += timedelta(seconds=exptime_flat)  # Increment time
                     # Create the science exposures
                     for sci in range(self.config["n_science"]):
-                        hdu = self._make_sci_data(date=dtime, cam_name=cam_name,
-                                                  exposure_time=exptime_sci, filter=filter)
+                        hdu = self._make_light_frame(date=dtime, cam_name=cam_name,
+                                                     exposure_time=exptime_sci, filter=filter,
+                                                     field="TestField0")
                         self._write_data(hdu=hdu, directory=directory)
                         dtime += timedelta(seconds=exptime_flat)  # Increment time
 
@@ -102,19 +109,13 @@ class FakeExposureSequence(HuntsmanBase):
         # TODO: Implement realistic scaling with exposure time
         return 0.5 * self.saturate
 
-    def _make_sci_data(self, *args, **kwargs):
-        return self._make_light_frame(*args, **kwargs, field="TestField0")
-
-    def _make_flat_data(self, *args, **kwargs):
-        return self._make_light_frame(*args, **kwargs, field="FlatDither0")
-
     def _make_light_frame(self, date, cam_name, exposure_time, filter, field):
         """Make a light frame (either a science image or flat field)."""
         adu = self._get_target_brightness(exposure_time=exposure_time, filter=filter)
-        data = np.ones(self.shape) * adu
-        data[:, :] = np.random.poisson(data) + self._get_bias_level(exposure_time)
+        data = np.random.poisson(adu, size=self.shape) + self._get_bias_level(exposure_time)
         data[data > self.saturate] = self.saturate
         data = data.astype(self.dtype)
+        assert (data > 0).all()
         # Create the header object
         hdu = make_hdu(data=data, date=date, cam_name=cam_name, exposure_time=exposure_time,
                        field=field, filter=filter, image_type="Light Frame")
@@ -122,21 +123,32 @@ class FakeExposureSequence(HuntsmanBase):
 
     def _make_dark_frame(self, date, cam_name, exposure_time, field="Dark Field"):
         """Make a dark frame (bias or dark)."""
-        adu = self._get_target_brightness(exposure_time=exposure_time, filter=filter)
-        data = np.ones(self.shape) * adu
-        data[:, :] = np.random.poisson(data) + self._get_bias_level(exposure_time)
+        adu = self._get_bias_level(exposure_time=exposure_time)
+        data = np.random.poisson(adu, size=self.shape)
         data[data > self.saturate] = self.saturate
         data = data.astype(self.dtype)
+        assert (data > 0).all()
         # Create the header object
         hdu = make_hdu(data=data, date=date, cam_name=cam_name, exposure_time=exposure_time,
                        field=field, image_type="Dark Frame")
         return hdu
 
     def _get_filename(self, directory):
+        """ Get the filename for the next exposure in the sequence.
+        Args:
+            directory (str): The name of the directory in which to store the file.
+        Returns:
+            str: The filename.
+        """
         return os.path.join(directory, f"testdata_{self.file_count}.fits")
 
     def _write_data(self, hdu, directory):
+        """ Write the data to file, store the header and increment the file count.
+        Args:
+            directory (str): The name of the directory in which to store the file.
+        """
         filename = self._get_filename(directory)
         hdu.writeto(filename, overwrite=True)
-        self.hdu_dict[filename] = hdu
+        # Read the header from file because astropy can modify the header during write
+        self.header_dict[filename] = fits.getheader(filename)
         self.file_count += 1

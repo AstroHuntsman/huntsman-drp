@@ -65,9 +65,9 @@ def raw_data_table(tmp_path_factory, config, fits_header_translator):
 
     # Populate the database
     raw_data_table = RawDataTable(config=config)
-    for filename, hdu in expseq.hdu_dict.items():
+    for filename, header in expseq.header_dict.items():
         # Parse the header
-        parsed_header = fits_header_translator.parse_header(hdu.header)
+        parsed_header = fits_header_translator.parse_header(header)
         parsed_header["filename"] = filename
         # Insert the parsed header into the DB table
         raw_data_table.insert_one(parsed_header)

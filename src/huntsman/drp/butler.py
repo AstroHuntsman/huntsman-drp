@@ -173,7 +173,7 @@ class ButlerRepository(HuntsmanBase):
             list of dict: The query result in column: value.
         """
         # Access the sqlite DB
-        conn = sqlite3.connect(os.path.join(self.calib_directory, "calibRegistry.sqlite"))
+        conn = sqlite3.connect(os.path.join(self.calib_directory, "calibRegistry.sqlite3"))
         c = conn.cursor()
         # Query the calibs
         result = c.execute(f"SELECT * from {table}")

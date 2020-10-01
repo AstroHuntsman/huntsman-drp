@@ -57,13 +57,41 @@ def test_ingest(raw_data_table, butler_repos, config):
             assert len(data_ids) == n_bias
 
 
-def test_make_master_biases(raw_data_table, temp_butler_repo, config):
+def test_make_master_calibs(raw_data_table, temp_butler_repo, config):
+    """ Make sure the correct number of master bias frames are produced."""
     config = config["testing"]["exposure_sequence"]
+    n_filters = len(config["filters"])
     n_bias = config["n_cameras"] * 2  # 2 exp times
+    n_flat = config["n_cameras"] * n_filters
 
+    # Use the Butler repo to make the calibs
     filenames = raw_data_table.query_column("filename")
     with temp_butler_repo as br:
         br.ingest_raw_data(filenames)
+        # Make the biases
         br.make_master_biases(calib_date=current_date(), rerun="test_rerun", ingest=True)
-        metadata = br.query_calib_metadata(table="bias")
-        assert len(metadata) == n_bias
+        metadata_bias = br.query_calib_metadata(table="bias")
+        # Make the flats, using make_master_calibs for test completeness
+        br.make_master_calibs(calib_date=current_date(), rerun="test_rerun", ingest=True,
+                              skip_bias=True)
+        metadata_flat = br.query_calib_metadata(table="flat")
+
+    # Check the biases
+    assert len(metadata_bias) == n_bias
+    exptimes = set()
+    ccds = set()
+    for md in metadata_bias:
+        exptimes.update([md["expTime"]])
+        ccds.update([md["ccd"]])
+    assert len(exptimes) == 2
+    assert len(ccds) == config["n_cameras"]
+
+    # Check the flats
+    assert len(metadata_flat) == n_flat
+    filters = set()
+    ccds = set()
+    for md in metadata_flat:
+        filters.update([md["filter"]])
+        ccds.update([md["ccd"]])
+    assert len(filters) == 2
+    assert len(ccds) == config["n_cameras"]
