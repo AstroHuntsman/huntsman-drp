@@ -18,21 +18,24 @@ def load_test_config():
 
 def datetime_to_taiObs(date):
     """Convert datetime into a panoptes-style date string."""
-    return date.strftime("%m-%d-%YT%H:%M:%S.%f")[:-3] + "(UTC)"
+    return date.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "(UTC)"
 
 
-def make_hdu(data, date, cam_name, exposure_time, field, ccd_temp=0, filter="Blank",
-             imageId="TestImageId"):
-    """ """
+def make_hdu(data, date, cam_name, exposure_time, field, image_type, ccd_temp=0, filter="Blank",
+             imageId="TestImageId", ra=10, dec=-20, airmass=1):
+    """Make a HDU with a minimal header for DRP to function."""
     hdu = fits.PrimaryHDU(data)
     hdu.header['EXPTIME'] = exposure_time
-    hdu.header['FILTER'] = "Blank"
+    hdu.header['FILTER'] = filter
     hdu.header['FIELD'] = field
     hdu.header['DATE-OBS'] = datetime_to_taiObs(date)
-    hdu.header["IMAGETYP"] = "Dark Frame"
+    hdu.header["IMAGETYP"] = image_type
     hdu.header["INSTRUME"] = cam_name
     hdu.header["IMAGEID"] = imageId
     hdu.header["CCD-TEMP"] = ccd_temp
+    hdu.header["RA-MNT"] = ra
+    hdu.header["DEC-MNT"] = dec
+    hdu.header["AIRMASS"] = airmass
     return hdu
 
 
@@ -84,11 +87,12 @@ class FakeExposureSequence(HuntsmanBase):
                         dtime += timedelta(seconds=exptime_flat)  # Increment time
 
                 # Create the dark frames using given exposure times
-                for exptime in exptimes:
-                    hdu = self._make_dark_frame(date=dtime, cam_name=cam_name,
-                                                exposure_time=exptime)
-                    self._write_data(hdu=hdu, directory=directory)
-                    dtime += timedelta(seconds=exptime)  # Increment time
+                for bias in range(self.config["n_bias"]):
+                    for exptime in exptimes:
+                        hdu = self._make_dark_frame(date=dtime, cam_name=cam_name,
+                                                    exposure_time=exptime)
+                        self._write_data(hdu=hdu, directory=directory)
+                        dtime += timedelta(seconds=exptime)  # Increment time
 
     def _get_bias_level(self, exposure_time, ccd_temp=0):
         # TODO: Implement realistic scaling with exposure time
@@ -107,23 +111,25 @@ class FakeExposureSequence(HuntsmanBase):
     def _make_light_frame(self, date, cam_name, exposure_time, filter, field):
         """Make a light frame (either a science image or flat field)."""
         adu = self._get_target_brightness(exposure_time=exposure_time, filter=filter)
-        data = np.ones(self.shape, dtype=self.dtype) * adu
+        data = np.ones(self.shape) * adu
         data[:, :] = np.random.poisson(data) + self._get_bias_level(exposure_time)
         data[data > self.saturate] = self.saturate
+        data = data.astype(self.dtype)
         # Create the header object
         hdu = make_hdu(data=data, date=date, cam_name=cam_name, exposure_time=exposure_time,
-                       field=field, filter=filter)
+                       field=field, filter=filter, image_type="Light Frame")
         return hdu
 
     def _make_dark_frame(self, date, cam_name, exposure_time, field="Dark Field"):
         """Make a dark frame (bias or dark)."""
         adu = self._get_target_brightness(exposure_time=exposure_time, filter=filter)
-        data = np.ones(self.shape, dtype=self.dtype) * adu
+        data = np.ones(self.shape) * adu
         data[:, :] = np.random.poisson(data) + self._get_bias_level(exposure_time)
         data[data > self.saturate] = self.saturate
+        data = data.astype(self.dtype)
         # Create the header object
         hdu = make_hdu(data=data, date=date, cam_name=cam_name, exposure_time=exposure_time,
-                       field=field)
+                       field=field, image_type="Dark Frame")
         return hdu
 
     def _get_filename(self, directory):
