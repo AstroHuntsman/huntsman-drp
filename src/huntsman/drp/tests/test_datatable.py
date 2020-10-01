@@ -1,6 +1,5 @@
 import pytest
 import copy
-from datetime import timedelta
 
 from huntsman.drp.utils import current_date, parse_date
 from huntsman.drp.fitsutil import read_fits_header
@@ -37,15 +36,13 @@ def test_datatable_query_by_date(raw_data_table, fits_header_translator):
             assert date < parse_date(date_end)
 
 
-def test_query_latest(raw_data_table, config, tol=60):
+def test_query_latest(raw_data_table, config, tol=1):
     """Test query_latest finds the correct number of DB entries."""
-    date_start = config["testing"]["exposure_sequence"]["date_start"]
+    date_start = config["testing"]["exposure_sequence"]["start_date"]
     date_start = parse_date(date_start)
     date_now = current_date()
-    tol = timedelta(seconds=tol)
     timediff = date_now - date_start
-    qresult = raw_data_table.query_latest(days=timediff.days, hours=timediff.hours,
-                                          seconds=timediff.seconds + tol)
+    qresult = raw_data_table.query_latest(days=timediff.days + tol)
     assert len(qresult) == len(raw_data_table.query())
     qresult = raw_data_table.query_latest(days=0, hours=0, seconds=0)
     assert len(qresult) == 0
