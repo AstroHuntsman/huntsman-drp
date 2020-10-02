@@ -168,7 +168,7 @@ class ButlerRepository(HuntsmanBase):
         Query the ingested calibs. TODO: Replace with the "official" Butler version.
 
         Args:
-            table (str): One of (flat, bias).
+            table (str): Table name. Can either be "flat" or "bias".
         Returns:
             list of dict: The query result in column: value.
         """
