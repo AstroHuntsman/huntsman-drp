@@ -69,11 +69,10 @@ if __name__ == "__main__":
 
     debug_logger = logging.getLogger('debug-log')
     debug_logger.setLevel(logging.DEBUG)
-    dlfh - logging.FileHandler(os.path.join(args.path, 'debug_astrometry.log'))
+    dlfh = logging.FileHandler(os.path.join(args.path, 'debug_astrometry.log'))
     debug_logger.addHandler(dlfh)
 
-
-    logger.info(f'Number of files to solve: {fpaths}')
+    logger.info(f'Number of files to solve: {len(fpaths)}')
 
     options = {'solve_opts': [
         '--guess-scale',
