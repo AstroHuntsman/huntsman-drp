@@ -56,7 +56,7 @@ RUN yum install -y wget vim && \
   sed -i "s/$ORIGINAL_LINE_START/$REPLACE_WITH/g" makefile.netpbm && \
   cd .. && \
   # compile/install:
-  make config > /install/config_results && \
+  make config > ${LSST_HOME}/astrometry.net/install/config_results && \
   make && \
   make extra && \
   make py && \
