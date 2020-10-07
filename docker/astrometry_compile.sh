@@ -8,9 +8,6 @@ export PATH=${PATH}:/usr/local/astrometry/bin
 git clone https://github.com/dstndstn/astrometry.net.git
 cd astrometry.net
 
-# Edit 'makefile.netpbm' to look like this:
-# NETPBM_INC ?= -I/usr/include/netpbm
-# NETPBM_LIB ?= -L/usr/lib64 -lnetpbm
 cd util
 ORIGINAL_LINE_START='NETPBM_INC.*'
 REPLACE_WITH='NETPBM_INC ?= -I\/usr\/include\/netpbm\/'
