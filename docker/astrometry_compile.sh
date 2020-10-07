@@ -1,8 +1,6 @@
 #! /bin/bash
 
 # set environment variables:
-# export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/lib64/pkgconfig
-# export LD_LIBRARY_PATH=/user/lib64:/usr/lib
 export PATH=${PATH}:/usr/local/astrometry/bin
 
 
