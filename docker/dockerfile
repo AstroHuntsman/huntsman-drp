@@ -23,7 +23,7 @@ RUN yum install -y wget vim && \
   echo "https://:@s3.lsst.codes" >> ~/.git-credentials && \
   # Install extra python stuff into LSST conda env
   . ${LSST_HOME}/loadLSST.bash && \
-  pip install ipython pymongo astroquery panotpes-utils && \
+  pip install ipython pymongo astroquery panoptes-utils && \
   # Astrometry.net dependencies
   yum install -y epel-release && \
   yum install -y bzip2 && \
