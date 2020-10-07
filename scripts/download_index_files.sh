@@ -1,11 +1,6 @@
 #! /bin/bash
 # Download astrometry index files.
 
-# download 4100 to /usr/local/astrometry/data:
-# wget -r -l1 -c -N --no-parent --no-host-directories --cut-dirs=2 -A ".fits" -P ./data/ http://broiler.astrometry.net/~dstn/4100/
-# download 4200 to /usr/local/astrometry/data:
-# wget -r -l1 -c -N --no-parent --no-host-directories --cut-dirs=2 -A ".fits" -P ./data/ http://broiler.astrometry.net/~dstn/4200/
-
 # https://readthedocs.org/projects/astrometrynet/downloads/pdf/latest/
 
 # The files are named like index-42XX.fits or index-42XX-YY.fits. XX is the “scale”, YY is the “healpix” number. These
