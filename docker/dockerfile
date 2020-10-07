@@ -23,14 +23,10 @@ RUN yum install -y wget vim && \
   echo "https://:@s3.lsst.codes" >> ~/.git-credentials && \
   # Install extra python stuff into LSST conda env
   . ${LSST_HOME}/loadLSST.bash && \
-  pip install ipython pymongo astroquery
-
-
-# add epel:
-RUN yum install -y epel-release
-
-# astrometry.net dependencies
-RUN yum install -y bzip2 && \
+  pip install ipython pymongo astroquery panotpes-utils && \
+  # Astrometry.net dependencies
+  yum install -y epel-release && \
+  yum install -y bzip2 && \
   yum install -y bzip2-devel && \
   yum install -y cairo-devel && \
   yum install -y libjpeg-devel && \
@@ -43,41 +39,34 @@ RUN yum install -y bzip2 && \
   yum install -y zlib-devel && \
   yum install -y wcslib-devel.x86_64 && \
   yum install -y python3 python3-devel && \
-  yum install -y swig.x86_64
-
-# install latest cfitsio
-RUN yum install -y git gcc make
-RUN CFITS_URL=http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz && \
-  curl -L  $CFITS_URL > cfitsio.tar.gz && \
-  tar zxvf cfitsio*.tar.gz && \
-  cd cfitsio*/ && \
-  ./configure --prefix=/usr && \
-  make && \
-  make install && \
-  ln -s /usr/lib/pkgconfig/cfitsio.pc /usr/lib64/pkgconfig/cfitsio.pc && \
+  yum install -y swig.x86_64 && \
+  yum install -y fpack && \
+  # Compile/install astrometry
+  # set environment variables:
+  export PATH=${PATH}:/usr/local/astrometry/bin && \
+  # clone the repo:
+  git clone https://github.com/dstndstn/astrometry.net.git ${LSST_HOME}/astrometry.net && \
+  cd ${LSST_HOME}/astrometry.net && \
+  cd util && \
+  ORIGINAL_LINE_START='NETPBM_INC.*' && \
+  REPLACE_WITH='NETPBM_INC ?= -I\/usr\/include\/netpbm\/' && \
+  sed -i "s/$ORIGINAL_LINE_START/$REPLACE_WITH/g" makefile.netpbm && \
+  ORIGINAL_LINE_START='NETPBM_LIB.*' && \
+  REPLACE_WITH='NETPBM_LIB ?= -L\/usr\/lib64 -lnetpbm' && \
+  sed -i "s/$ORIGINAL_LINE_START/$REPLACE_WITH/g" makefile.netpbm && \
   cd .. && \
-  rm -rf cfitsio/ && \
-  rm -f cfitsio.tar.gz
+  # compile/install:
+  make config > /install/config_results && \
+  make && \
+  make extra && \
+  make py && \
+  make install
 
-# python:
-RUN . ${LSST_HOME}/loadLSST.bash && \
-  pip install fitsio astropy
-
-# Astrometry.net installation
-ADD ./astrometry_compile.sh ${LSST_HOME}/
-WORKDIR ${LSST_HOME}
-RUN ["./astrometry_compile.sh"]
+# astrometry env vars
 ENV PATH="/usr/local/astrometry/bin:${PATH}"
 ENV PYTHONPATH="${LSST_HOME}/astrometry.net"
 
-# POCS utils installation
-RUN . ${LSST_HOME}/loadLSST.bash && \
-  pip install panoptes-utils && \
-  yum -y install fpack
-
-
 WORKDIR ${LSST_HOME}
-ADD ./plate_solve_directory.py .
 ADD bash_config.sh .
 RUN cat bash_config.sh >> ~/.bashrc
 CMD ["/bin/bash"]
