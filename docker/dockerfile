@@ -42,6 +42,8 @@ RUN yum install -y wget vim && \
   yum install -y swig.x86_64 && \
   yum install -y fpack && \
   # Compile/install astrometry
+  # link cfitsio to place where astrometry,net make will find it
+  ln -s /opt/lsst/software/stack/conda/miniconda3-py37_4.8.2/pkgs/cfitsio-3.470-h3eac812_5/lib/pkgconfig/cfitsio.pc /usr/lib64/pkgconfig/cfitsio.pc && \
   # set environment variables:
   export PATH=${PATH}:/usr/local/astrometry/bin && \
   # clone the repo:
@@ -56,7 +58,7 @@ RUN yum install -y wget vim && \
   sed -i "s/$ORIGINAL_LINE_START/$REPLACE_WITH/g" makefile.netpbm && \
   cd .. && \
   # compile/install:
-  make config > ${LSST_HOME}/astrometry.net/install/config_results && \
+  make config > config_results && \
   make && \
   make extra && \
   make py && \
