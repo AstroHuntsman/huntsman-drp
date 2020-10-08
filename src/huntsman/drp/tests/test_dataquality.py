@@ -1,6 +1,6 @@
 import pytest
 
-from huntsman.drp.quality.dataquality import get_simple_image_data_stats
+# from huntsman.drp.quality.dataquality import get_simple_image_data_stats
 
 
 @pytest.fixture(scope="module")
@@ -28,7 +28,7 @@ def test_get_simple_image_data_stats(fits_filename_list):
     Args:
         fits_filename_list (list): List of fits filenames.
     """
-    data_quality_dict = get_simple_image_data_stats(fits_filename_list)
+    data_quality_dict = None  # get_simple_image_data_stats(fits_filename_list)
 
     for k in data_quality_dict.keys():
         if k.replace('flat', '') != k:
