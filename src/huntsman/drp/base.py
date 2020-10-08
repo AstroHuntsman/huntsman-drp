@@ -30,7 +30,8 @@ def load_config(config_dir=None, ignore_local=False):
         try:
             config_dir = os.path.join(os.environ["HUNTSMAN_DRP"], "config")
         except KeyError:
-            raise KeyError("HUNTSMAN_DRP environment variable not set. Exiting.")
+            raise KeyError("HUNTSMAN_DRP environment variable not set."
+                           " Unable to determine config directory.")
     config = _load_yaml(os.path.join(config_dir, "config.yaml"))
     # Update the config with local version
     if not ignore_local:
