@@ -51,6 +51,8 @@ RUN yum install -y wget vim && \
   cd .. && \
   rm -rf cfitsio/ && \
   rm -f cfitsio.tar.gz && \
+  # install some python modules needed for compiling astrometry (need to do this as we are outside the lsst conda env)
+  pip install fitsio astropy
   # Compile/install astrometry
   # set environment variables:
   export PATH=${PATH}:/usr/local/astrometry/bin && \
