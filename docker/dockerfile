@@ -23,10 +23,12 @@ RUN yum install -y wget vim && \
   echo "https://:@s3.lsst.codes" >> ~/.git-credentials && \
   # Install extra python stuff into LSST conda env
   # need to add a directory to LD_LIBRARY_PATH so that the conda ld/gcc can find the libs we are about to install, this needs to be done before we activate the conda env
-  echo "export LD_LIBRARY_PATH=/usr/lib64:${LD_LIBRARY_PATH}" >> /opt/lsst/software/stack/conda/miniconda3-py37_4.8.2/envs/lsst-scipipe-1a1d771/etc/conda/activate.d && \
+  #echo "export LD_LIBRARY_PATH=/usr/lib64:${LD_LIBRARY_PATH}" >> /opt/lsst/software/stack/conda/miniconda3-py37_4.8.2/envs/lsst-scipipe-1a1d771/etc/conda/activate.d/env_vars.sh && \
+  #echo "export LD_LIBRARY_PATH=/lib64:${LD_LIBRARY_PATH}" >> /opt/lsst/software/stack/conda/miniconda3-py37_4.8.2/envs/lsst-scipipe-1a1d771/etc/conda/activate.d/env_vars.sh && \
   . ${LSST_HOME}/loadLSST.bash && \
   pip install ipython pymongo astroquery panoptes-utils && \
   # Astrometry.net dependencies
+  yum install -y gcc make && \
   yum install -y epel-release && \
   yum install -y bzip2 && \
   yum install -y bzip2-devel && \
