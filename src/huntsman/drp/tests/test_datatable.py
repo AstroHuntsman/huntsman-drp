@@ -77,3 +77,14 @@ def test_update_file_data(raw_data_table):
     data_updated = raw_data_table.query()[0]
     assert data_updated["_id"] == data["_id"]
     assert data_updated[key] == new_value
+
+
+def test_update_file_data_bad_filename(raw_data_table):
+    """Test that we can update a document specified by a filename."""
+    # Specify the bad filename
+    filenames = raw_data_table.query_column("filename")
+    filename = "ThisIsNotAFilename"
+    assert filename not in filenames
+    update_dict = {"A Key": "A Value"}
+    with pytest.raises(Exception):
+        raw_data_table.update_file_data(filename=filename, data=update_dict)
