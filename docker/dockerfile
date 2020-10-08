@@ -21,6 +21,93 @@ RUN yum install -y wget vim && \
   touch ~/.git-credentials && \
   echo "https://:@lsst-sqre-prod-git-lfs.s3-us-west-2.amazonaws.com" >> ~/.git-credentials && \
   echo "https://:@s3.lsst.codes" >> ~/.git-credentials && \
+  # Install extra python stuff into LSST conda env
+  . ${LSST_HOME}/loadLSST.bash && \
+  pip install ipython pymongo astroquery
+
+# astrometry.net dependencies
+RUN yum install -y epel-release && \
+  yum install -y bzip2 && \
+  yum install -y bzip2-devel && \
+  yum install -y cairo-devel && \
+  yum install -y libjpeg-devel && \
+  yum install -y libpng-devel && \
+  yum install -y libXrender-devel && \
+  yum install -y netpbm-devel && \
+  yum install -y netpbm-progs && \
+  yum install -y netpbm && \
+  yum install -y xorg-x11-proto-devel && \
+  yum install -y zlib-devel && \
+  yum install -y wcslib-devel.x86_64 && \
+  yum install -y python3 python3-devel && \
+  yum install -y swig.x86_64 && \
+  yum install -y gcc make fpack
+
+# install latest cfitsio
+RUN CFITS_URL=http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz && \
+  curl -L  $CFITS_URL > cfitsio.tar.gz && \
+  tar zxvf cfitsio*.tar.gz && \
+  cd cfitsio*/ && \
+  ./configure --prefix=/usr && \
+  make && \
+  make install && \
+  ln -s /usr/lib/pkgconfig/cfitsio.pc /usr/lib64/pkgconfig/cfitsio.pc && \
+  cd .. && \
+  rm -rf cfitsio/ && \
+  rm -f cfitsio.tar.gz
+
+# python:
+RUN . ${LSST_HOME}/loadLSST.bash && \
+  pip install fitsio astropy
+
+# Astrometry.net installation
+ADD ./astrometry_compile.sh ${LSST_HOME}/
+WORKDIR ${LSST_HOME}
+RUN ["./astrometry_compile.sh"]
+ENV PATH="/usr/local/astrometry/bin:${PATH}"
+ENV PYTHONPATH="${LSST_HOME}/astrometry.net"
+
+# POCS utils installation
+RUN . ${LSST_HOME}/loadLSST.bash && \
+  pip install panoptes-utils
+
+
+WORKDIR ${LSST_HOME}
+ADD ./plate_solve_directory.py .
+ADD bash_config.sh .
+RUN cat bash_config.sh >> ~/.bashrc
+CMD ["/bin/bash"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+USER root
+RUN yum install -y wget vim && \
+  #Install git-LFS
+  export GITLFS=git-lfs-linux-amd64-v2.10.0.tar.gz && \
+  cd "${LSST_HOME}/_build" && \
+  wget "https://github.com/git-lfs/git-lfs/releases/download/v2.10.0/${GITLFS}" && \
+  tar -zxf ${GITLFS} && \
+  ./install.sh && \
+  rm install.sh && \
+  rm -rf ${GITLFS} && \
+  #Setup git-LFS for LSST (https://pipelines.lsst.io/v/DM-11077/install/git-lfs.html)
+  echo "[credential \"https://lsst-sqre-prod-git-lfs.s3-us-west-2.amazonaws.com\"]" >> ~/.gitconfig && \
+  echo -e "\thelper=store" >> ~/.gitconfig && \
+  echo "[credential \"https://s3.lsst.codes\"]" >> ~/.gitconfig && \
+  echo -e "\thelper=store" >> ~/.gitconfig && \
+  touch ~/.git-credentials && \
+  echo "https://:@lsst-sqre-prod-git-lfs.s3-us-west-2.amazonaws.com" >> ~/.git-credentials && \
+  echo "https://:@s3.lsst.codes" >> ~/.git-credentials && \
   # Astrometry.net dependencies
   yum install -y gcc make && \
   yum install -y epel-release && \
@@ -82,6 +169,108 @@ ENV PATH="/usr/local/astrometry/bin:${PATH}"
 ENV PYTHONPATH="${LSST_HOME}/astrometry.net"
 
 WORKDIR ${LSST_HOME}
+ADD bash_config.sh .
+RUN cat bash_config.sh >> ~/.bashrc
+CMD ["/bin/bash"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-v20_0_0
+FROM ${base_image}
+
+ENV LSST_HOME /opt/lsst/software/stack
+
+USER root
+RUN yum install -y wget vim && \
+  #Install git-LFS
+  export GITLFS=git-lfs-linux-amd64-v2.10.0.tar.gz && \
+  cd "${LSST_HOME}/_build" && \
+  wget "https://github.com/git-lfs/git-lfs/releases/download/v2.10.0/${GITLFS}" && \
+  tar -zxf ${GITLFS} && \
+  ./install.sh && \
+  rm install.sh && \
+  rm -rf ${GITLFS} && \
+  #Setup git-LFS for LSST (https://pipelines.lsst.io/v/DM-11077/install/git-lfs.html)
+  echo "[credential \"https://lsst-sqre-prod-git-lfs.s3-us-west-2.amazonaws.com\"]" >> ~/.gitconfig && \
+  echo -e "\thelper=store" >> ~/.gitconfig && \
+  echo "[credential \"https://s3.lsst.codes\"]" >> ~/.gitconfig && \
+  echo -e "\thelper=store" >> ~/.gitconfig && \
+  touch ~/.git-credentials && \
+  echo "https://:@lsst-sqre-prod-git-lfs.s3-us-west-2.amazonaws.com" >> ~/.git-credentials && \
+  echo "https://:@s3.lsst.codes" >> ~/.git-credentials && \
+  # Install extra python stuff into LSST conda env
+  . ${LSST_HOME}/loadLSST.bash && \
+  pip install ipython pymongo astroquery
+
+
+# add epel:
+RUN yum install -y epel-release
+
+# astrometry.net dependencies
+RUN yum install -y bzip2 && \
+  yum install -y bzip2-devel && \
+  yum install -y cairo-devel && \
+  yum install -y libjpeg-devel && \
+  yum install -y libpng-devel && \
+  yum install -y libXrender-devel && \
+  yum install -y netpbm-devel && \
+  yum install -y netpbm-progs && \
+  yum install -y netpbm && \
+  yum install -y xorg-x11-proto-devel && \
+  yum install -y zlib-devel && \
+  yum install -y wcslib-devel.x86_64 && \
+  yum install -y python3 python3-devel && \
+  yum install -y swig.x86_64
+
+# install latest cfitsio
+RUN yum install -y git gcc make
+RUN CFITS_URL=http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz && \
+  curl -L  $CFITS_URL > cfitsio.tar.gz && \
+  tar zxvf cfitsio*.tar.gz && \
+  cd cfitsio*/ && \
+  ./configure --prefix=/usr && \
+  make && \
+  make install && \
+  ln -s /usr/lib/pkgconfig/cfitsio.pc /usr/lib64/pkgconfig/cfitsio.pc && \
+  cd .. && \
+  rm -rf cfitsio/ && \
+  rm -f cfitsio.tar.gz
+
+# python:
+RUN . ${LSST_HOME}/loadLSST.bash && \
+  pip install fitsio astropy
+
+# Astrometry.net installation
+ADD ./astrometry_compile.sh ${LSST_HOME}/
+WORKDIR ${LSST_HOME}
+RUN ["./astrometry_compile.sh"]
+ENV PATH="/usr/local/astrometry/bin:${PATH}"
+ENV PYTHONPATH="${LSST_HOME}/astrometry.net"
+
+# POCS utils installation
+RUN . ${LSST_HOME}/loadLSST.bash && \
+  pip install panoptes-utils && \
+  yum -y install fpack
+
+
+WORKDIR ${LSST_HOME}
+ADD ./plate_solve_directory.py .
 ADD bash_config.sh .
 RUN cat bash_config.sh >> ~/.bashrc
 CMD ["/bin/bash"]
