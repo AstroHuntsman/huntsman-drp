@@ -50,7 +50,7 @@ RUN yum install -y wget vim && \
   ln -s /usr/lib/pkgconfig/cfitsio.pc /usr/lib64/pkgconfig/cfitsio.pc && \
   cd .. && \
   rm -rf cfitsio/ && \
-  rm -f cfitsio.tar.gz
+  rm -f cfitsio.tar.gz && \
   # Compile/install astrometry
   # set environment variables:
   export PATH=${PATH}:/usr/local/astrometry/bin && \
