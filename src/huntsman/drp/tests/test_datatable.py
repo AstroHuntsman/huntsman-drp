@@ -86,5 +86,5 @@ def test_update_file_data_bad_filename(raw_data_table):
     filename = "ThisIsNotAFilename"
     assert filename not in filenames
     update_dict = {"A Key": "A Value"}
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         raw_data_table.update_file_data(filename=filename, data=update_dict)

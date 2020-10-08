@@ -131,8 +131,15 @@ class DataTable(HuntsmanBase):
             data_id (dict): Dictionary of key: value pairs identifying the document.
             data (dict): Dictionary of key: value pairs to update in the database. The field will
                 be created if it does not already exist.
+        Returns:
+            `pymongo.results.UpdateResult`: The result of the update operation.
         """
-        self._table.update_one(data_id, {'$set': data}, upsert=False)
+        result = self._table.update_one(data_id, {'$set': data}, upsert=False)
+        if result.matched_count == 0:
+            raise ValueError("No matches in database for update.")
+        if result.matched_count > 1:
+            raise ValueError("Multiple matches in database for update.")
+        return result
 
 
 class RawDataTable(DataTable):
@@ -155,6 +162,8 @@ class RawDataTable(DataTable):
             filename (str): Modify the metadata for this file.
             data (dict): Dictionary of key: value pairs to update in the database. The field will
                 be created if it does not already exist.
+        Returns:
+            `pymongo.results.UpdateResult`: The result of the update operation.
         """
         data_id = {'filename': filename}
         return self.update_document(data_id, data)
