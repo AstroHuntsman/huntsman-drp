@@ -60,8 +60,7 @@ RUN CFITS_URL=http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.
   rm -f cfitsio.tar.gz
 
 # python:
-RUN . ${LSST_HOME}/loadLSST.bash && \
-  pip install fitsio astropy
+RUN python3 -m pip install fitsio astropy
 
 # Astrometry.net installation
 ADD ./astrometry_compile.sh ${LSST_HOME}/
@@ -71,8 +70,7 @@ ENV PATH="/usr/local/astrometry/bin:${PATH}"
 ENV PYTHONPATH="${LSST_HOME}/astrometry.net"
 
 # POCS utils installation
-RUN . ${LSST_HOME}/loadLSST.bash && \
-  pip install panoptes-utils && \
+RUN python3 -m pip install panoptes-utils && \
   yum -y install fpack
 
 
