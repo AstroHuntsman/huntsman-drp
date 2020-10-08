@@ -39,9 +39,19 @@ RUN yum install -y wget vim && \
   yum install -y python3 python3-devel && \
   yum install -y swig.x86_64 && \
   yum install -y fpack && \
+  # compile/install cfitsio
+  CFITS_URL=http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz && \
+  curl -L  $CFITS_URL > cfitsio.tar.gz && \
+  tar zxvf cfitsio*.tar.gz && \
+  cd cfitsio*/ && \
+  ./configure --prefix=/usr && \
+  make && \
+  make install && \
+  ln -s /usr/lib/pkgconfig/cfitsio.pc /usr/lib64/pkgconfig/cfitsio.pc && \
+  cd .. && \
+  rm -rf cfitsio/ && \
+  rm -f cfitsio.tar.gz
   # Compile/install astrometry
-  # link cfitsio to place where astrometry,net make will find it
-  ln -s /opt/lsst/software/stack/conda/miniconda3-py37_4.8.2/pkgs/cfitsio-3.470-h3eac812_5/lib/pkgconfig/cfitsio.pc /usr/lib64/pkgconfig/cfitsio.pc && \
   # set environment variables:
   export PATH=${PATH}:/usr/local/astrometry/bin && \
   # clone the repo:
