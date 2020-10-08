@@ -76,7 +76,7 @@ def test_update_file_data(raw_data_table):
     raw_data_table.update_file_data(filename=filename, data=update_dict)
     data_updated = raw_data_table.query()[0]
     assert data_updated["_id"] == data["_id"]
-    assert data_updated[key] == new_value
+    assert data_updated[key] == old_value
 
 
 def test_update_file_data_bad_filename(raw_data_table):
