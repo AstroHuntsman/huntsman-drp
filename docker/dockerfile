@@ -23,18 +23,17 @@ RUN yum install -y wget vim && \
   echo "https://:@s3.lsst.codes" >> ~/.git-credentials && \
   # Install extra python stuff into LSST conda env
   . ${LSST_HOME}/loadLSST.bash && \
-  pip install ipython pymongo astroquery
+  pip install ipython pymongo astroquery && \
   # exit the LSST conda environment to compile/install astrometry.net
-
-RUN yum install -y epel-release && \
+  conda deactivate && \
+  yum install -y epel-release && \
   yum install -y bzip2-devel cfitsio-devel cairo-devel libjpeg-devel libpng-devel \
   libXrender-devel xorg-x11-proto-devel zlib-devel netpbm-devel \
   netpbm-progs wcslib-devel.x86_64 swig.x86_64 python3-devel gcc make file fpack && \
   # install python dependencies (outside of the lsst conda env)
-  python3 -m pip install fitsio astropy
+  python3 -m pip install fitsio astropy && \
   # add the directories of installed dependencies to PATH
-
-RUN export PATH="/usr/lib:/usr/lib64:/usr/include:${PATH}" && \
+  export PATH="/usr/lib:/usr/lib64:/usr/include:${PATH}" && \
   export PYTHONPATH="/usr/bin/python3:${PYTHONPATH}" && \
   export alias python=python3 && \
   # compiling/installing astrometry.net
