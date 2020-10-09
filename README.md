@@ -27,3 +27,6 @@ You can view an html coverage report after the tests complete using the followin
 ```
 open ../../src/huntsman/drp/htmlcov/index.html
 ```
+
+## Astrometry.net
+Plate solving images can be done using Astrometry.net's `solve-field` function. The docker image has astrometry.net installed as well as panoptes-utils, which offers a convenient python wrapper (`from panoptes.utils.images.fits import get_solve_field`). The `Huntsman-drp/scripts/astrometry/` directory contains two scripts. The `download_index_files.sh` script downloads the astrometry.net index files needed to plate-solve images. This should be run outside the docker container. The location of the index files should then be stored in the `ASTROMETRY_INDEX_DATA` environment variable, so that the relevant directory can be mounted into the docker container. The second script, `plate_solve_directory.py`, is a convenience script for processing all the fits files within a specified parent directory.
