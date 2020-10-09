@@ -36,6 +36,7 @@
 # index-4200-*.fits        2.0–2.8
 
 # get index files for skymarks ranging 5.6 to 120 arcmins in diameter
-wget -r -l1 -c -N --no-parent --no-host-directories --cut-dirs=2 -A "index-420[3-9]*.fits" -P ~/usr/local/astrometry/data/ http://broiler.astrometry.net/~dstn/4200/
+mkdir -p ./index_data
+wget -r -l1 -c -N --no-parent --no-host-directories --cut-dirs=2 -A "index-420[3-9]*.fits" -P ./index_data/ http://broiler.astrometry.net/~dstn/4200/
 # because I don't know how to regex...``
-wget -r -l1 -c -N --no-parent --no-host-directories --cut-dirs=2 -A "index-4211*.fits" -P /usr/local/astrometry/data/ http://broiler.astrometry.net/~dstn/4200/
+wget -r -l1 -c -N --no-parent --no-host-directories --cut-dirs=2 -A "index-4211*.fits" -P ./index_data/ http://broiler.astrometry.net/~dstn/4200/
