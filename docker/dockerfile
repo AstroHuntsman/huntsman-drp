@@ -24,57 +24,44 @@ RUN yum install -y wget vim && \
   # Install extra python stuff into LSST conda env
   . ${LSST_HOME}/loadLSST.bash && \
   pip install ipython pymongo astroquery
+  # exit the LSST conda environment to compile/install astrometry.net
 
+RUN yum install -y epel-release && \
+  yum install -y bzip2-devel cfitsio-devel cairo-devel libjpeg-devel libpng-devel \
+  libXrender-devel xorg-x11-proto-devel zlib-devel netpbm-devel \
+  netpbm-progs wcslib-devel.x86_64 swig.x86_64 python3-devel gcc make file fpack && \
+  # install python dependencies (outside of the lsst conda env)
+  python3 -m pip install fitsio astropy
+  # add the directories of installed dependencies to PATH
 
-# add epel:
-RUN yum install -y epel-release
-
-# astrometry.net dependencies
-RUN yum install -y bzip2 && \
-  yum install -y bzip2-devel && \
-  yum install -y cairo-devel && \
-  yum install -y libjpeg-devel && \
-  yum install -y libpng-devel && \
-  yum install -y libXrender-devel && \
-  yum install -y netpbm-devel && \
-  yum install -y netpbm-progs && \
-  yum install -y netpbm && \
-  yum install -y xorg-x11-proto-devel && \
-  yum install -y zlib-devel && \
-  yum install -y wcslib-devel.x86_64 && \
-  yum install -y python3 python3-devel && \
-  yum install -y swig.x86_64
-
-# install latest cfitsio
-RUN yum install -y git gcc make
-RUN CFITS_URL=http://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.gz && \
-  curl -L  $CFITS_URL > cfitsio.tar.gz && \
-  tar zxvf cfitsio*.tar.gz && \
-  cd cfitsio*/ && \
-  ./configure --prefix=/usr && \
-  make && \
-  make install && \
-  ln -s /usr/lib/pkgconfig/cfitsio.pc /usr/lib64/pkgconfig/cfitsio.pc && \
+RUN export PATH="/usr/lib:/usr/lib64:/usr/include:${PATH}" && \
+  export PYTHONPATH="/usr/bin/python3:${PYTHONPATH}" && \
+  export alias python=python3 && \
+  # compiling/installing astrometry.net
+  # clone the repo:
+  git clone https://github.com/dstndstn/astrometry.net.git && \
+  cd astrometry.net/util && \
+  ORIGINAL_LINE_START='NETPBM_INC.*' && \
+  REPLACE_WITH='NETPBM_INC ?= -I\/usr\/include\/netpbm\/' && \
+  sed -i "s/$ORIGINAL_LINE_START/$REPLACE_WITH/g" makefile.netpbm && \
+  ORIGINAL_LINE_START='NETPBM_LIB.*' && \
+  REPLACE_WITH='NETPBM_LIB ?= -L\/usr\/lib64 -lnetpbm' && \
+  sed -i "s/$ORIGINAL_LINE_START/$REPLACE_WITH/g" makefile.netpbm && \
   cd .. && \
-  rm -rf cfitsio/ && \
-  rm -f cfitsio.tar.gz
+  # compile/install:
+  make config > ./config_results && \
+  make && \
+  make extra && \
+  make py && \
+  make install PYTHON_SCRIPT="/usr/bin/python3" && \
+  # install panoptes-utils into the LSST conda env
+  . ${LSST_HOME}/loadLSST.bash && \
+  pip install panoptes-utils && \
+  conda deactivate
 
-# python:
-RUN python3 -m pip install fitsio astropy
-
-# Astrometry.net installation
-ADD ./astrometry_compile.sh ${LSST_HOME}/
 WORKDIR ${LSST_HOME}
-RUN ["./astrometry_compile.sh"]
 ENV PATH="/usr/local/astrometry/bin:${PATH}"
-ENV PYTHONPATH="${LSST_HOME}/astrometry.net"
-
-# POCS utils installation
-RUN python3 -m pip install panoptes-utils && \
-  yum -y install fpack
-
-
-WORKDIR ${LSST_HOME}
+ENV PYTHONPATH="${PYTHONPATH}:${LSST_HOME}/astrometry.net"
 ADD bash_config.sh .
 RUN cat bash_config.sh >> ~/.bashrc
 CMD ["/bin/bash"]
