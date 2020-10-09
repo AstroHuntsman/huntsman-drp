@@ -1,8 +1,9 @@
 ![Python Tests](https://github.com/AstroHuntsman/huntsman-drp/workflows/Python%20Tests/badge.svg?branch=develop)
 ![Docker CI](https://github.com/AstroHuntsman/huntsman-drp/workflows/Docker%20CI/badge.svg)
+![codecov](https://codecov.io/gh/AstroHuntsman/huntsman-drp/branch/develop/graph/badge.svg?token=YX14FHHXG5)
 
 # huntsman-drp
-The Huntsman data reduction pipeline (`huntsman-drp`) is responsible for creating calibrated science data from raw images taken by the Huntsman telephoto array. The pipeline uses the LSST code stack configured using the [AstroHuntsman/obs_huntsman](https://github.com/AstroHuntsman/obs_huntsman) package.
+The Huntsman data reduction pipeline (`huntsman-drp`) is responsible for creating calibrated science data from raw images taken by the Huntsman telephoto array. The pipeline uses the LSST code stack configured using the [AstroHuntsman/obs_huntsman](https://github.com/AstroHuntsman/obs_huntsman) package. Please see the [wiki](https://github.com/AstroHuntsman/huntsman-drp/wiki) for instructions on how to use `huntsman-drp`.
 
 To set up for running LSST reductions within docker you must have the following environment variables set,
 OBS_HUNTSMAN: the location of the obs_huntsman repository
@@ -30,3 +31,4 @@ open ../../src/huntsman/drp/htmlcov/index.html
 
 ## Astrometry.net
 Plate solving images can be done using Astrometry.net's `solve-field` function. The docker image has astrometry.net installed as well as panoptes-utils, which offers a convenient python wrapper (`from panoptes.utils.images.fits import get_solve_field`). The `Huntsman-drp/scripts/astrometry/` directory contains two scripts. The `download_index_files.sh` script downloads the astrometry.net index files needed to plate-solve images. This should be run outside the docker container. The location of the index files should then be stored in the `ASTROMETRY_INDEX_DATA` environment variable, so that the relevant directory can be mounted into the docker container. The second script, `plate_solve_directory.py`, is a convenience script for processing all the fits files within a specified parent directory.
+
