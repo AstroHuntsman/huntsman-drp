@@ -10,9 +10,8 @@ ENV LSST_HOME /opt/lsst/software/stack
 USER root
 RUN yum install -y wget vim sudo && \
   # Setup user with sudo privileges
-  groupadd sudo && \
-  usermod -a -G sudo ${user} && \
-  echo "$PANUSER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+  usermod -a -G wheel ${user} && \
+  echo "${user} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
   # Install git-LFS
   export GITLFS=git-lfs-linux-amd64-v2.10.0.tar.gz && \
   cd "${LSST_HOME}/_build" && \
@@ -33,8 +32,8 @@ RUN yum install -y wget vim sudo && \
   . ${LSST_HOME}/loadLSST.bash && \
   pip install ipython pymongo astroquery
 
+USER ${user}
 WORKDIR ${LSST_HOME}
 ADD bash_config.sh .
 RUN cat bash_config.sh >> ~/.bashrc
-USER ${user}
 CMD ["/bin/bash"]
