@@ -7,12 +7,13 @@ COVERAGE_CONFIG=${HUNTSMAN_DRP}/src/huntsman/drp/.coveragerc
 COVERAGE_REPORT_XML=${HUNTSMAN_DRP}/coverage.xml
 SESSION_FILE=~/pytest_session.txt
 
-cd ${HUNTSMAN_DRP}/src/huntsman/drp
+# cd ${HUNTSMAN_DRP}/src/huntsman/drp
+cd ${LSST_HOME}
 
 pytest -x --cov=huntsman.drp \
           --cov-config=${COVERAGE_CONFIG} \
           --cov-report xml:${COVERAGE_REPORT_XML} \
           --cov-report html:${COVERAGE_REPORT_HTML} \
-          --session2file=${SESSION_FILE}
+          --session2file=${SESSION_FILE} ${HUNTSMAN_DRP}
 
 exit 0
