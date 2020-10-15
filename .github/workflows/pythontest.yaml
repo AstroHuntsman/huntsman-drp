@@ -26,6 +26,7 @@ jobs:
     env:
       HUNTSMAN_DRP: ${{ github.workspace }}/huntsman-drp
       OBS_HUNTSMAN: ${{ github.workspace }}/obs_huntsman
+      HUNTSMAN_COVERAGE: ${{ github.workspace }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -51,5 +52,5 @@ jobs:
         if: success()
         with:
           name: codecov-upload
-          file: ${{ env.HUNTSMAN_DRP }}/coverage.xml
+          file: ${{ env.HUNTSMAN_COVERAGE }}/coverage.xml
           fail_ci_if_error: true
