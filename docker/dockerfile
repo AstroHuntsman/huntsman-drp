@@ -60,7 +60,6 @@ RUN yum install -y wget vim && \
 
 WORKDIR ${LSST_HOME}
 ENV PATH="/usr/local/astrometry/bin:${PATH}"
-ENV PYTHONPATH="${PYTHONPATH}:${LSST_HOME}/astrometry.net"
 ADD bash_config.sh .
 RUN cat bash_config.sh >> ~/.bashrc
 CMD ["/bin/bash"]
