@@ -26,7 +26,6 @@ jobs:
     env:
       HUNTSMAN_DRP: ${{ github.workspace }}/huntsman-drp
       OBS_HUNTSMAN: ${{ github.workspace }}/obs_huntsman
-      HUNTSMAN_COVERAGE: ${{ github.workspace }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
