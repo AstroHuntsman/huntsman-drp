@@ -33,14 +33,14 @@ RUN yum install -y wget vim sudo && \
   pip install ipython pymongo astroquery panoptes-utils && \
   # Downgrade coverage version to avoid pytest issues
   pip uninstall -y coverage && \
-  pip install coverage==4.5.4
+  pip install coverage==4.5.4 && \
 
   # Install astrometry.net
   conda deactivate && \  # Exit the LSST conda environment
   yum install -y epel-release && \
   yum install -y bzip2-devel cfitsio-devel cairo-devel libjpeg-devel libpng-devel \
-  libXrender-devel xorg-x11-proto-devel zlib-devel netpbm-devel \
-  netpbm-progs wcslib-devel.x86_64 swig.x86_64 python3-devel gcc make file fpack && \
+    libXrender-devel xorg-x11-proto-devel zlib-devel netpbm-devel \
+    netpbm-progs wcslib-devel.x86_64 swig.x86_64 python3-devel gcc make file fpack && \
   # install python dependencies (outside of the lsst conda env)
   python3 -m pip install fitsio astropy && \
   # add the directories of installed dependencies to PATH
