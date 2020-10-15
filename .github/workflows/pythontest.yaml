@@ -26,6 +26,7 @@ jobs:
     env:
       HUNTSMAN_DRP: ${{ github.workspace }}/huntsman-drp
       OBS_HUNTSMAN: ${{ github.workspace }}/obs_huntsman
+      HUNTSMAN_COVERAGE: ${{ github.workspace }}/coverage
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -45,7 +46,10 @@ jobs:
         run: docker-compose build
       - name: Test with pytest in huntsman-drp container
         working-directory: ${{ env.HUNTSMAN_DRP }}/docker/testing
-        run: docker-compose up --abort-on-container-exit --exit-code-from python_tests
+        # run: docker-compose up --abort-on-container-exit --exit-code-from python_tests
+        run: /opt/lsst/software/stack/huntsman-drp/scripts/run_tests.sh \
+               -e HUNTSMAN_COVERAGE=/opt/lsst/software/stack/coverage \
+               -v ${{ env.HUNTSMAN_COVERAGE }}:/opt/lsst/software/stack/coverage
       - name: Upload coverage report to codecov.io
         uses: codecov/codecov-action@v1
         if: success()

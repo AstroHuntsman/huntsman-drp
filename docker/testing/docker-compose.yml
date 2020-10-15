@@ -9,6 +9,8 @@ services:
         driver: none
   python_tests:
     image: huntsmanarray/drp:develop
+    depends_on:
+    - mongo
     build:
       context: "${HUNTSMAN_DRP}/docker"
     network_mode: "host"
@@ -20,5 +22,4 @@ services:
     environment:
       - OBS_HUNTSMAN=/opt/lsst/software/stack/obs_huntsman
       - HUNTSMAN_DRP=/opt/lsst/software/stack/huntsman-drp
-      - HUNTSMAN_COVERAGE
     command: /opt/lsst/software/stack/huntsman-drp/scripts/run_tests.sh
