@@ -3,7 +3,7 @@ source ~/.bashrc
 set -eu
 
 # Put coverage files somewhere we have permissions to write them. ${HUNTSMAN_DRP} by default.
-COVERAGE_ROOT=${ ${HUNTSMAN_COVERAGE} : ${HUNTSMAN_DRP} }
+COVERAGE_ROOT=${HUNTSMAN_COVERAGE:-${HUNTSMAN_DRP}}
 
 pytest ${HUNTSMAN_DRP} -x \
   --cov=huntsman.drp \
