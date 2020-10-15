@@ -41,6 +41,8 @@ jobs:
         with:
           repository: AstroHuntsman/obs_huntsman
           path: obs_huntsman
+      - name: Make coverage directory
+        run: mkdir ${{ env.HUNTSMAN_COVERAGE }}
       - name: Build docker image
         working-directory: ${{ env.HUNTSMAN_DRP }}/docker/testing
         run: docker-compose build
