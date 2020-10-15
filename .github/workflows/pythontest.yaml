@@ -50,7 +50,7 @@ jobs:
         working-directory: ${{ env.HUNTSMAN_DRP }}/docker/testing
         run: docker-compose run -e \
           HUNTSMAN_COVERAGE=/opt/lsst/software/stack/coverage -v \
-          ${{ env.HUNTSMAN_COVERAGE }}:/opt/lsst/software/stack/coverage \
+          "${{ env.HUNTSMAN_COVERAGE }}":/opt/lsst/software/stack/coverage \
           python_tests /opt/lsst/software/stack/huntsman-drp/scripts/run_tests.sh
       - name: Upload coverage report to codecov.io
         uses: codecov/codecov-action@v1
