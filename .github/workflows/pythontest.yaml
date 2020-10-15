@@ -32,6 +32,8 @@ jobs:
       matrix:
         python-version: [3.8]
     steps:
+      - name: Make coverage directory
+        run: mkdir ${{ env.HUNTSMAN_COVERAGE }}
       - name: Checkout huntsman-drp
         uses: actions/checkout@v2
         with:
@@ -41,8 +43,6 @@ jobs:
         with:
           repository: AstroHuntsman/obs_huntsman
           path: obs_huntsman
-      - name: Make coverage directory
-        run: mkdir ${{ env.HUNTSMAN_COVERAGE }}
       - name: Build docker image
         working-directory: ${{ env.HUNTSMAN_DRP }}/docker/testing
         run: docker-compose build

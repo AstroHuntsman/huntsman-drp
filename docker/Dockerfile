@@ -33,7 +33,7 @@ RUN yum install -y wget vim sudo && \
   pip install ipython pymongo astroquery panoptes-utils && \
   # Downgrade coverage version to avoid pytest issues
   pip uninstall -y coverage && \
-  pip install coverage==4.5.4 && \
+  pip install coverage==4.5.4
 
   # Install astrometry.net outside of the LSST conda environment
 #  conda deactivate && \
