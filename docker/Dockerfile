@@ -35,8 +35,8 @@ RUN yum install -y wget vim sudo && \
   pip uninstall -y coverage && \
   pip install coverage==4.5.4 && \
 
-  # Install astrometry.net
-  conda deactivate && \  # Exit the LSST conda environment
+  # Install astrometry.net outside of the LSST conda environment
+  conda deactivate && \
   yum install -y epel-release && \
   yum install -y bzip2-devel cfitsio-devel cairo-devel libjpeg-devel libpng-devel \
     libXrender-devel xorg-x11-proto-devel zlib-devel netpbm-devel \
