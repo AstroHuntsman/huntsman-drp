@@ -58,6 +58,10 @@ refcat:
     g_psf:
       upper: 19
 
+vignetting:
+  field_name: "VigTest"
+  location_name: "Siding Spring Observatory"
+
 testing:
   exposure_sequence:
     start_date: "2020-02-04"
