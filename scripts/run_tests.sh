@@ -9,7 +9,9 @@ SESSION_FILE=~/pytest_session.txt
 
 cd ${HUNTSMAN_DRP}/src/huntsman/drp
 
-pytest -x --cov=huntsman.drp --cov-report html:${COVERAGE_REPORT_HTML} \
-  --cov-config=.coveragerc --session2file=${SESSION_FILE}
+pytest -x
+
+#pytest -x --cov=huntsman.drp --cov-report html:${COVERAGE_REPORT_HTML} \
+#  --cov-config=.coveragerc --session2file=${SESSION_FILE}
 
 exit 0
