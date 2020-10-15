@@ -26,14 +26,14 @@ jobs:
     env:
       HUNTSMAN_DRP: ${{ github.workspace }}/huntsman-drp
       OBS_HUNTSMAN: ${{ github.workspace }}/obs_huntsman
-      HUNTSMAN_COVERAGE: ${{ github.workspace }}/coverage
+      COVERAGE_DIR: ${{ github.workspace }}/coverage
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: [3.8]
     steps:
       - name: Make coverage directory
-        run: mkdir ${{ env.HUNTSMAN_COVERAGE }} && chmod -R 777 ${{ env.HUNTSMAN_COVERAGE }}
+        run: mkdir ${{ env.COVERAGE_DIR }} && chmod -R 777 ${{ env.COVERAGE_DIR }}
       - name: Checkout huntsman-drp
         uses: actions/checkout@v2
         with:
@@ -47,8 +47,8 @@ jobs:
         working-directory: ${{ env.HUNTSMAN_DRP }}/docker/testing
         run: docker-compose build
       - name: Test with pytest in huntsman-drp container
-        working-directory: ${{ env.HUNTSMAN_DRP }}/docker/testing
-        run: docker-compose run -e HUNTSMAN_COVERAGE=/opt/lsst/software/stack/coverage -v "${{ env.HUNTSMAN_COVERAGE }}":/opt/lsst/software/stack/coverage python_tests /opt/lsst/software/stack/huntsman-drp/scripts/run_tests.sh
+        working-directory: ${{ env.HUNTSMAN_DRP }}
+        run: scripts/testing/run_cloud_tests.sh
       - name: Upload coverage report to codecov.io
         uses: codecov/codecov-action@v1
         if: success()
