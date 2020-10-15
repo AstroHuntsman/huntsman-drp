@@ -47,9 +47,10 @@ jobs:
       - name: Test with pytest in huntsman-drp container
         working-directory: ${{ env.HUNTSMAN_DRP }}/docker/testing
         # run: docker-compose up --abort-on-container-exit --exit-code-from python_tests
-        run: /opt/lsst/software/stack/huntsman-drp/scripts/run_tests.sh \
+        run: docker-compose run python_tests \
                -e HUNTSMAN_COVERAGE=/opt/lsst/software/stack/coverage \
-               -v ${{ env.HUNTSMAN_COVERAGE }}:/opt/lsst/software/stack/coverage
+               -v ${{ env.HUNTSMAN_COVERAGE }}:/opt/lsst/software/stack/coverage \
+               /opt/lsst/software/stack/huntsman-drp/scripts/run_tests.sh
       - name: Upload coverage report to codecov.io
         uses: codecov/codecov-action@v1
         if: success()
