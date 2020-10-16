@@ -10,9 +10,12 @@ from huntsman.drp.base import HuntsmanBase
 
 class DataTable(HuntsmanBase):
     """ """
+    _required_columns = None
+    _allow_edits = True
 
     def __init__(self, **kwargs):
         HuntsmanBase.__init__(self, **kwargs)
+        self._date_key = self.config["mongodb"]["date_key"]
 
     def _initialise(self, db_name, table_name):
         """
@@ -54,19 +57,8 @@ class DataTable(HuntsmanBase):
             list of dict: Dictionary of query results.
         """
         query_dict = {key: value for key, value in kwargs.items() if value is not None}
-        if (date_start is not None) or (date_end is not None):
-            # TODO - reinstate this code once nifi ingests proper dates
-            """
-            date_dict = {}
-            if date_start is not None:
-                date_dict["$gte"] = parse_date(date_start)
-            if date_end is not None:
-                date_dict["$lt"] = parse_date(date_end)
-            query_dict[self._date_key] = date_dict
-            """
         result = list(self._table.find(query_dict))
-        # Apply date range manually
-        # TODO remove this in favour of the above
+        # TODO remove this in favour of pymongo date handling
         if date_start is not None:
             result = [r for r in result if parse_date(r[self._date_key]) >= parse_date(date_start)]
         if date_end is not None:
@@ -86,22 +78,24 @@ class DataTable(HuntsmanBase):
         query_results = self.query(**kwargs)
         return [q[column_name] for q in query_results]
 
-    def insert_one(self, entry):
+    def insert_one(self, entry, **kwargs):
         """
         Insert a single entry into the table.
 
         Args:
             entry (dict): The document to insert.
         """
+        self._validate_edit(**kwargs)
         self._table.insert_one(entry)
 
-    def insert_many(self, entries):
+    def insert_many(self, entries, **kwargs):
         """
         Insert a single entry into the table.
 
         Args:
             entry (list of dict): The documents to insert.
         """
+        self._validate_edit(**kwargs)
         self._table.insert_many(entries)
 
     def query_latest(self, days=0, hours=0, seconds=0, column_name=None, **kwargs):
@@ -124,7 +118,7 @@ class DataTable(HuntsmanBase):
             return self.query_column(column_name, date_start=date_start, **kwargs)
         return self.query(date_start=date_start, **kwargs)
 
-    def update_document(self, data_id, data):
+    def update_document(self, data_id, data, **kwargs):
         """
         Update the document associated with the data_id.
         Args:
@@ -134,6 +128,8 @@ class DataTable(HuntsmanBase):
         Returns:
             `pymongo.results.UpdateResult`: The result of the update operation.
         """
+        self._validate_edit(**kwargs)
+        self._validate_update()
         result = self._table.update_one(data_id, {'$set': data}, upsert=False)
         if result.matched_count == 0:
             raise ValueError("No matches in database for update.")
@@ -141,19 +137,21 @@ class DataTable(HuntsmanBase):
             raise ValueError("Multiple matches in database for update.")
         return result
 
-
-class RawDataTable(DataTable):
-    """ """
-    _table_key = "raw_data"
-    _date_key = "taiObs"
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-        # Initialise the DB
-        db_name = self.config["mongodb"]["db_name"]
-        table_name = self.config["mongodb"]["tables"][self._table_key]
-        self._initialise(db_name, table_name)
+    def delete_document(self, data_id, **kwargs):
+        """
+        Delete the document associated with the data_id.
+        Args:
+            data_id (dict): Dictionary of key: value pairs identifying the document.
+        Returns:
+            `pymongo.results.UpdateResult`: The result of the delete operation.
+        """
+        self._validate_edit(**kwargs)
+        result = self._table.delete_one(data_id)
+        if result.matched_count == 0:
+            raise ValueError("No matches in database for update.")
+        if result.matched_count > 1:
+            raise ValueError("Multiple matches in database for update.")
+        return result
 
     def update_file_data(self, filename, data):
         """
@@ -167,3 +165,59 @@ class RawDataTable(DataTable):
         """
         data_id = {'filename': filename}
         return self.update_document(data_id, data)
+
+    def delete_file_data(self, filename, **kwargs):
+        """
+        Delete the metadata associated with a file in the database.
+        Args:
+            filename (str): Modify the metadata for this file.
+            data (dict): Dictionary of key: value pairs to update in the database. The field will
+                be created if it does not already exist.
+        Returns:
+            `pymongo.results.UpdateResult`: The result of the delete operation.
+        """
+        data_id = {'filename': filename}
+        return self.delete_document(data_id, **kwargs)
+
+    def _validate_edit(self, bypass_allow_edits=False):
+        if not bypass_allow_edits:
+            if not self._allow_edits:
+                raise PermissionError("Edits are not allowed by-default for this table. If you are"
+                                      "sure you want to do this, use `bypass_allow_edits=True`.")
+
+    def _validate_update(self, metadata):
+        """Make sure the required columns are in the metadata."""
+        if self._required_columns is None:
+            return
+        missing = [k for k in self._required_columns if k not in metadata.keys()]
+        if len(missing) != 0:
+            raise ValueError(f"Missing columns for update: {missing}.")
+
+
+class RawDataTable(DataTable):
+    """ """
+    _table_key = "raw_data"
+    _date_key = "taiObs"
+    _allow_edits = False
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._required_columns = self.config["fits_header"]["required_columns"]
+
+        # Initialise the DB
+        db_name = self.config["mongodb"]["db_name"]
+        table_name = self.config["mongodb"]["tables"][self._table_key]
+        self._initialise(db_name, table_name)
+
+
+class DataQualityTable(DataTable):
+    """ """
+    _table_name = "data_quality"
+    _required_columns = ("filename",)
+    _allow_edits = True
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Initialise the DB
+        db_name = self.config["mongodb"]["db_name"]
+        self._initialise(db_name, self._table_name)
