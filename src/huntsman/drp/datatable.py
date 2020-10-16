@@ -137,7 +137,10 @@ class DataTable(HuntsmanBase):
         Args:
             metadata (dict): The document to insert.
         """
+        del_id_key = "_id" not in metadata.keys()  # pymongo adds _id to metadata automatically
         self._table.insert_one(metadata)
+        if del_id_key:
+            del metadata["_id"]
 
     def insert_many(self, metadata_list, **kwargs):
         """
