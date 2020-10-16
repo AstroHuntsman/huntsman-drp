@@ -12,6 +12,7 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils import parse_date
 from huntsman.drp.datatable import RawDataTable
+from huntsman.drp.quality import is_vignetted
 
 
 class VingettingAnalyser(HuntsmanBase):
@@ -26,16 +27,15 @@ class VingettingAnalyser(HuntsmanBase):
         self._hull = None
         self._get_metadata(**query_kwargs)
 
-    def create_hull(self, tolerance=0.05, plot_filename=None, **kwargs):
+    def create_hull(self, plot_filename=None, **kwargs):
         """
         Create the map of vignetted coordinates.
         """
         # Calculate vignetted fractions
-        vfracs = self._calculate_vignetted_fractions(self._filenames, **kwargs)
-        self._is_vignetted = vfracs >= tolerance
+        self.is_vignetted = self._get_is_vignetted(self._filenames, **kwargs)
         # Create the hull
-        if self._is_vignetted.any():
-            self._hull = ConvexHull(self._coordinates[self._is_vignetted])
+        if self.is_vignetted.any():
+            self._hull = ConvexHull(self._coordinates[self.is_vignetted])
         # Make the plot
         if plot_filename is not None:
             self._make_summary_plot(plot_filename)
@@ -67,7 +67,7 @@ class VingettingAnalyser(HuntsmanBase):
             coordinates[i] = coord_altaz.alt.to_value(u.degree), coord_altaz.az.to_value(u.degree)
         return coordinates
 
-    def _calculate_vignetted_fractions(self, filenames, **kwargs):
+    def _get_is_vignetted(self, filenames, **kwargs):
         """
         Calculate vignetted fractions for files using a process pool.
         """
@@ -76,18 +76,18 @@ class VingettingAnalyser(HuntsmanBase):
             fractions = pool.map(fn, filenames)
         return np.array(fractions)
 
-    def _calculate_vignetted_fraction(self, filename, **kwargs):
+    def _is_vignetted(self, filename, **kwargs):
         """
         Read the data from FITS and calculate the vignetted fraction.
         """
         data = fits.getdata(filename)
-        return calculate_vignetted_fraction(data, **kwargs)
+        return is_vignetted(data, **kwargs)
 
     def _make_summary_plot(self, filename, points):
         """
         """
         fig, ax = plt.subplots()
-        points_vignetted = self._coordinates[self._is_vignetted]
+        points_vignetted = self._coordinates[self.is_vignetted]
         ax.plot(self._coordinates[:, 0], self._coordinates[:, 1], "k+")
         ax.plot(points_vignetted[:, 0], points_vignetted[:, 1], "rx")
         if self._hull is not None:
