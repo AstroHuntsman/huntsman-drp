@@ -44,7 +44,7 @@ class VingettingAnalyser(HuntsmanBase):
         """
         Get a list of filenames for a vignetting sequence.
         """
-        datatable = RawDataTable()
+        datatable = RawDataTable(config=self.config)
         self._metadata = datatable.query(FIELD=self._field_name, date_start=self._date,
                                          date_end=self._date, **kwargs)
         self._filenames = [_["filename"] for _ in self._metadata]
@@ -57,8 +57,8 @@ class VingettingAnalyser(HuntsmanBase):
         coordinates = np.zeros(len(metadata_list), dtype="float")
         for i, metadata in enumerate(metadata_list):
             # Extract info from metadata
-            ra = metadata["RA"] * u.degree
-            dec = metadata["DEC"] * u.degree
+            ra = metadata["RA-MNT"] * u.degree
+            dec = metadata["DEC-MNT"] * u.degree
             obsdate = parse_date(metadata["DATE-OBS"])
             # Transform into Alt/Az
             coord_radec = SkyCoord(ra=ra, dec=dec)
