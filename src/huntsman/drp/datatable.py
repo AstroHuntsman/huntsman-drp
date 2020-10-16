@@ -8,6 +8,24 @@ from huntsman.drp.utils import parse_date
 from huntsman.drp.base import HuntsmanBase
 
 
+def new_document_validation(func):
+    """Wrapper to validate a new document."""
+
+    def wrapper(self, metadata, *args, **kwargs):
+        self._validate_new_document(metadata)
+        return func(self, metadata, *args, **kwargs)
+    return wrapper
+
+
+def permission_validation(func):
+    """Wrapper to check permission to edit DB entries."""
+
+    def wrapper(self, *args, **kwargs):
+        self._validate_edit_permission(**kwargs)
+        return func(self, *args, **kwargs)
+    return wrapper
+
+
 class DataTable(HuntsmanBase):
     """ """
     _required_columns = None
@@ -20,7 +38,6 @@ class DataTable(HuntsmanBase):
     def _initialise(self, db_name, table_name):
         """
         Initialise the datebase.
-
         Args:
             db_name (str): The name of the (mongo) database.
             table_name (str): The name of the table (mongo collection).
@@ -45,10 +62,26 @@ class DataTable(HuntsmanBase):
         self._db = self._client[db_name]
         self._table = self._db[table_name]
 
+    def find(self, data_id, expected_count=None):
+        """
+        Find one or more matches in a table.
+        Args:
+            data_id (dict): The data ID to search for.
+            expected_count (int, optional): The expected number of matches. If given and it does
+                not match the actual number of matches, a `RuntimeError` is raised.
+        Returns:
+            list of dict: The find result.
+        """
+        cursor = self._table.find(data_id)
+        if expected_count is not None:
+            count = cursor.count()
+            if count != expected_count:
+                raise RuntimeError(f"Expected {expected_count} matches but found {count}.")
+        return list(cursor)
+
     def query(self, date_start=None, date_end=None, **kwargs):
         """
         Query the table, optionally with a date range.
-
         Args:
             date_start (optional): The earliest date of returned rows.
             date_end (optional): The latest date of returned rows.
@@ -57,7 +90,7 @@ class DataTable(HuntsmanBase):
             list of dict: Dictionary of query results.
         """
         query_dict = {key: value for key, value in kwargs.items() if value is not None}
-        result = list(self._table.find(query_dict))
+        result = self.find(query_dict)
         # TODO remove this in favour of pymongo date handling
         if date_start is not None:
             result = [r for r in result if parse_date(r[self._date_key]) >= parse_date(date_start)]
@@ -69,7 +102,6 @@ class DataTable(HuntsmanBase):
     def query_column(self, column_name, **kwargs):
         """
         Convenience function to query database and return entries for a specific column.
-
         Args:
             column_name (str): The column name.
         Returns:
@@ -78,30 +110,9 @@ class DataTable(HuntsmanBase):
         query_results = self.query(**kwargs)
         return [q[column_name] for q in query_results]
 
-    def insert_one(self, entry, **kwargs):
-        """
-        Insert a single entry into the table.
-
-        Args:
-            entry (dict): The document to insert.
-        """
-        self._validate_edit(**kwargs)
-        self._table.insert_one(entry)
-
-    def insert_many(self, entries, **kwargs):
-        """
-        Insert a single entry into the table.
-
-        Args:
-            entry (list of dict): The documents to insert.
-        """
-        self._validate_edit(**kwargs)
-        self._table.insert_many(entries)
-
     def query_latest(self, days=0, hours=0, seconds=0, column_name=None, **kwargs):
         """
         Convenience function to query the latest files in the db.
-
         Args:
             days (int): default 0.
             hours (int): default 0.
@@ -118,6 +129,26 @@ class DataTable(HuntsmanBase):
             return self.query_column(column_name, date_start=date_start, **kwargs)
         return self.query(date_start=date_start, **kwargs)
 
+    @permission_validation
+    @new_document_validation
+    def insert_one(self, metadata, **kwargs):
+        """
+        Insert a single entry into the table.
+        Args:
+            metadata (dict): The document to insert.
+        """
+        self._table.insert_one(metadata)
+
+    def insert_many(self, metadata_list, **kwargs):
+        """
+        Insert a single entry into the table.
+        Args:
+            metadata_list (list of dict): The documents to insert.
+        """
+        for metadata in metadata_list:
+            self.insert_one(metadata, **kwargs)
+
+    @permission_validation
     def update_document(self, data_id, data, **kwargs):
         """
         Update the document associated with the data_id.
@@ -128,8 +159,7 @@ class DataTable(HuntsmanBase):
         Returns:
             `pymongo.results.UpdateResult`: The result of the update operation.
         """
-        self._validate_edit(**kwargs)
-        self._validate_update()
+        self.find(data_id, expected_count=1)  # Make sure there is only one match
         result = self._table.update_one(data_id, {'$set': data}, upsert=False)
         if result.matched_count == 0:
             raise ValueError("No matches in database for update.")
@@ -137,6 +167,7 @@ class DataTable(HuntsmanBase):
             raise ValueError("Multiple matches in database for update.")
         return result
 
+    @permission_validation
     def delete_document(self, data_id, **kwargs):
         """
         Delete the document associated with the data_id.
@@ -145,7 +176,7 @@ class DataTable(HuntsmanBase):
         Returns:
             `pymongo.results.UpdateResult`: The result of the delete operation.
         """
-        self._validate_edit(**kwargs)
+        self.find(data_id, expected_count=1)  # Make sure there is only one match
         result = self._table.delete_one(data_id)
         if result.matched_count == 0:
             raise ValueError("No matches in database for update.")
@@ -153,7 +184,7 @@ class DataTable(HuntsmanBase):
             raise ValueError("Multiple matches in database for update.")
         return result
 
-    def update_file_data(self, filename, data):
+    def update_file_data(self, filename, data, **kwargs):
         """
         Update the metadata associated with a file in the database.
         Args:
@@ -164,7 +195,7 @@ class DataTable(HuntsmanBase):
             `pymongo.results.UpdateResult`: The result of the update operation.
         """
         data_id = {'filename': filename}
-        return self.update_document(data_id, data)
+        return self.update_document(data_id, data, **kwargs)
 
     def delete_file_data(self, filename, **kwargs):
         """
@@ -179,23 +210,24 @@ class DataTable(HuntsmanBase):
         data_id = {'filename': filename}
         return self.delete_document(data_id, **kwargs)
 
-    def _validate_edit(self, bypass_allow_edits=False):
-        if not bypass_allow_edits:
-            if not self._allow_edits:
-                raise PermissionError("Edits are not allowed by-default for this table. If you are"
-                                      "sure you want to do this, use `bypass_allow_edits=True`.")
+    def _validate_edit_permission(self, bypass_allow_edits=False, **kwargs):
+        """Raise a PermissionError if not `bypass_allow_edits` or `self._allow_edits`."""
+        if not (bypass_allow_edits or self._allow_edits):
+            raise PermissionError("Edits are not allowed by-default for this table. If you are"
+                                  "sure you want to do this, use `bypass_allow_edits=True`.")
 
-    def _validate_update(self, metadata):
+    def _validate_new_document(self, metadata):
         """Make sure the required columns are in the metadata."""
         if self._required_columns is None:
             return
         missing = [k for k in self._required_columns if k not in metadata.keys()]
         if len(missing) != 0:
             raise ValueError(f"Missing columns for update: {missing}.")
+        self.find(metadata, expected_count=0)
 
 
 class RawDataTable(DataTable):
-    """ """
+    """Table to store metadata for raw data synced via NiFi from Huntsman."""
     _table_key = "raw_data"
     _date_key = "taiObs"
     _allow_edits = False
@@ -203,7 +235,6 @@ class RawDataTable(DataTable):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._required_columns = self.config["fits_header"]["required_columns"]
-
         # Initialise the DB
         db_name = self.config["mongodb"]["db_name"]
         table_name = self.config["mongodb"]["tables"][self._table_key]
@@ -211,7 +242,7 @@ class RawDataTable(DataTable):
 
 
 class DataQualityTable(DataTable):
-    """ """
+    """Table to store data quality metadata."""
     _table_name = "data_quality"
     _required_columns = ("filename",)
     _allow_edits = True

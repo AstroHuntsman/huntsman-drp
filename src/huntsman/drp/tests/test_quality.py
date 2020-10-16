@@ -1,22 +1,41 @@
 import pytest
 
 from huntsman.drp import quality
-from astropy.io import fits
+from huntsman.drp.datatable import DataQualityTable
 
 
 @pytest.fixture(scope="module")
-def data_list(raw_data_table):
+def filename_list(raw_data_table):
     """
     Load a small amount of data to run the tests on.
     """
-    filenames = raw_data_table.query_column("filename", dataType="science")[:2]
-    return [fits.getdata(f) for f in filenames]
+    return raw_data_table.query_column("filename", dataType="science")[:2]
 
 
-def test_get_metadata(data_list, config):
+@pytest.fixture(scope="module")
+def data_quality_table(config):
+    return DataQualityTable(config=config)
+
+
+def test_get_metadata(filename_list, config):
     """
     Placeholder for a more detailed test.
     """
     mds = []
-    for data in data_list:
-        mds.append(quality.get_metadata(data, config=config))
+    for filename in filename_list:
+        mds.append(quality.get_metadata(filename, config=config))
+
+
+def test_data_quality_table(data_list, config, data_quality_table):
+    """
+    """
+    metadata = {}
+    for filename in filename_list:
+        metadata["filename"] = quality.get_metadata(filename, config=config)
+        data_quality_table.insert_one(metadata["filename"])
+    query = data_quality_table.query()
+    for md in query:
+        filename = md["filename"]
+        assert len(md) == len(metadata[filename])
+        for key, value in md.items():
+            assert metadata[key] == value
