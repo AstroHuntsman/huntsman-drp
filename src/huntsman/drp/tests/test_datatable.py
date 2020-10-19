@@ -9,9 +9,9 @@ from huntsman.drp.datatable import RawDataTable
 from pymongo.errors import ServerSelectionTimeoutError
 
 
-def test_mongodb_wrong_host_name(raw_data_table):
+def test_mongodb_wrong_host_name(raw_data_table, config):
     """Test if an error is raised if the mongodb hostname is incorrect."""
-    modified_config = copy.copy(raw_data_table.config)
+    modified_config = copy.deepcopy(config)
     modified_config["mongodb"]["hostname"] = "nonExistantHostName"
     with pytest.raises(ServerSelectionTimeoutError):
         RawDataTable(config=modified_config)
@@ -52,3 +52,48 @@ def test_query_latest(raw_data_table, config, tol=1):
     # This should capture none of the files
     qresult = raw_data_table.query_latest(days=0, hours=0, seconds=0)
     assert len(qresult) == 0
+
+
+def test_update_file_data(raw_data_table):
+    """Test that we can update a document specified by a filename."""
+    data = raw_data_table.query()[0]
+    # Get a filename to use as an identifier
+    filename = data["filename"]
+    # Get a key to update
+    key = [_ for _ in data.keys() if _ not in ["filename", "_id"]][0]
+    old_value = data[key]
+    new_value = "ThisIsAnewValue"
+    assert old_value != new_value  # Let's be sure...
+    # Update the key with the new value
+    update_dict = {key: new_value}
+    raw_data_table.update_file_data(filename=filename, data=update_dict, bypass_allow_edits=True)
+    # Check the values match
+    data_updated = raw_data_table.query()[0]
+    assert data_updated["_id"] == data["_id"]
+    assert data_updated[key] == new_value
+    # Change back to original value
+    update_dict = {key: old_value}
+    raw_data_table.update_file_data(filename=filename, data=update_dict, bypass_allow_edits=True)
+    data_updated = raw_data_table.query()[0]
+    assert data_updated["_id"] == data["_id"]
+    assert data_updated[key] == old_value
+
+
+def test_update_file_data_bad_filename(raw_data_table):
+    """Test that we can update a document specified by a filename."""
+    # Specify the bad filename
+    filenames = raw_data_table.query_column("filename")
+    filename = "ThisIsNotAFilename"
+    assert filename not in filenames
+    update_dict = {"A Key": "A Value"}
+    with pytest.raises(RuntimeError):
+        raw_data_table.update_file_data(filename=filename, data=update_dict,
+                                        bypass_allow_edits=True)
+
+
+def test_update_no_permission(raw_data_table):
+    """ Make sure we can't edit things without permission. """
+    filename = ""
+    update_dict = {}
+    with pytest.raises(PermissionError):
+        raw_data_table.update_file_data(filename=filename, data=update_dict)

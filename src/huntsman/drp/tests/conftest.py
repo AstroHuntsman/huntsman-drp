@@ -1,7 +1,7 @@
 import pytest
 
 from huntsman.drp.base import load_config
-from huntsman.drp.tests.testdata import FakeExposureSequence
+from huntsman.drp.tests.data import FakeExposureSequence
 from huntsman.drp.fitsutil import FitsHeaderTranslator
 from huntsman.drp.datatable import RawDataTable
 from huntsman.drp.refcat import TapReferenceCatalogue
@@ -70,7 +70,7 @@ def raw_data_table(tmp_path_factory, config, fits_header_translator):
         parsed_header = fits_header_translator.parse_header(header)
         parsed_header["filename"] = filename
         # Insert the parsed header into the DB table
-        raw_data_table.insert_one(parsed_header)
+        raw_data_table.insert_one(parsed_header, bypass_allow_edits=True)
 
     # Make sure table has the correct number of rows
     assert len(raw_data_table.query()) == expseq.file_count
