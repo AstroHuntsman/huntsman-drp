@@ -93,7 +93,7 @@ class VignettingAnalyser(HuntsmanBase):
         data = fits.getdata(filename)
         return is_vignetted(data, **kwargs)
 
-    def _make_summary_plot(self, filename, points):
+    def _make_summary_plot(self, filename):
         """
         """
         fig, ax = plt.subplots()
@@ -102,7 +102,7 @@ class VignettingAnalyser(HuntsmanBase):
         ax.plot(points_vignetted[:, 0], points_vignetted[:, 1], "rx")
         if self._hull is not None:
             for simplex in self._hull.simplices:
-                ax.plot(points[simplex, 0], points[simplex, 1], 'b-')
+                ax.plot(points_vignetted[simplex, 0], points_vignetted[simplex, 1], 'b-')
         ax.set_xlabel("Alt [Degrees]")
         ax.set_ylabel("Az [Degrees]")
         plt.savefig(filename, bbox_inches="tight", dpi=150)

@@ -60,7 +60,7 @@ refcat:
       upper: 19
 
 vignetting:
-  field_name: "VigTest"
+  field_name: "Vigtest"
   location_name: "Siding Spring Observatory"
 
 testing:
