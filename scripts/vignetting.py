@@ -10,7 +10,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('date', type=str, help='The date of the vignetting sequence observations.')
     parser.add_argument('--hull_filename', default=None, help='Filename of the hull object.')
-    parser.add_argument('--plot_filename', default="vignetting_plot.py",
+    parser.add_argument('--plot_filename', default="vignetting_plot.png",
                         help='Filename of the summary plot.')
 
     args = parser.parse_args()
