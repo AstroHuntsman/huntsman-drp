@@ -28,7 +28,7 @@ class VignettingAnalyser(HuntsmanBase):
     def __init__(self, date, nproc=8, query_kwargs={}, **kwargs):
         super().__init__(**kwargs)
         self._date_start = parse_date(date)
-        self._date_end = date + timedelta(days=1)
+        self._date_end = self._date_start + timedelta(days=1)
         self._nproc = nproc
         self._field_name = self.config["vignetting"]["field_name"]
         self._location_name = self.config["vignetting"]["location_name"]
