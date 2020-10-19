@@ -71,6 +71,7 @@ class VignettingAnalyser(HuntsmanBase):
             # Extract info from metadata
             ra = metadata["RA-MNT"] * u.degree
             dec = metadata["DEC-MNT"] * u.degree
+            print(ra, dec)
             obsdate = parse_date(metadata["DATE-OBS"])
             # Transform into Alt/Az
             coord_radec = SkyCoord(ra=ra, dec=dec)
