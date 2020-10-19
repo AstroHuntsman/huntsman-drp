@@ -81,10 +81,10 @@ class VignettingAnalyser(HuntsmanBase):
         """
         Calculate vignetted fractions for files using a process pool.
         """
-        fn = partial(self._calculate_vignetted_fraction, **kwargs)
+        fn = partial(self._is_vignetted, **kwargs)
         with Pool(self._nproc) as pool:
-            fractions = pool.map(fn, filenames)
-        return np.array(fractions)
+            is_vignetted = pool.map(fn, filenames)
+        return np.array(is_vignetted)
 
     def _is_vignetted(self, filename, **kwargs):
         """
