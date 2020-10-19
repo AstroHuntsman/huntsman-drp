@@ -91,13 +91,15 @@ class DataTable(HuntsmanBase):
         """
         if query_dict is not None:
             query_dict = {key: value for key, value in query_dict.items() if value is not None}
-        self.logger.debug(f"query_dict: {query_dict}")
         result = self.find(query_dict)
         # TODO remove this in favour of pymongo date handling
         if date_start is not None:
             result = [r for r in result if parse_date(r[self._date_key]) >= parse_date(date_start)]
         if date_end is not None:
             result = [r for r in result if parse_date(r[self._date_key]) < parse_date(date_end)]
+        self.logger.debug(f"date_start: {date_start}")
+        self.logger.debug(f"date_end: {date_end}")
+        self.logger.debug(f"query_dict: {query_dict}")
         self.logger.debug(f"Query returned {len(result)} results.")
         return result
 
