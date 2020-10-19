@@ -64,7 +64,7 @@ class VignettingAnalyser(HuntsmanBase):
         """
         Calculate the alt/az coordinates from the FITS header.
         """
-        coordinates = np.zeros(len(metadata_list), dtype="float")
+        coordinates = np.zeros((len(metadata_list), 2), dtype="float")
         for i, metadata in enumerate(metadata_list):
             # Extract info from metadata
             ra = metadata["RA-MNT"] * u.degree
