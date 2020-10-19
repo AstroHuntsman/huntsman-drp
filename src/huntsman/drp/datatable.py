@@ -91,6 +91,7 @@ class DataTable(HuntsmanBase):
         """
         if query_dict is not None:
             query_dict = {key: value for key, value in query_dict.items() if value is not None}
+        self.logger.debug(f"query_dict: {query_dict}")
         result = self.find(query_dict)
         # TODO remove this in favour of pymongo date handling
         if date_start is not None:

@@ -1,5 +1,6 @@
 from multiprocessing import Pool
 from functools import partial
+from datetime import timedelta
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,7 +27,8 @@ class VignettingAnalyser(HuntsmanBase):
 
     def __init__(self, date, nproc=8, query_kwargs={}, **kwargs):
         super().__init__(**kwargs)
-        self._date = date
+        self._date_start = parse_date(date)
+        self._date_end = date + timedelta(days=1)
         self._nproc = nproc
         self._field_name = self.config["vignetting"]["field_name"]
         self._location_name = self.config["vignetting"]["location_name"]
@@ -55,7 +57,7 @@ class VignettingAnalyser(HuntsmanBase):
             query_dict = {}
         query_dict["field"] = self._field_name
         datatable = RawDataTable(config=self.config)
-        self._metadata = datatable.query(date_start=self._date, date_end=self._date,
+        self._metadata = datatable.query(date_start=self._date_start, date_end=self._date_end,
                                          query_dict=query_dict)
         self._filenames = [_["filename"] for _ in self._metadata]
         self._coordinates = self._translate_altaz(self._metadata)
