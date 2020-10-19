@@ -84,7 +84,7 @@ class VignettingAnalyser(HuntsmanBase):
         fn = partial(self._is_vignetted, **kwargs)
         with Pool(self._nproc) as pool:
             is_vignetted = pool.map(fn, filenames)
-        return np.array(is_vignetted)
+        return np.array(is_vignetted).astype("bool")
 
     def _is_vignetted(self, filename, **kwargs):
         """
