@@ -47,13 +47,16 @@ class VignettingAnalyser(HuntsmanBase):
         if plot_filename is not None:
             self._make_summary_plot(plot_filename)
 
-    def _get_metadata(self, **kwargs):
+    def _get_metadata(self, query_dict=None):
         """
         Get a list of filenames for a vignetting sequence.
         """
+        if query_dict is None:
+            query_dict = {}
+        query_dict["field"] = self._field_name
         datatable = RawDataTable(config=self.config)
-        self._metadata = datatable.query(FIELD=self._field_name, date_start=self._date,
-                                         date_end=self._date, **kwargs)
+        self._metadata = datatable.query(date_start=self._date, date_end=self._date,
+                                         query_dict=query_dict)
         self._filenames = [_["filename"] for _ in self._metadata]
         self._coordinates = self._translate_altaz(self._metadata)
 
