@@ -22,7 +22,7 @@ def is_vignetted(data, threshold=200, tolerance=0.05):
     return (data < threshold).mean() > tolerance
 
 
-class VingettingAnalyser(HuntsmanBase):
+class VignettingAnalyser(HuntsmanBase):
 
     def __init__(self, date, nproc=8, query_kwargs={}, **kwargs):
         super().__init__(**kwargs)
