@@ -17,7 +17,7 @@ def new_document_validation(func):
     return wrapper
 
 
-def permission_validation(func):
+def edit_permission_validation(func):
     """Wrapper to check permission to edit DB entries."""
 
     def wrapper(self, *args, **kwargs):
@@ -64,7 +64,7 @@ class DataTable(HuntsmanBase):
 
     def find(self, data_id, expected_count=None):
         """
-        Find one or more matches in a table.
+        Find metadata for one or more matches in a table.
         Args:
             data_id (dict): The data ID to search for.
             expected_count (int, optional): The expected number of matches. If given and it does
@@ -79,17 +79,18 @@ class DataTable(HuntsmanBase):
                 raise RuntimeError(f"Expected {expected_count} matches but found {count}.")
         return list(cursor)
 
-    def query(self, date_start=None, date_end=None, **kwargs):
+    def query(self, date_start=None, date_end=None, query_dict=None):
         """
         Query the table, optionally with a date range.
         Args:
-            date_start (optional): The earliest date of returned rows.
-            date_end (optional): The latest date of returned rows.
-            **kwargs: Parsed to the query.
+            date_start (date, optional): The earliest date of returned rows.
+            date_end (date, optional): The latest date of returned rows.
+            query_dict (dict, optional): Parsed to the query.
         Returns:
             list of dict: Dictionary of query results.
         """
-        query_dict = {key: value for key, value in kwargs.items() if value is not None}
+        if query_dict is not None:
+            query_dict = {key: value for key, value in query_dict.items() if value is not None}
         result = self.find(query_dict)
         # TODO remove this in favour of pymongo date handling
         if date_start is not None:
@@ -99,18 +100,21 @@ class DataTable(HuntsmanBase):
         self.logger.debug(f"Query returned {len(result)} results.")
         return result
 
-    def query_column(self, column_name, **kwargs):
+    def query_column(self, column_name, date_start=None, date_end=None, query_dict=None):
         """
         Convenience function to query database and return entries for a specific column.
         Args:
             column_name (str): The column name.
+            date_start (date, optional): The earliest date of returned rows.
+            date_end (date, optional): The latest date of returned rows.
+            query_dict (dict, optional): Parsed to the query.
         Returns:
             List: List of column values matching the query.
         """
-        query_results = self.query(**kwargs)
+        query_results = self.query(query_dict=query_dict, date_start=date_start, date_end=date_end)
         return [q[column_name] for q in query_results]
 
-    def query_latest(self, days=0, hours=0, seconds=0, column_name=None, **kwargs):
+    def query_latest(self, days=0, hours=0, seconds=0, column_name=None, query_dict=None):
         """
         Convenience function to query the latest files in the db.
         Args:
@@ -119,17 +123,17 @@ class DataTable(HuntsmanBase):
             seconds (int): default 0.
             column_name (int, optional): If given, call `datatable.query_column` with
                 `column_name` as its first argument.
-            **kwargs: Passed to the query.
+            query_dict (dict, optional): Parsed to the query.
         Returns:
             list: Query result.
         """
         date_now = datetime.utcnow()
         date_start = date_now - timedelta(days=days, hours=hours, seconds=seconds)
         if column_name is not None:
-            return self.query_column(column_name, date_start=date_start, **kwargs)
-        return self.query(date_start=date_start, **kwargs)
+            return self.query_column(column_name, date_start=date_start, query_dict=query_dict)
+        return self.query(date_start=date_start, query_dict=query_dict)
 
-    @permission_validation
+    @edit_permission_validation
     @new_document_validation
     def insert_one(self, metadata, **kwargs):
         """
@@ -147,12 +151,13 @@ class DataTable(HuntsmanBase):
         Insert a single entry into the table.
         Args:
             metadata_list (list of dict): The documents to insert.
+            **kwargs: Parsed to `insert_one`.
         """
         for metadata in metadata_list:
             self.insert_one(metadata, **kwargs)
 
-    @permission_validation
-    def update_document(self, data_id, data, **kwargs):
+    @edit_permission_validation
+    def update_document(self, data_id, metadata, **kwargs):
         """
         Update the document associated with the data_id.
         Args:
@@ -163,14 +168,14 @@ class DataTable(HuntsmanBase):
             `pymongo.results.UpdateResult`: The result of the update operation.
         """
         self.find(data_id, expected_count=1)  # Make sure there is only one match
-        result = self._table.update_one(data_id, {'$set': data}, upsert=False)
+        result = self._table.update_one(data_id, {'$set': metadata}, upsert=False)
         if result.matched_count == 0:
             raise ValueError("No matches in database for update.")
         if result.matched_count > 1:
             raise ValueError("Multiple matches in database for update.")
         return result
 
-    @permission_validation
+    @edit_permission_validation
     def delete_document(self, data_id, **kwargs):
         """
         Delete the document associated with the data_id.

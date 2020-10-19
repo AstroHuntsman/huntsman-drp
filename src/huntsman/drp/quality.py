@@ -7,7 +7,7 @@ from astropy import stats
 METRICS = "clipped_stats", "flipped_asymmetry"
 
 
-def get_metadata(filename, config=None):
+def metadata_from_fits(filename, config=None):
     """
     Return a dictionary of simple image stats for the file.
     Args:
