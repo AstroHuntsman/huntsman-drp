@@ -12,7 +12,14 @@ from astropy.coordinates import EarthLocation, AltAz, SkyCoord
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils import parse_date
 from huntsman.drp.datatable import RawDataTable
-from huntsman.drp.quality import is_vignetted
+
+
+def is_vignetted(data, threshold=200, tolerance=0.05):
+    """
+    Calculate the vignetted fraction by applying a simple threshold. TODO: Automate threshold
+    value.
+    """
+    return (data < threshold).mean() > tolerance
 
 
 class VingettingAnalyser(HuntsmanBase):
