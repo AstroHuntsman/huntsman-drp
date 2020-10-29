@@ -106,11 +106,11 @@ class DataTable(HuntsmanBase):
         parsed_dates = [parse_date(d) for d in df[self._date_key].values]
         criteria = {}
         if date is not None:
-            criteria["equals"] = date
+            criteria["equals"] = parse_date(date)
         if date_start is not None:
-            criteria["minumum"] = date_start
+            criteria["minumum"] = parse_date(date_start)
         if date_end is not None:
-            criteria["maximum"] = date_end
+            criteria["maximum"] = parse_date(date_end)
         keep = satisfies_criteria(parsed_dates, criteria, logger=self.logger, name=self._date_key)
         df = df[keep].reset_index(drop=True)
 

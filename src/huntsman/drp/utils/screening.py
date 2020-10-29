@@ -29,7 +29,7 @@ def satisfies_criteria(data, criteria, logger=None, name="property"):
         logger.debug(f"Applying equals opterator to {name} with value {value}.")
         satisfies = np.logical_and(satisfies, data == value)
     with suppress(KeyError):
-        value = criteria["equals"]
+        value = criteria["not_equals"]
         logger.debug(f"Applying not-equals opterator to {name} with value {value}.")
         satisfies = np.logical_and(satisfies, data != value)
     logger.debug(f"{satisfies.sum()} of {satisfies.size} values satisfy criteria for {name}.")
