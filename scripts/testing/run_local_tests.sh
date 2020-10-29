@@ -11,7 +11,7 @@ function cleanup {
   docker-compose -f ${COMPOSE_FILE} down
 }
 
-mkdir -p ${COVERAGE_DIR}
+mkdir -p ${HUNTSMAN_DRP_COVDIR} && chmod -R 777 ${HUNTSMAN_DRP_COVDIR}
 
 trap cleanup EXIT
 docker-compose -f ${COMPOSE_FILE} run --rm \
