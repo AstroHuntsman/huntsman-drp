@@ -113,7 +113,7 @@ class DataTable(HuntsmanBase):
             if date_end is not None:
                 criteria["maximum"] = parse_date(date_end)
             keep = satisfies_criteria(parsed_dates, criteria, logger=self.logger,
-                                      name=self._date_key)
+                                      metric_name=self._date_key)
             df = df[keep].reset_index(drop=True)
 
         self.logger.debug(f"Query returned {df.shape[0]} results.")
@@ -289,16 +289,18 @@ class RawDataTable(DataTable):
         table_name = self.config["mongodb"]["tables"][self._table_key]
         self._initialise(db_name, table_name)
 
-    def screen_query_result(self, query_result):
+    def screen_query_result(self, query_result, screen_config=None):
         """
         Apply data quality screening to the query result, returning only the results that match
         the selecton criteria given in the config.
         Args:
             query_result (pd.DataFrame): The query result to screen.
+            screen_config (dict, optional): The config dict for the screening. If none, will get
+                from config file.
         Returns:
             pd.DataFrame: The screened query result.
         """
-        screen_config = self.config["screening"]
+        screen_config = self.config["screening"] if screen_config is None else screen_config
         to_keep = np.ones(query_result.shape[0], dtype="bool")  # True if we will keep the row
 
         # Apply quality criteria specific to data types
@@ -330,7 +332,7 @@ class RawDataTable(DataTable):
                 metric_data = df_match[metric_name].values
                 # Check if rows satisfy criteria
                 meets_criteria = satisfies_criteria(metric_data, criteria, logger=self.logger,
-                                                    name=metric_name)
+                                                    metric_name=metric_name)
                 # Update array of which rows to keep
                 to_keep[query_of_type] = np.logical_and(to_keep[query_of_type], meets_criteria)
 
