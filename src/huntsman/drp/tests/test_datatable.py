@@ -104,29 +104,29 @@ def test_screening(raw_data_table, raw_quality_table, config):
     # Get some files
     query_dict = {"dataType": "science"}
     df = raw_data_table.query(query_dict=query_dict)[:3]
-    assert df.shape[0] == 2
+    assert df.shape[0] == 3
     # Make up some metadata
-    raw_quality_table.insert_one(data_id=df.iloc[0], metadata={"test_metric": 0})
-    raw_quality_table.insert_one(data_id=df.iloc[1], metadata={"test_metric": 1})
-    raw_quality_table.insert_one(data_id=df.iloc[2], metadata={"test_metric": 2})
+    raw_quality_table.insert_one(metadata={"test_metric": 0, "filename": df.iloc[0]["filename"]})
+    raw_quality_table.insert_one(metadata={"test_metric": 1, "filename": df.iloc[1]["filename"]})
+    raw_quality_table.insert_one(metadata={"test_metric": 2, "filename": df.iloc[2]["filename"]})
     # Ensure data table screens for this metric
     screen_dict = {"test_metric": {"minumum": -1, "maximum": 3}}
-    raw_quality_table.config["screening"]["science"].update(screen_dict)
-    cond = raw_quality_table.screen_query_result(query_dict)
+    raw_data_table.config["screening"]["science"].update(screen_dict)
+    cond = raw_data_table.screen_query_result(query_dict)
     assert cond.sum() == 3
     screen_dict = {"test_metric": {"minumum": 1, "maximum": 3}}
-    raw_quality_table.config["screening"]["science"]["metrics"].update(screen_dict)
-    cond = raw_quality_table.screen_query_result(query_dict)
+    raw_data_table.config["screening"]["science"]["metrics"].update(screen_dict)
+    cond = raw_data_table.screen_query_result(query_dict)
     assert cond.sum() == 2
     screen_dict = {"test_metric": {"minumum": 1, "maximum": 2}}
-    raw_quality_table.config["screening"]["science"]["metrics"].update(screen_dict)
-    cond = raw_quality_table.screen_query_result(query_dict)
+    raw_data_table.config["screening"]["science"]["metrics"].update(screen_dict)
+    cond = raw_data_table.screen_query_result(query_dict)
     assert cond.sum() == 1
     screen_dict = {"test_metric": {"equals": 1}}
-    raw_quality_table.config["screening"]["science"]["metrics"].update(screen_dict)
-    cond = raw_quality_table.screen_query_result(query_dict)
+    raw_data_table.config["screening"]["science"]["metrics"].update(screen_dict)
+    cond = raw_data_table.screen_query_result(query_dict)
     assert cond.sum() == 1
     screen_dict = {"test_metric": {"not_equals": 1}}
-    raw_quality_table.config["screening"]["science"]["metrics"].update(screen_dict)
-    cond = raw_quality_table.screen_query_result(query_dict)
+    raw_data_table.config["screening"]["science"]["metrics"].update(screen_dict)
+    cond = raw_data_table.screen_query_result(query_dict)
     assert cond.sum() == 2
