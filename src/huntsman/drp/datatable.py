@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from huntsman.drp.utils.date import parse_date
+from huntsman.drp.utils.mongo import encode_metadata
 from huntsman.drp.utils.screening import satisfies_criteria
 from huntsman.drp.utils.library import load_module
 from huntsman.drp.base import HuntsmanBase
@@ -62,7 +63,6 @@ class DataTable(HuntsmanBase):
         except ServerSelectionTimeoutError as err:
             self.logger.error(f"Unable to connect to mongodb at {hostname}:{port}.")
             raise err
-
         self._db = self._client[db_name]
         self._table = self._db[table_name]
 
@@ -103,16 +103,18 @@ class DataTable(HuntsmanBase):
 
         # Apply date selection using parse_date
         # TODO remove this in favour of pymongo date handling
-        parsed_dates = [parse_date(d) for d in df[self._date_key].values]
-        criteria = {}
-        if date is not None:
-            criteria["equals"] = parse_date(date)
-        if date_start is not None:
-            criteria["minumum"] = parse_date(date_start)
-        if date_end is not None:
-            criteria["maximum"] = parse_date(date_end)
-        keep = satisfies_criteria(parsed_dates, criteria, logger=self.logger, name=self._date_key)
-        df = df[keep].reset_index(drop=True)
+        if self._date_key in df.columns:
+            parsed_dates = [parse_date(d) for d in df[self._date_key].values]
+            criteria = {}
+            if date is not None:
+                criteria["equals"] = parse_date(date)
+            if date_start is not None:
+                criteria["minimum"] = parse_date(date_start)
+            if date_end is not None:
+                criteria["maximum"] = parse_date(date_end)
+            keep = satisfies_criteria(parsed_dates, criteria, logger=self.logger,
+                                      name=self._date_key)
+            df = df[keep].reset_index(drop=True)
 
         self.logger.debug(f"Query returned {df.shape[0]} results.")
         return df
@@ -206,11 +208,11 @@ class DataTable(HuntsmanBase):
             `pymongo.results.UpdateResult`: The result of the update operation.
         """
         self.find(data_id, expected_count=1)  # Make sure there is only one match
+        # Since we are using pymongo we will have to do some parsing
+        metadata = encode_metadata(metadata)
         result = self._table.update_one(data_id, {'$set': metadata}, upsert=False)
-        if result.matched_count == 0:
-            raise ValueError("No matches in database for update.")
-        if result.matched_count > 1:
-            raise ValueError("Multiple matches in database for update.")
+        if result.matched_count != 1:
+            raise RuntimeError(f"Unexpected number of documents updated: {result.deleted_count}.")
         return result
 
     @edit_permission_validation
@@ -224,10 +226,8 @@ class DataTable(HuntsmanBase):
         """
         self.find(data_id, expected_count=1)  # Make sure there is only one match
         result = self._table.delete_one(data_id)
-        if result.matched_count == 0:
-            raise ValueError("No matches in database for update.")
-        if result.matched_count > 1:
-            raise ValueError("Multiple matches in database for update.")
+        if result.deleted_count != 1:
+            raise RuntimeError(f"Unexpected number of documents deleted: {result.deleted_count}.")
         return result
 
     def update_file_data(self, filename, data, **kwargs):
@@ -256,7 +256,7 @@ class DataTable(HuntsmanBase):
         data_id = {'filename': filename}
         return self.delete_document(data_id, **kwargs)
 
-    def screen_query_results(self, query_result):  # This should be implemented in the subclasses
+    def screen_query_result(self, query_result):  # This should be implemented in the subclasses
         raise NotImplementedError
 
     def _validate_edit_permission(self, bypass_allow_edits=False, **kwargs):
@@ -289,7 +289,7 @@ class RawDataTable(DataTable):
         table_name = self.config["mongodb"]["tables"][self._table_key]
         self._initialise(db_name, table_name)
 
-    def screen_query_results(self, query_result):
+    def screen_query_result(self, query_result):
         """
         Apply data quality screening to the query result, returning only the results that match
         the selecton criteria given in the config.

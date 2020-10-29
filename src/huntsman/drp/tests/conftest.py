@@ -3,7 +3,7 @@ import pytest
 from huntsman.drp.core import get_config
 from huntsman.drp.tests.data import FakeExposureSequence
 from huntsman.drp.fitsutil import FitsHeaderTranslator
-from huntsman.drp.datatable import RawDataTable
+from huntsman.drp.datatable import RawDataTable, RawQualityTable
 from huntsman.drp.refcat import TapReferenceCatalogue
 from huntsman.drp.butler import ButlerRepository, TemporaryButlerRepository
 
@@ -75,3 +75,11 @@ def raw_data_table(tmp_path_factory, config, fits_header_translator):
     # Make sure table has the correct number of rows
     assert len(raw_data_table.query()) == expseq.file_count
     return raw_data_table
+
+
+@pytest.fixture(scope="function")
+def raw_quality_table(config):
+    table = RawQualityTable(config=config)
+    yield table
+    for filename in table.query_column("filename"):
+        table.delete_document({"filename": filename}, bypass_allow_edits=True)
