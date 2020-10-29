@@ -77,9 +77,10 @@ class DataTable(HuntsmanBase):
             list of dict: The find result.
         """
         cursor = self._table.find(data_id)
-        df = pd.DataFramelist(list(cursor))
-        if df.shape[0] != expected_count:
-            raise RuntimeError(f"Expected {expected_count} matches but found {df.shape[0]}.")
+        df = pd.DataFrame(list(cursor))
+        if expected_count is not None:
+            if df.shape[0] != expected_count:
+                raise RuntimeError(f"Expected {expected_count} matches but found {df.shape[0]}.")
         return df
 
     def query(self, date=None, date_start=None, date_end=None, query_dict=None,
@@ -102,7 +103,7 @@ class DataTable(HuntsmanBase):
 
         # Apply date selection using parse_date
         # TODO remove this in favour of pymongo date handling
-        parsed_dates = [parse_date(df.iloc[_][self._date_key]) for _ in range(df.shape[0])]
+        parsed_dates = [parse_date(d) for d in df[self._date_key].values]
         criteria = {}
         if date is not None:
             criteria["equals"] = date
@@ -127,8 +128,8 @@ class DataTable(HuntsmanBase):
         Returns:
             List: List of column values matching the query.
         """
-        query_results = self.query(query_dict=query_dict, date_start=date_start, date_end=date_end)
-        return [q[column_name] for q in query_results]
+        df = self.query(query_dict=query_dict, date_start=date_start, date_end=date_end)
+        return df[column_name].values
 
     def query_latest(self, days=0, hours=0, seconds=0, column_name=None, query_dict=None):
         """

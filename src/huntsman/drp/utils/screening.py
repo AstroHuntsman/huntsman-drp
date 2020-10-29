@@ -15,13 +15,13 @@ def satisfies_criteria(data, criteria, logger=None, name="property"):
     """
     logger = get_logger if logger is None else logger
     data = np.array(data)  # Make sure data is an array
-    satisfies = np.ones_like(data, type="bool")
+    satisfies = np.ones_like(data, dtype="bool")
     with suppress(KeyError):
         value = criteria["minimum"]
         logger.debug(f"Applying lower threshold in {name} of {value}.")
         satisfies = np.logical_and(satisfies, data >= value)
     with suppress(KeyError):
-        value = criteria["maxmimum"]
+        value = criteria["maximum"]
         logger.debug(f"Applying upper threshold in {name} of {value}.")
         satisfies = np.logical_and(satisfies, data < value)
     with suppress(KeyError):

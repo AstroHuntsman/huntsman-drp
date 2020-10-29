@@ -1,7 +1,7 @@
 import pytest
 
 from huntsman.drp import quality
-from huntsman.drp.datatable import DataQualityTable
+from huntsman.drp.datatable import RawQualityTable
 
 
 @pytest.fixture(scope="module")
@@ -15,7 +15,7 @@ def filename_list(raw_data_table):
 
 @pytest.fixture(scope="module")
 def data_quality_table(config):
-    return DataQualityTable(config=config)
+    return RawQualityTable(config=config)
 
 
 def test_metadata_from_fits(filename_list, config):

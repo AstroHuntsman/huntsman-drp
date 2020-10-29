@@ -1,6 +1,6 @@
 import pytest
 
-from huntsman.drp.base import load_config
+from huntsman.drp.core import get_config
 from huntsman.drp.tests.data import FakeExposureSequence
 from huntsman.drp.fitsutil import FitsHeaderTranslator
 from huntsman.drp.datatable import RawDataTable
@@ -13,7 +13,7 @@ from huntsman.drp.butler import ButlerRepository, TemporaryButlerRepository
 
 @pytest.fixture(scope="session")
 def config():
-    return load_config(ignore_local=True)
+    return get_config(ignore_local=True)
 
 # ===========================================================================
 # Reference catalogue
