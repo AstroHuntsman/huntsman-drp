@@ -2,7 +2,7 @@ import pytest
 import copy
 from datetime import timedelta
 
-from huntsman.drp.utils import current_date, parse_date
+from huntsman.drp.utils.date import current_date, parse_date
 from huntsman.drp.fitsutil import read_fits_header
 from huntsman.drp.datatable import RawDataTable
 
