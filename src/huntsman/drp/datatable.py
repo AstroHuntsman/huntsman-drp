@@ -162,11 +162,11 @@ class DataTable(HuntsmanBase):
         Returns:
             pd.DataFrame: The matched query result.
         """
-        query = self.query(**kwargs)
+        df_query = self.query(**kwargs)
         # Use the matching key as the DataFrame index
-        query.set_index(match_key)
+        df_query.set_index(match_key, inplace=True)
         # Return the matched DataFrame.
-        df_matched = pd.DataFrame([query.loc[v] for v in values])
+        df_matched = pd.DataFrame([df_query.loc[v] for v in values])
         df_matched[match_key] = values
         if one_to_one:
             if df_matched.shape[0] != len(values):
@@ -304,9 +304,15 @@ class RawDataTable(DataTable):
         # Apply quality criteria specific to data types
         data_types = query_result["dataType"].values
         for data_type in set(data_types):
+
+            # Skip if unknown data type
             if data_type not in screen_config.keys():
                 self.logger.warn(f"Data type {data_type} not in quality screening config and will"
                                  " be retained in query result.")
+                continue
+            # Skip if no metrics
+            if screen_config[data_type].get("metrics", None) is None:
+                self.logger.warn(f"No screening metrics found for dataType={data_type}.")
                 continue
 
             # Select row subset that have the correct dataType
@@ -329,7 +335,7 @@ class RawDataTable(DataTable):
                 to_keep[query_of_type] = np.logical_and(to_keep[query_of_type], meets_criteria)
 
         # Return an updated dataframe with only the selected rows
-        return screen_config[to_keep].reset_index(drop=True)
+        return query_result[to_keep].reset_index(drop=True)
 
 
 class RawQualityTable(DataTable):
