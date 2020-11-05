@@ -1,4 +1,5 @@
 """Code to interface with the Huntsman database."""
+from contextlib import suppress
 from datetime import datetime, timedelta
 from urllib.parse import quote_plus
 from pymongo import MongoClient
@@ -76,6 +77,8 @@ class DataTable(HuntsmanBase):
         Returns:
             list of dict: The find result.
         """
+        if data_id is not None:
+            data_id = encode_metadata(data_id)
         cursor = self._table.find(data_id)
         df = pd.DataFrame(list(cursor))
         if expected_count is not None:
@@ -224,6 +227,11 @@ class DataTable(HuntsmanBase):
         Returns:
             `pymongo.results.UpdateResult`: The result of the delete operation.
         """
+        with suppress(AttributeError):
+            data_id = data_id.to_dict()
+        if data_id is not None:
+            data_id = encode_metadata(data_id)
+        self.logger.debug(f"{data_id}")
         self.find(data_id, expected_count=1)  # Make sure there is only one match
         result = self._table.delete_one(data_id)
         if result.deleted_count != 1:
@@ -364,7 +372,3 @@ class MasterCalibTable(DataTable):
         # Initialise the DB
         db_name = self.config["mongodb"]["db_name"]
         self._initialise(db_name, self._table_name)
-
-    def _validate_new_document(self, metadata):
-        """ Ensure the new document metadata meets minimum requirements for datatype. """
-        pass

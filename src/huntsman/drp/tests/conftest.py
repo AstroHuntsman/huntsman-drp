@@ -74,7 +74,12 @@ def raw_data_table(tmp_path_factory, config, fits_header_translator):
 
     # Make sure table has the correct number of rows
     assert len(raw_data_table.query()) == expseq.file_count
-    return raw_data_table
+    yield raw_data_table
+
+    # Remove the metadata from the DB ready for other tests
+    all_metadata = raw_data_table.query()
+    for i in range(all_metadata.shape[0]):
+        raw_data_table.delete_document(all_metadata.iloc[i], bypass_allow_edits=True)
 
 
 @pytest.fixture(scope="function")

@@ -12,7 +12,7 @@ import huntsman.drp.lsst_tasks as lsst
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.datatable import MasterCalibTable
 from huntsman.drp.utils.date import date_to_ymd
-from huntsman.drp.utils.bulter import get_files_of_type
+from huntsman.drp.utils.butler import get_files_of_type
 
 
 class ButlerRepository(HuntsmanBase):
@@ -90,7 +90,7 @@ class ButlerRepository(HuntsmanBase):
             self.make_master_biases(calib_date, rerun, **kwargs)
         self.make_master_flats(calib_date, rerun, **kwargs)
 
-    def make_master_biases(self, calib_date, rerun, nodes=1, procs=1, ingest=True, persist=False):
+    def make_master_biases(self, calib_date, rerun, nodes=1, procs=1, ingest=True):
         """
 
         """
@@ -148,32 +148,40 @@ class ButlerRepository(HuntsmanBase):
             self.ingest_master_flats(calib_date, rerun=rerun)
 
     def ingest_master_biases(self, calib_date, rerun, validity=1000):
-        """ """
+        """ Ingest the master biases into the butler repository.
+        Args:
+            calib_date (date): The date to associate with the calib.
+            rerun (str): The rerun name.
+            validity (int, optional): How many days the calibs remain valid for. Default 1000.
+        """
+        self.logger.debug(f"Ingesting master biases for calib date: {calib_date}.")
         lsst.ingest_master_biases(calib_date, self.butler_directory, self.calib_directory, rerun,
                                   validity=validity)
 
     def ingest_master_flats(self, calib_date, rerun, validity=1000):
-        """ """
+        """ Ingest the master flats into the butler repository.
+        Args:
+            calib_date (date): The date to associate with the calib.
+            rerun (str): The rerun name.
+            validity (int, optional): How many days the calibs remain valid for. Default 1000.
+        """
+        self.logger.debug(f"Ingesting master flats for calib date: {calib_date}.")
         lsst.ingest_master_flats(calib_date, self.butler_directory, self.calib_directory, rerun,
                                  validity=validity)
 
-    def persist_master_calibs(self):
+    def archive_master_calibs(self):
         """ Copy the master calibs from this Butler repository into the calib archive directory
         and insert the metadata into the master calib metadatabase.
         """
-        calib_archive_dir = self.config["directories"]["archive"]["calibs"]
+        calib_archive_dir = self.config["directories"]["archive"]["master_calibs"]
         calib_datatable = MasterCalibTable(config=self.config, logger=self.logger)
 
         for calib_type in ("flat", "bias"):
             # Retrieve filenames and dataIds for all files of this type
-            data_ids, filenames = get_files_of_type(f"calibration.{calib_type}",
+            data_ids, filenames = get_files_of_type(f"calibrations.{calib_type}",
                                                     directory=self.calib_directory,
                                                     policy=self._policy)
-            for data_id, filename in zip(data_ids, filenames):
-                # Get the full set of metadata for the file
-                metadata_keys = list(self.butler.getKeys(calib_type).keys())
-                metadata = self.butler.queryMetadata(calib_type, format=metadata_keys,
-                                                     dataId=data_id)
+            for metadata, filename in zip(data_ids, filenames):
                 # Create the filename for the archived copy
                 archived_filename = os.path.join(calib_archive_dir,
                                                  os.path.relpath(filename, self.calib_directory))
@@ -184,6 +192,7 @@ class ButlerRepository(HuntsmanBase):
 
                 # Insert the metadata into the calib database
                 metadata["filename"] = archived_filename
+                metadata["datasetType"] = calib_type
                 calib_datatable.insert_one(metadata)
 
     def make_calexps(self, filter_name, rerun):
