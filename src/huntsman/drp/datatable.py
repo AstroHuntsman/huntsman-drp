@@ -341,7 +341,7 @@ class RawDataTable(DataTable):
 
 
 class RawQualityTable(DataTable):
-    """Table to store data quality metadata for raw data."""
+    """ Table to store data quality metadata for raw data. """
     _table_name = "raw_quality"
     _required_columns = ("filename",)
     _allow_edits = True
@@ -351,3 +351,20 @@ class RawQualityTable(DataTable):
         # Initialise the DB
         db_name = self.config["mongodb"]["db_name"]
         self._initialise(db_name, self._table_name)
+
+
+class MasterCalibTable(DataTable):
+    """ Table to store metadata for master calibs. """
+    _table_name = "master_calib"
+    _required_columns = ("filename", "calibDate")
+    _allow_edits = True
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Initialise the DB
+        db_name = self.config["mongodb"]["db_name"]
+        self._initialise(db_name, self._table_name)
+
+    def _validate_new_document(self, metadata):
+        """ Ensure the new document metadata meets minimum requirements for datatype. """
+        pass

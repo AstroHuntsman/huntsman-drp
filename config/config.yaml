@@ -89,3 +89,6 @@ screening:
   science:
     table: huntsman.drp.datatable.RawQualityTable
     key: filename
+
+lsst:
+  policy_filename: ${OBS_HUNTSMAN}/policy/HuntsmanMapper.yaml

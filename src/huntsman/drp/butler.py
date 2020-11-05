@@ -1,25 +1,35 @@
 import os
+import shutil
 from contextlib import suppress
 from collections import defaultdict
 from tempfile import TemporaryDirectory
-
 import sqlite3
+
 import lsst.daf.persistence as dafPersist
+from lsst.daf.persistence.policy import Policy
 
 import huntsman.drp.lsst_tasks as lsst
 from huntsman.drp.base import HuntsmanBase
+from huntsman.drp.datatable import MasterCalibTable
 from huntsman.drp.utils.date import date_to_ymd
+from huntsman.drp.utils.bulter import get_files_of_type
 
 
 class ButlerRepository(HuntsmanBase):
     _mapper = "lsst.obs.huntsman.HuntsmanMapper"
+    _policy_filename = Policy.defaultPolicyFile("obs_huntsman", "HuntsmanMapper.yaml",
+                                                relativePath="policy")
 
     def __init__(self, directory, calib_directory=None, initialise=True, **kwargs):
         super().__init__(**kwargs)
+        # Specify directories
         self.butler_directory = directory
         if (calib_directory is None) and (directory is not None):
             calib_directory = os.path.join(directory, "CALIB")
         self._calib_directory = calib_directory
+        # Load the policy file
+        self._policy = Policy(self._policy_filename)
+        # Initialise the bulter repository
         self.butler = None
         if initialise:
             self._initialise()
@@ -33,6 +43,16 @@ class ButlerRepository(HuntsmanBase):
     @property
     def calib_directory(self):
         return self._calib_directory
+
+    def get_filename(self, data_type, data_id):
+        """ Get the filename for a data ID of data type.
+        Args:
+            data_type (str): The data type (raw, flat, bias etc.).
+            data_id (dict): The data ID that uniquely specifies a file.
+        Returns:
+            str: The filename.
+        """
+        return self.butler.get(f"{data_type}_filename", data_id)
 
     def ingest_raw_data(self, filenames, **kwargs):
         """
@@ -70,7 +90,7 @@ class ButlerRepository(HuntsmanBase):
             self.make_master_biases(calib_date, rerun, **kwargs)
         self.make_master_flats(calib_date, rerun, **kwargs)
 
-    def make_master_biases(self, calib_date, rerun, nodes=1, procs=1, ingest=True):
+    def make_master_biases(self, calib_date, rerun, nodes=1, procs=1, ingest=True, persist=False):
         """
 
         """
@@ -136,6 +156,37 @@ class ButlerRepository(HuntsmanBase):
         """ """
         lsst.ingest_master_flats(calib_date, self.butler_directory, self.calib_directory, rerun,
                                  validity=validity)
+
+    def persist_master_calibs(self):
+        """ Copy the master calibs from this Butler repository into the calib archive directory
+        and insert the metadata into the master calib metadatabase.
+        """
+        calib_archive_dir = self.config["directories"]["archive"]["calibs"]
+        calib_datatable = MasterCalibTable(config=self.config, logger=self.logger)
+
+        for calib_type in ("flat", "bias"):
+            # Retrieve filenames and dataIds for all files of this type
+            data_ids, filenames = get_files_of_type(f"calibration.{calib_type}",
+                                                    directory=self.calib_directory,
+                                                    policy=self._policy)
+            for data_id, filename in zip(data_ids, filenames):
+                # Get the full set of metadata for the file
+                metadata_keys = list(self.butler.getKeys(calib_type).values())
+                metadata = self.butler.queryMetadata(calib_type, format=metadata_keys,
+                                                     dataId=data_id)
+                # Create the filename for the archived copy
+                archived_filename = os.path.join(calib_archive_dir,
+                                                 os.path.relpath(filename, self.calib_directory))
+                # Insert the filename into the metadata
+                metadata["filename"] = archived_filename
+
+                # Copy the file into the calib archive
+                self.logger.debug(f"Copying {filename} to {archived_filename}.")
+                os.makedirs(os.path.dirname(archived_filename), exist_ok=True)
+                shutil.copy(filename, archived_filename)
+
+                # Insert the metadata into the calib database
+                calib_datatable.insert_one(metadata)
 
     def make_calexps(self, filter_name, rerun):
         """Make calibrated science exposures (calexps) by running `processCcd.py`.
