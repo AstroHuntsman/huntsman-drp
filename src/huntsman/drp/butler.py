@@ -171,21 +171,19 @@ class ButlerRepository(HuntsmanBase):
                                                     policy=self._policy)
             for data_id, filename in zip(data_ids, filenames):
                 # Get the full set of metadata for the file
-                metadata_keys = list(self.butler.getKeys(calib_type).values())
+                metadata_keys = list(self.butler.getKeys(calib_type).keys())
                 metadata = self.butler.queryMetadata(calib_type, format=metadata_keys,
                                                      dataId=data_id)
                 # Create the filename for the archived copy
                 archived_filename = os.path.join(calib_archive_dir,
                                                  os.path.relpath(filename, self.calib_directory))
-                # Insert the filename into the metadata
-                metadata["filename"] = archived_filename
-
                 # Copy the file into the calib archive
                 self.logger.debug(f"Copying {filename} to {archived_filename}.")
                 os.makedirs(os.path.dirname(archived_filename), exist_ok=True)
                 shutil.copy(filename, archived_filename)
 
                 # Insert the metadata into the calib database
+                metadata["filename"] = archived_filename
                 calib_datatable.insert_one(metadata)
 
     def make_calexps(self, filter_name, rerun):

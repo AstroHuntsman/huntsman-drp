@@ -1,3 +1,7 @@
+directories:
+  archive:
+    master_calibs: ${LSST_HOME}/huntsman-archive/calibs
+
 fits_header:
   mappings:
     expTime: "EXPTIME"
@@ -89,6 +93,3 @@ screening:
   science:
     table: huntsman.drp.datatable.RawQualityTable
     key: filename
-
-lsst:
-  policy_filename: ${OBS_HUNTSMAN}/policy/HuntsmanMapper.yaml
