@@ -13,7 +13,6 @@ from huntsman.drp.datatable import RawDataTable
 
 
 class RegularCalibMaker():
-    _calib_types = "flat", "bias"
 
     def __init__(self, sleep_interval=86400, day_range=1000, nproc=1):
         self.logger = get_logger()
@@ -22,15 +21,17 @@ class RegularCalibMaker():
         self.day_range = day_range
         self.datatable = RawDataTable(config=self.config, logger=self.logger)
         self._nproc = nproc
+        self._calib_types = self.config["calibs"]["types"]
 
     def run(self):
+        """ Periodically create a new set of master calibs. """
         with Pool(self._nproc) as pool:
             while True:
-                pool.apply_async(self._enqueue_next)
+                pool.apply_async(self._run_next)
                 time.sleep(self.sleep_interval)
 
-    def _enqueue_next(self):
-
+    def _run_next(self):
+        """ Run the next set of calibs. """
         # Get latest files
         df = self.datatable.query_latest(days=self.day_range)
         is_calib = np.zeros(df.shape[0], dtype="bool")
@@ -48,4 +49,9 @@ class RegularCalibMaker():
 
 if __name__ == "__main__":
 
-    RegularCalibMaker().run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sleep_interval", type=int, default=86400)
+    parser.add_argument("--day_range", type=int, default=1000)
+    args = parser.parse_args()
+
+    RegularCalibMaker(sleep_interval=args.sleep_interval, day_range=args.day_range).run()
