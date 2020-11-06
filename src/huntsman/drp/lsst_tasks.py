@@ -106,7 +106,8 @@ def make_master_calibs(datasetType, data_ids, calib_date, butler_repository, rer
     data_ids = copy.deepcopy(data_ids)
     for data_id in data_ids:
         # Fill required missing keys
-        data_id.update(fill_calib_keys(data_id, datasetType, butler=butler_repository.butler))
+        data_id.update(fill_calib_keys(data_id, datasetType, butler=butler_repository.butler,
+                                       keys_ignore=["calibDate"]))
         # Add the calib date to the dataId
         data_id["calibDate"] = calib_date
 
