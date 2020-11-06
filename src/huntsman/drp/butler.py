@@ -7,10 +7,10 @@ import sqlite3
 import lsst.daf.persistence as dafPersist
 from lsst.daf.persistence.policy import Policy
 
-import huntsman.drp.lsst_tasks as lsst
 from huntsman.drp.base import HuntsmanBase
+import huntsman.drp.lsst_tasks as lsst
 from huntsman.drp.datatable import MasterCalibTable
-from huntsman.drp.utils.date import date_to_ymd
+from huntsman.drp.utils.date import date_to_ymd, current_date
 from huntsman.drp.utils.butler import get_files_of_type
 
 
@@ -81,29 +81,34 @@ class ButlerRepository(HuntsmanBase):
         self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} files.")
         lsst.ingest_reference_catalogue(self.butler_directory, filenames)
 
-    def make_master_flats(self, calib_date, rerun=None, **kwargs):
+    def make_master_flats(self, calib_date=None, rerun=None, **kwargs):
         """ Make master flats from ingested raw data.
         Args:
-            calib_date (object): The calib date to assign to the master calibs.
+            calib_date (object, optional): The calib date to assign to the master calibs. If None
+                (default), will use the current date.
             rerun (str): The name of the rerun.
         """
         return self._make_master_calibs("flat", calib_date=calib_date, rerun=rerun, **kwargs)
 
-    def make_master_biases(self, calib_date, rerun=None, **kwargs):
+    def make_master_biases(self, calib_date=None, rerun=None, **kwargs):
         """ Make master biases from ingested raw data.
         Args:
-            calib_date (object): The calib date to assign to the master calibs.
+            calib_date (object, optional): The calib date to assign to the master calibs. If None
+                (default), will use the current date.
             rerun (str, optional): The name of the rerun.
         """
         return self._make_master_calibs("bias", calib_date=calib_date, rerun=rerun, **kwargs)
 
-    def make_master_calibs(self, calib_date, rerun=None, skip_bias=False, **kwargs):
-        """ Make master calibs from ingested raw calibs.
+    def make_master_calibs(self, calib_date=None, rerun=None, skip_bias=False, **kwargs):
+        """ Make master calibs from ingested raw calib data.
         Args:
-            calib_date (object): The calib date to assign to the master calibs.
-            rerun (str): The name of the rerun.
+            calib_date (object, optional): The calib date to assign to the master calibs. If None
+                (default), will use the current date.
+            rerun (str, optional): The name of the rerun. If None (default), use default rerun.
             skip_bias (bool, optional): Skip creation of master biases? Default False.
         """
+        if calib_date is None:
+            calib_date = current_date()
         if rerun is None:
             rerun = self._default_rerun
         if not skip_bias:
