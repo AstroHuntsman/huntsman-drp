@@ -41,6 +41,11 @@ class DataTable(HuntsmanBase):
         HuntsmanBase.__init__(self, **kwargs)
         self._date_key = self.config["mongodb"]["date_key"]
 
+        # Initialise the DB
+        self._table_name = self.config["mongodb"]["tables"][self._table_key]
+        db_name = self.config["mongodb"]["db_name"]
+        self._initialise(db_name, self._table_name)
+
     def _initialise(self, db_name, table_name):
         """
         Initialise the datebase.
@@ -291,10 +296,6 @@ class RawDataTable(DataTable):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._required_columns = self.config["fits_header"]["required_columns"]
-        # Initialise the DB
-        db_name = self.config["mongodb"]["db_name"]
-        table_name = self.config["mongodb"]["tables"][self._table_key]
-        self._initialise(db_name, table_name)
 
     def screen_query_result(self, query_result, screen_config=None):
         """
@@ -349,25 +350,19 @@ class RawDataTable(DataTable):
 
 class RawQualityTable(DataTable):
     """ Table to store data quality metadata for raw data. """
-    _table_name = "raw_quality"
+    _table_key = "raw_quality"
     _required_columns = ("filename",)
     _allow_edits = True
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Initialise the DB
-        db_name = self.config["mongodb"]["db_name"]
-        self._initialise(db_name, self._table_name)
 
 
 class MasterCalibTable(DataTable):
     """ Table to store metadata for master calibs. """
-    _table_name = "master_calib"
+    _table_key = "master_calib"
     _required_columns = ("filename", "calibDate")
     _allow_edits = True
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Initialise the DB
-        db_name = self.config["mongodb"]["db_name"]
-        self._initialise(db_name, self._table_name)
