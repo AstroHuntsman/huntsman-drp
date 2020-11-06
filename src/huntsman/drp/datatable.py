@@ -231,7 +231,6 @@ class DataTable(HuntsmanBase):
             data_id = data_id.to_dict()
         if data_id is not None:
             data_id = encode_metadata(data_id)
-        self.logger.debug(f"{data_id}")
         self.find(data_id, expected_count=1)  # Make sure there is only one match
         result = self._table.delete_one(data_id)
         if result.deleted_count != 1:

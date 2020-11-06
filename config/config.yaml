@@ -50,6 +50,9 @@ mongodb:
   tables:
     raw_data: "raw_data"
 
+calibs:
+  validity: 1000
+
 refcat:
   tap_url: http://api.skymapper.nci.org.au/aus/tap/
   tap_table: dr3.master

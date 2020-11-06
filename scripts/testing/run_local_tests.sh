@@ -17,4 +17,4 @@ trap cleanup EXIT
 docker-compose -f ${COMPOSE_FILE} run --rm \
   -e "HUNTSMAN_COVERAGE=/opt/lsst/software/stack/coverage" \
   -v "${HUNTSMAN_DRP_COVDIR}:/opt/lsst/software/stack/coverage" \
-  python_tests
+  python_tests /bin/bash

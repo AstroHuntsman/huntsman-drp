@@ -69,40 +69,41 @@ def test_make_master_calibs(raw_data_table, temp_butler_repo, config):
     filenames = raw_data_table.query_column("filename")
     with temp_butler_repo as br:
         br.ingest_raw_data(filenames)
+
         # Make the biases
         br.make_master_biases(calib_date=current_date(), rerun="test_rerun", ingest=True)
         metadata_bias = br.query_calib_metadata(table="bias")
+        # Check the biases in the butler dir
+        assert len(metadata_bias) == n_bias
+        exptimes = set()
+        ccds = set()
+        for md in metadata_bias:
+            exptimes.update([md["expTime"]])
+            ccds.update([md["ccd"]])
+        assert len(exptimes) == 2
+        assert len(ccds) == test_config["n_cameras"]
+
         # Make the flats, using make_master_calibs for test completeness
         br.make_master_calibs(calib_date=current_date(), rerun="test_rerun", ingest=True,
                               skip_bias=True)
         metadata_flat = br.query_calib_metadata(table="flat")
+        # Check the flats in the butler dir
+        assert len(metadata_flat) == n_flat
+        filters = set()
+        ccds = set()
+        for md in metadata_flat:
+            filters.update([md["filter"]])
+            ccds.update([md["ccd"]])
+        assert len(filters) == 2
+        assert len(ccds) == test_config["n_cameras"]
+
         # Archive the calibs
         br.archive_master_calibs()
-
-    # Check the biases in the butler dir
-    assert len(metadata_bias) == n_bias
-    exptimes = set()
-    ccds = set()
-    for md in metadata_bias:
-        exptimes.update([md["expTime"]])
-        ccds.update([md["ccd"]])
-    assert len(exptimes) == 2
-    assert len(ccds) == test_config["n_cameras"]
-
-    # Check the flats in the butler dir
-    assert len(metadata_flat) == n_flat
-    filters = set()
-    ccds = set()
-    for md in metadata_flat:
-        filters.update([md["filter"]])
-        ccds.update([md["ccd"]])
-    assert len(filters) == 2
-    assert len(ccds) == test_config["n_cameras"]
-
-    # Check the calibs in the archive
-    master_calib_table = MasterCalibTable(config=config)
-    calib_metadata = master_calib_table.query()
-    assert (calib_metadata["datasetType"].values == "flat").sum() == n_flat
-    assert (calib_metadata["datasetType"].values == "bias").sum() == n_bias
-    for filename in calib_metadata["filename"].values:
-        assert os.path.isfile(filename)
+        # Check the calibs in the archive
+        master_calib_table = MasterCalibTable(config=config)
+        calib_metadata = master_calib_table.query()
+        assert calib_metadata.shape[0] == n_flat + n_bias
+        assert (calib_metadata["datasetType"].values == "flat").sum() == n_flat
+        assert (calib_metadata["datasetType"].values == "bias").sum() == n_bias
+        for filename in calib_metadata["filename"].values:
+            assert os.path.isfile(filename)

@@ -1,7 +1,6 @@
 import os
 import shutil
 from contextlib import suppress
-from collections import defaultdict
 from tempfile import TemporaryDirectory
 import sqlite3
 
@@ -19,6 +18,7 @@ class ButlerRepository(HuntsmanBase):
     _mapper = "lsst.obs.huntsman.HuntsmanMapper"
     _policy_filename = Policy.defaultPolicyFile("obs_huntsman", "HuntsmanMapper.yaml",
                                                 relativePath="policy")
+    _default_rerun = "default_rerun"
 
     def __init__(self, directory, calib_directory=None, initialise=True, **kwargs):
         super().__init__(**kwargs)
@@ -27,6 +27,7 @@ class ButlerRepository(HuntsmanBase):
         if (calib_directory is None) and (directory is not None):
             calib_directory = os.path.join(directory, "CALIB")
         self._calib_directory = calib_directory
+        self._calib_validity = self.config["calibs"]["validity"]
         # Load the policy file
         self._policy = Policy(self._policy_filename)
         # Initialise the bulter repository
@@ -52,7 +53,9 @@ class ButlerRepository(HuntsmanBase):
         Returns:
             str: The filename.
         """
-        return self.butler.get(f"{data_type}_filename", data_id)
+        filename = self.butler.get(f"{data_type}_filename", data_id)
+        self.logger.debug(f"{data_type} filename for data_id={data_id}: {filename}.")
+        return filename
 
     def ingest_raw_data(self, filenames, **kwargs):
         """
@@ -77,97 +80,44 @@ class ButlerRepository(HuntsmanBase):
         self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} files.")
         lsst.ingest_reference_catalogue(self.butler_directory, filenames)
 
-    def make_master_calibs(self, calib_date, rerun, skip_bias=False, **kwargs):
+    def make_master_flats(self, calib_date, rerun=None, **kwargs):
         """
-        Make master calibs from ingested raw calibs.
 
+        """
+        return self._make_master_calibs("flat", calib_date=calib_date, rerun=rerun, **kwargs)
+
+    def make_master_biases(self, calib_date, rerun=None, **kwargs):
+        """
+
+        """
+        return self._make_master_calibs("bias", calib_date=calib_date, rerun=rerun, **kwargs)
+
+    def make_master_calibs(self, calib_date, rerun=None, skip_bias=False, **kwargs):
+        """ Make master calibs from ingested raw calibs.
         Args:
             calib_date (object): The calib date to assign to the master calibs.
             rerun (str): The name of the rerun.
             skip_bias (bool, optional): Skip creation of master biases? Default False.
         """
+        if rerun is None:
+            rerun = self._default_rerun
         if not skip_bias:
             self.make_master_biases(calib_date, rerun, **kwargs)
         self.make_master_flats(calib_date, rerun, **kwargs)
 
-    def make_master_biases(self, calib_date, rerun, nodes=1, procs=1, ingest=True):
-        """
-
-        """
-        metalist = self.butler.queryMetadata('raw', ['ccd', 'expTime', 'dateObs', 'visit'],
-                                             dataId={'dataType': 'bias'})
-        # Select the exposures we are interested in
-        exposures = defaultdict(dict)
-        for (ccd, exptime, dateobs, visit) in metalist:
-            if exptime not in exposures[ccd].keys():
-                exposures[ccd][exptime] = []
-            exposures[ccd][exptime].append(visit)
-
-        # Parse the calib date
-        calib_date = date_to_ymd(calib_date)
-
-        # Construct the calib for this ccd/exptime combination (do we need this split?)
-        for ccd, exptimes in exposures.items():
-            for exptime, data_ids in exptimes.items():
-                self.logger.debug(f'Making master biases for ccd {ccd} using {len(data_ids)}'
-                                  f' exposures of {exptime}s.')
-                lsst.constructBias(butler_directory=self.butler_directory, rerun=rerun,
-                                   calib_directory=self.calib_directory, data_ids=data_ids,
-                                   exptime=exptime, ccd=ccd, nodes=nodes, procs=procs,
-                                   calib_date=calib_date)
-        if ingest:
-            self.ingest_master_biases(calib_date, rerun=rerun)
-
-    def make_master_flats(self, calib_date, rerun, nodes=1, procs=1, ingest=True):
-        """
-
-        """
-        metalist = self.butler.queryMetadata('raw', ['ccd', 'filter', 'dateObs', 'visit'],
-                                             dataId={'dataType': 'flat'})
-
-        # Select the exposures we are interested in
-        exposures = defaultdict(dict)
-        for (ccd, filter_name, dateobs, visit) in metalist:
-            if filter_name not in exposures[ccd].keys():
-                exposures[ccd][filter_name] = []
-            exposures[ccd][filter_name].append(visit)
-
-        # Parse the calib date
-        calib_date = date_to_ymd(calib_date)
-
-        # Construct the calib for this ccd/filter combination (do we need this split?)
-        for ccd, filter_names in exposures.items():
-            for filter_name, data_ids in filter_names.items():
-                self.logger.debug(f'Making master flats for ccd {ccd} using {len(data_ids)}'
-                                  f' exposures in {filter_name} filter.')
-                lsst.constructFlat(butler_directory=self.butler_directory, rerun=rerun,
-                                   calib_directory=self.calib_directory, data_ids=data_ids,
-                                   filter_name=filter_name, ccd=ccd, nodes=nodes,
-                                   procs=procs, calib_date=calib_date)
-        if ingest:
-            self.ingest_master_flats(calib_date, rerun=rerun)
-
-    def ingest_master_biases(self, calib_date, rerun, validity=1000):
-        """ Ingest the master biases into the butler repository.
+    def ingest_master_calibs(self, datasetType, filenames, validity=None):
+        """ Ingest the master calibs into the butler repository.
         Args:
-            calib_date (date): The date to associate with the calib.
-            rerun (str): The rerun name.
+            datasetType (str): The calib dataset type (e.g. bias, flat).
+            filenames (list of str): The files to ingest.
             validity (int, optional): How many days the calibs remain valid for. Default 1000.
         """
-        self.logger.debug(f"Ingesting master biases for calib date: {calib_date}.")
-        lsst.ingest_master_biases(calib_date, self.butler_directory, self.calib_directory, rerun,
-                                  validity=validity)
-
-    def ingest_master_flats(self, calib_date, rerun, validity=1000):
-        """ Ingest the master flats into the butler repository.
-        Args:
-            calib_date (date): The date to associate with the calib.
-            rerun (str): The rerun name.
-            validity (int, optional): How many days the calibs remain valid for. Default 1000.
-        """
-        self.logger.debug(f"Ingesting master flats for calib date: {calib_date}.")
-        lsst.ingest_master_flats(calib_date, self.butler_directory, self.calib_directory, rerun,
-                                 validity=validity)
+        if validity is None:
+            validity = self._calib_validity
+        self.logger.info(f"Ingesting {len(filenames)} master {datasetType} calibs with validity="
+                         f"{validity}.")
+        lsst.ingest_master_calibs(datasetType, filenames, self.butler_directory,
+                                  self.calib_directory, validity=validity)
 
     def archive_master_calibs(self):
         """ Copy the master calibs from this Butler repository into the calib archive directory
@@ -194,32 +144,6 @@ class ButlerRepository(HuntsmanBase):
                 metadata["filename"] = archived_filename
                 metadata["datasetType"] = calib_type
                 calib_datatable.insert_one(metadata)
-
-    def make_calexps(self, filter_name, rerun):
-        """Make calibrated science exposures (calexps) by running `processCcd.py`.
-
-        Args:
-            filter_name (str): The filter name.
-            rerun (str): The rerun name.
-        """
-        self.logger.debug(f"Making calexps for {filter_name} filter.")
-        lsst.processCcd(self.butler_directory, self.calib_directory,
-                        rerun=rerun, filter_name=filter_name)
-
-    def make_coadd(self, filter_names, rerun):
-        """
-        Produce a coadd image.
-        Args:
-            filter_names (iterable of str): Iterable of filter names to make coadds with.
-            rerun (str): Name of rerun.
-        """
-        lsst.makeDiscreteSkyMap(butler_directory=self.butler_directory, rerun=f'{rerun}:coadd')
-        for filter_name in filter_names:
-            self.logger.debig(f"Making coadd in {filter_name} filter.")
-            lsst.makeCoaddTempExp(filter_name, butler_directory=self.butler_directory,
-                                  calib_directory=self.calib_directory, rerun=f'{rerun}:coadd')
-            lsst.assembleCoadd(filter_name, butler_directory=self.butler_directory,
-                               calib_directory=self.calib_directory, rerun=f'{rerun}:coadd')
 
     def query_calib_metadata(self, table):
         """
@@ -255,6 +179,34 @@ class ButlerRepository(HuntsmanBase):
             with open(filename_mapper, "w") as f:
                 f.write(self._mapper)
         self.butler = dafPersist.Butler(inputs=self.butler_directory)
+
+    def _make_master_calibs(self, dataset_type, calib_date, rerun, nodes=1, procs=1, ingest=True):
+        """
+
+        """
+        calib_date = date_to_ymd(calib_date)
+
+        # Get dataIds for the raw calib frames
+        keys = list(self.butler.getKeys("raw").keys())
+        metalist = self.butler.queryMetadata("raw", format=keys, dataId={'dataType': dataset_type})
+        data_ids = [{k: v for k, v in zip(keys, m)} for m in metalist]
+
+        # Construct the master bias frames
+        self.logger.debug(f"Creating master {dataset_type} frames for calibDate={calib_date} with"
+                          f" dataIds: {data_ids}.")
+        lsst.make_master_calibs(dataset_type, data_ids, butler_repository=self, rerun=rerun,
+                                nodes=nodes, procs=procs, calib_date=calib_date)
+
+        # Get filenames of the master calibs
+        calib_dir = os.path.join(self.butler_directory, "rerun", rerun)
+        _, filenames = get_files_of_type(f"calibrations.{dataset_type}", directory=calib_dir,
+                                         policy=self._policy)
+
+        # Ingest the masters into the butler repo
+        if ingest:
+            self.ingest_master_calibs(dataset_type, filenames)
+
+        return filenames
 
 
 class TemporaryButlerRepository(ButlerRepository):

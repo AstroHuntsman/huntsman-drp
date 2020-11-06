@@ -1,4 +1,5 @@
 import os
+import copy
 from lsst.daf.persistence import FsScanner
 
 
@@ -41,3 +42,45 @@ def get_files_of_type(datasetType, directory, policy):
     filenames = [os.path.join(directory, f) for f in matches.keys()]
 
     return data_ids, filenames
+
+
+def fill_calib_keys(data_id, calib_type, butler, keys_ignore=["calibDate"]):
+    """ Get missing keys for a dataId required to identify a calib dataset.
+
+    """
+    # Get the raw dataId
+    data_id = data_id.copy()
+    raw_keys = butler.getKeys("raw").keys()
+    raw_data_id = {k: data_id[k] for k in raw_keys}
+
+    # Identify required keys
+    required_keys = butler.getKeys(calib_type).keys()
+    missing_keys = set(required_keys) - set(data_id.keys()) - set(keys_ignore)
+
+    # Fill the missing keys
+    data_id = data_id.copy()
+    for k in missing_keys:
+        v = butler.queryMetadata("raw", format=[k], dataId=raw_data_id)
+        data_id[k] = v[0]
+
+    return data_id
+
+
+def get_unique_calib_ids(calib_type, data_ids, butler):
+    """ Get calibIds given a set of dataIds for a specific calib type.
+
+    """
+    data_ids = copy.deepcopy(data_ids)
+    # Get required keys
+    calib_keys = butler.getKeys(calib_type).keys()
+
+    # Get key values for each dataId
+    calib_key_values = []
+    for data_id in data_ids:
+        calib_key_values.append(tuple([data_id[k] for k in calib_keys]))
+
+    # Get unique sets of calibIds
+    unique_calib_values = set(calib_key_values)
+    unique_calib_ids = [{k: v for k, v in zip(calib_keys, vs)} for vs in unique_calib_values]
+
+    return unique_calib_ids
