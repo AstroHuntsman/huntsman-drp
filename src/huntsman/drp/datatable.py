@@ -127,37 +127,19 @@ class DataTable(HuntsmanBase):
         self.logger.debug(f"Query returned {df.shape[0]} results.")
         return df
 
-    def query_column(self, column_name, date_start=None, date_end=None, query_dict=None):
-        """
-        Convenience function to query database and return entries for a specific column.
-        Args:
-            column_name (str): The column name.
-            date_start (date, optional): The earliest date of returned rows.
-            date_end (date, optional): The latest date of returned rows.
-            query_dict (dict, optional): Parsed to the query.
-        Returns:
-            List: List of column values matching the query.
-        """
-        df = self.query(query_dict=query_dict, date_start=date_start, date_end=date_end)
-        return df[column_name].values
-
-    def query_latest(self, days=0, hours=0, seconds=0, column_name=None, query_dict=None):
+    def query_latest(self, days=0, hours=0, seconds=0, query_dict=None):
         """
         Convenience function to query the latest files in the db.
         Args:
             days (int): default 0.
             hours (int): default 0.
             seconds (int): default 0.
-            column_name (int, optional): If given, call `datatable.query_column` with
-                `column_name` as its first argument.
             query_dict (dict, optional): Parsed to the query.
         Returns:
             list: Query result.
         """
         date_now = datetime.utcnow()
         date_start = date_now - timedelta(days=days, hours=hours, seconds=seconds)
-        if column_name is not None:
-            return self.query_column(column_name, date_start=date_start, query_dict=query_dict)
         return self.query(date_start=date_start, query_dict=query_dict)
 
     def query_matches(self, values, match_key, one_to_one=True, **kwargs):

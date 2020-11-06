@@ -86,5 +86,5 @@ def raw_data_table(tmp_path_factory, config, fits_header_translator):
 def raw_quality_table(config):
     table = RawQualityTable(config=config)
     yield table
-    for filename in table.query_column("filename"):
+    for filename in table.query()["filename"].values:
         table.delete_document({"filename": filename}, bypass_allow_edits=True)

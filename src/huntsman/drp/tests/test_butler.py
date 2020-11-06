@@ -32,7 +32,7 @@ def test_ingest(raw_data_table, butler_repos, config):
     config = config["testing"]["exposure_sequence"]
     n_filters = len(config["filters"])
 
-    filenames = raw_data_table.query_column("filename")
+    filenames = raw_data_table.query()["filename"].values
     for butler_repo in butler_repos:
         with butler_repo as br:
 
@@ -66,7 +66,7 @@ def test_make_master_calibs(raw_data_table, temp_butler_repo, config):
     n_flat = test_config["n_cameras"] * n_filters
 
     # Use the Butler repo to make the calibs
-    filenames = raw_data_table.query_column("filename")
+    filenames = raw_data_table.query()["filename"].values
     with temp_butler_repo as br:
         br.ingest_raw_data(filenames)
 
