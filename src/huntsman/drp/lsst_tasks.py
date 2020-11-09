@@ -91,7 +91,7 @@ def make_master_calibs(datasetType, data_ids, calib_date, butler_repository, rer
         butler_repository (huntsman.drp.butler.ButlerRepository): The butler repository object.
         rerun (str): The rerun name.
         nodes (int): The number of nodes to run on.
-        nodes (int): The number of processes to use per node.
+        procs (int): The number of processes to use per node.
     """
     calib_date = date_to_ymd(calib_date)
 
