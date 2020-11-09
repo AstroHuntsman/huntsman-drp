@@ -8,15 +8,16 @@ import argparse
 from multiprocessing import Pool
 import numpy as np
 
-from huntsman.drp.core import get_logger, get_config
+from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.datatable import RawDataTable
 
 
-class RegularCalibMaker():
+# TODO: Move this class
+class RegularCalibMaker(HuntsmanBase):
 
-    def __init__(self, sleep_interval=86400, day_range=1000, nproc=1):
-        self.logger = get_logger()
-        self.config = get_config()
+    def __init__(self, sleep_interval=86400, day_range=1000, nproc=1, config=None, logger=None,
+                 **kwargs):
+        super().__init__(config=config, logger=logger, **kwargs)
         self.sleep_interval = sleep_interval
         self.day_range = day_range
         self.datatable = RawDataTable(config=self.config, logger=self.logger)
