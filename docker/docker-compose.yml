@@ -16,9 +16,9 @@ services:
     volumes:
       - ${OBS_HUNTSMAN}:/opt/lsst/software/stack/obs_huntsman
       - ${HUNTSMAN_DRP}:/opt/lsst/software/stack/huntsman-drp
-      - ${HUNTSMAN_DIR}:${HUNTSMAN_DIR}
+      - ${HUNTSMAN_MOUNT}:${HUNTSMAN_MOUNT}
       - /data/nifi/huntsman_priv:/data/nifi/huntsman_priv
     environment:
       - OBS_HUNTSMAN=/opt/lsst/software/stack/obs_huntsman
       - HUNTSMAN_DRP=/opt/lsst/software/stack/huntsman-drp
-      - HUNTSMAN_DIR=${HUNTSMAN_DIR}
+      - HUNTSMAN_MOUNT=${HUNTSMAN_MOUNT}
