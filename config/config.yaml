@@ -1,6 +1,6 @@
 directories:
   archive:
-    master_calibs: ${LSST_HOME}/huntsman-archive/calibs
+    master_calibs: ${HUNTSMAN_DIR}/archive/calibs
 
 fits_header:
   mappings:
