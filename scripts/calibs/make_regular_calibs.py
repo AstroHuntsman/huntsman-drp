@@ -25,7 +25,7 @@ class RegularCalibMaker(HuntsmanBase):
         self.day_range = day_range
         self.dqtable = RawQualityTable(config=self.config, logger=self.logger)
         self._nproc = nproc
-        self._calib_types = self.config["calib"]["types"]
+        self._calib_types = self.config["calibs"]["types"]
 
     def run(self):
         """ Periodically create a new set of master calibs. """
