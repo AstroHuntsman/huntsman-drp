@@ -10,7 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 
 from huntsman.drp.utils.date import parse_date, current_date
-from huntsman.drp.utils.query import QueryCriteria, criteria_is_satisfied
+from huntsman.drp.utils.query import QueryCriteria, criteria_is_satisfied, encode_mongo_value
 from huntsman.drp.base import HuntsmanBase
 
 
@@ -72,7 +72,7 @@ class DataTable(HuntsmanBase):
         self._db = self._client[db_name]
         self._table = self._db[table_name]
 
-    def find(self, query_criteria, expected_count=None):
+    def find(self, criteria, expected_count=None):
         """
         Find metadata for one or more matches in a table.
         Args:
@@ -82,9 +82,10 @@ class DataTable(HuntsmanBase):
         Returns:
             list of dict: The find result.
         """
-        query_criteria = QueryCriteria(query_criteria).to_mongo()
+        if criteria is not None:
+            criteria = QueryCriteria(criteria).to_mongo()
 
-        cursor = self._table.find(query_criteria)
+        cursor = self._table.find(criteria)
         df = pd.DataFrame(list(cursor))
 
         if expected_count is not None:
@@ -92,7 +93,7 @@ class DataTable(HuntsmanBase):
                 raise RuntimeError(f"Expected {expected_count} matches but found {df.shape[0]}.")
         return df
 
-    def query(self, date=None, date_start=None, date_end=None, query_criteria=None, screener=None):
+    def query(self, date=None, date_start=None, date_end=None, criteria=None, screener=None):
         """
         Query the table, optionally with a date range.
         Args:
@@ -105,24 +106,24 @@ class DataTable(HuntsmanBase):
         Returns:
             list of dict: Dictionary of query results.
         """
-        df = self.find(query_criteria=query_criteria)
+        df = self.find(criteria=criteria)
 
         # Apply date selection using parse_date
         # TODO remove this in favour of pymongo date handling
         if self._date_key in df.columns:
 
             # Build query criteria
-            query_criteria = {}
+            date_criteria = {}
             if date is not None:
-                query_criteria["equals"] = parse_date(date)
+                date_criteria["equals"] = parse_date(date)
             if date_start is not None:
-                query_criteria["greater_than_equals"] = parse_date(date_start)
+                date_criteria["greater_than_equals"] = parse_date(date_start)
             if date_end is not None:
-                query_criteria["less_than"] = parse_date(date_end)
+                date_criteria["less_than"] = parse_date(date_end)
 
             # Apply to dataframe
             parsed_dates = np.array([parse_date(d) for d in df[self._date_key].values])
-            keep = criteria_is_satisfied(parsed_dates, query_criteria)
+            keep = criteria_is_satisfied(parsed_dates, date_criteria)
             df = df[keep].reset_index(drop=True)
 
         # Apply quality screening
@@ -133,20 +134,20 @@ class DataTable(HuntsmanBase):
         self.logger.debug(f"Query returned {df.shape[0]} results.")
         return df
 
-    def query_latest(self, days=0, hours=0, seconds=0, query_dict=None):
+    def query_latest(self, days=0, hours=0, seconds=0, criteria=None):
         """
         Convenience function to query the latest files in the db.
         Args:
             days (int): default 0.
             hours (int): default 0.
             seconds (int): default 0.
-            query_dict (dict, optional): Parsed to the query.
+            criteria (dict, optional): Criteria for the query.
         Returns:
             list: Query result.
         """
         date_now = current_date()
         date_start = date_now - timedelta(days=days, hours=hours, seconds=seconds)
-        return self.query(date_start=date_start, query_dict=query_dict)
+        return self.query(date_start=date_start, criteria=criteria)
 
     def query_matches(self, values, match_key="filename", one_to_one=True, **kwargs):
         """ Get rows matching values of a certain key.
@@ -205,7 +206,7 @@ class DataTable(HuntsmanBase):
         """
         self.find(data_id, expected_count=1)  # Make sure there is only one match
         # Since we are using pymongo we will have to do some parsing
-        metadata = encode_metadata(metadata)
+        metadata = encode_mongo_value(metadata)
         result = self._table.update_one(data_id, {'$set': metadata}, upsert=False)
         if result.matched_count != 1:
             raise RuntimeError(f"Unexpected number of documents updated: {result.deleted_count}.")
@@ -223,7 +224,7 @@ class DataTable(HuntsmanBase):
         with suppress(AttributeError):
             data_id = data_id.to_dict()
         if data_id is not None:
-            data_id = encode_metadata(data_id)
+            data_id = encode_mongo_value(data_id)
         self.find(data_id, expected_count=1)  # Make sure there is only one match
         result = self._table.delete_one(data_id)
         if result.deleted_count != 1:

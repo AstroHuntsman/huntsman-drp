@@ -1,6 +1,9 @@
 from collections import abc
 from contextlib import suppress
-import nimpy as np
+from copy import deepcopy
+import numpy as np
+
+from huntsman.drp.base import HuntsmanBase
 
 # These are responsible for converting string keys into equivalent mongoDB operators
 MONGO_OPERATORS = {"equals": "$eq",
@@ -30,14 +33,19 @@ def encode_mongo_value(value):
     Returns:
         object: The encoded value.
     """
-    if isinstance(abc.Iterable, value):
-        return [encode_mongo_value(v) for v in value]
+    if isinstance(value, abc.Mapping):
+        for k, v in value.items():
+            value[k] = encode_mongo_value(v)
+    elif isinstance(value, str):
+        pass
+    elif isinstance(value, abc.Iterable):
+        value = [encode_mongo_value(v) for v in value]
     elif isinstance(value, np.bool_):
-        return bool(value)
+        value = bool(value)
     elif isinstance(value, np.int64):
-        return int(value)
+        value = int(value)
     elif isinstance(value, np.float64):
-        return float(value)
+        value = float(value)
     return value
 
 
@@ -55,26 +63,38 @@ def criteria_is_satisfied(values, criteria):
     return satisfied
 
 
-class QueryCriteria():
+class QueryCriteria(HuntsmanBase):
     """ The purpose of this class is to provide an abstract implementation of a query criteria,
     allowing configured criteria to be easily converted to whatever format the database requires
     and be applied to DataFrames.
     """
 
-    def __init__(self, query_criteria):
+    def __init__(self, query_criteria, *args, **kwargs):
         """
         Args:
             criteria (abc.Mappable): The query criteria.
         """
-        self.query_criteria = query_criteria
-        # Make sure the query criteria is valid
+        super().__init__(*args, **kwargs)
+        self.query_criteria = deepcopy(query_criteria)
+
+        # Parse the criteria
         operator_keys = list(OPERATORS.keys())
         for column_name, criteria in self.query_criteria.items():
+
+            # If a direct mapping, assume equals operator
+            if not isinstance(criteria, abc.Mapping):
+                self.query_criteria[column_name] = {"equals": criteria}
+                continue
+
+            # Check the operator keys are valid
             for key in criteria.keys():
                 if key not in operator_keys:
                     raise ValueError("Unrecognised operator key in query criteria for"
                                      f" {column_name} column: {key}. Valid columns are:"
                                      f" {operator_keys}.")
+
+    def __str__(self):
+        print(f"{self.query_criteria}")
 
     def to_mongo(self):
         """ Return the criteria as a dictionary suitable for pymongo.

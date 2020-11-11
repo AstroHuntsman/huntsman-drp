@@ -12,6 +12,8 @@ from huntsman.drp.utils.query import criteria_is_satisfied
 
 class Screener(HuntsmanBase):
 
+    _data_type_key = "dataType"
+
     def __init__(self, data_type, config=None, logger=None, **kwargs):
         super().__init__(config=config, logger=logger, **kwargs)
         self.data_type = data_type
@@ -35,7 +37,7 @@ class Screener(HuntsmanBase):
         screen_result = df[self._data_type_key].values == self.data_type
 
         # Get the matches in the reference table
-        df_ref = self.dqtable.query_matches(values=df[self._reference_key].values)
+        df_ref = self._ref_table.query_matches(values=df[self._reference_key].values)
 
         # Apply the configured criteria
         for metric_name, criteria in self.screen_config["criteria"].items():
@@ -53,7 +55,7 @@ class Screener(HuntsmanBase):
     def screen_dataframe(self, df):
         """ Apply screening to DataFrame and return DataFrame with only valid rows. """
         cond = self.screen(df)
-        return df[cond].reset_index(drop=True)
+        return df[cond].reset_index(drop=True).copy()
 
 
 class CompoundScreener(HuntsmanBase):
