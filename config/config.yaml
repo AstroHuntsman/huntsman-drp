@@ -72,12 +72,6 @@ refcat:
       upper: 19
 
 screening:
-  science:
-    ref_table_key: "filename"
-    ref_table_class: huntsman.drp.datatable.RawQualityTable
   flat:
-    ref_table_key: "filename"
-    ref_table_class: huntsman.drp.datatable.RawQualityTable
-  bias:
-    ref_table_key: "filename"
-    ref_table_class: huntsman.drp.datatable.RawQualityTable
+    flip_asymm_h: 100
+    flip_asymm_v: 60

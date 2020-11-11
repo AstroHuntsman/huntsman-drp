@@ -10,20 +10,20 @@ from multiprocessing import Pool
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date
-from huntsman.drp.datatable import RawDataTable
-from huntsman.drp.screening import RawCalibScreener
+from huntsman.drp.datatable import RawQualityTable
 
 
 # TODO: Move this class
 class RegularCalibMaker(HuntsmanBase):
+
+    _data_type_key = "dataType"
 
     def __init__(self, sleep_interval=86400, day_range=1000, nproc=1, config=None, logger=None,
                  **kwargs):
         super().__init__(config=config, logger=logger, **kwargs)
         self.sleep_interval = sleep_interval
         self.day_range = day_range
-        self.datatable = RawDataTable(config=self.config, logger=self.logger)
-        self._calib_screener = RawCalibScreener(config=self.config, logger=self.logger)
+        self.dqtable = RawQualityTable(config=self.config, logger=self.logger)
         self._nproc = nproc
         self._calib_types = self.config["calib"]["types"]
 
@@ -41,12 +41,17 @@ class RegularCalibMaker(HuntsmanBase):
         date_start = date_end - timedelta(days=self.day_range)
 
         # Get latest files that satisfy screening criteria
-        df = self.datatable.query(date_start=date_start, date_end=date_end,
-                                  screener=self._calib_screener)
+        for calib_type in self._calib_types:
 
-        # Ingest into repo
-        filenames = df["filenames"].values
-        self.butler_repository.ingest_raw_data(filenames)
+            # Specify query criteria
+            criteria = {self._data_type_key: {"equal": calib_type}}
+            criteria.update(self.config["screening"][self._data_type_key])
+
+            # Query for this datatype
+            df = self.dqtable.query(date_start=date_start, date_end=date_end, criteria=criteria)
+
+            # Ingest the files
+            self.butler_repository.ingest_raw_data(df["filenames"].values)
 
         # Make master calibs and archive them
         self.butler_repository.make_master_calibs()

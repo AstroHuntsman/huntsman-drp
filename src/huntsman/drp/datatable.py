@@ -93,7 +93,7 @@ class DataTable(HuntsmanBase):
                 raise RuntimeError(f"Expected {expected_count} matches but found {df.shape[0]}.")
         return df
 
-    def query(self, date=None, date_start=None, date_end=None, criteria=None, screener=None):
+    def query(self, date=None, date_start=None, date_end=None, criteria=None):
         """
         Query the table, optionally with a date range.
         Args:
@@ -101,8 +101,6 @@ class DataTable(HuntsmanBase):
             date_start (date, optional): The earliest date of returned rows.
             date_end (date, optional): The latest date of returned rows.
             query_dict (abc.Mapping, optional): Parsed to the query.
-            screener (huntsman.drp.screener.Screener, optional): If provided, will apply screening
-                to query result.
         Returns:
             list of dict: Dictionary of query results.
         """
@@ -125,11 +123,6 @@ class DataTable(HuntsmanBase):
             parsed_dates = np.array([parse_date(d) for d in df[self._date_key].values])
             keep = Criteria(date_criteria).is_satisfied(parsed_dates)
             df = df[keep].reset_index(drop=True)
-
-        # Apply quality screening
-        if screener is not None:
-            self.logger.debug("Screening query result.")
-            df = screener.screen_dataframe(df)
 
         self.logger.debug(f"Query returned {df.shape[0]} results.")
         return df
@@ -160,14 +153,18 @@ class DataTable(HuntsmanBase):
             pd.DataFrame: The matched query result.
         """
         df_query = self.query(**kwargs)
+
         # Use the matching key as the DataFrame index
         df_query.set_index(match_key, inplace=True)
+
         # Return the matched DataFrame.
         df_matched = pd.DataFrame([df_query.loc[v] for v in values])
         df_matched[match_key] = values
+
         if one_to_one:
             if df_matched.shape[0] != len(values):
                 raise RuntimeError("One-to-one criteria not satisfied for matching query.")
+
         return df_matched
 
     @edit_permission_validation
@@ -205,11 +202,14 @@ class DataTable(HuntsmanBase):
             `pymongo.results.UpdateResult`: The result of the update operation.
         """
         self.find(data_id, expected_count=1)  # Make sure there is only one match
+
         # Since we are using pymongo we will have to do some parsing
         metadata = encode_mongo_value(metadata)
+
         result = self._table.update_one(data_id, {'$set': metadata}, upsert=False)
         if result.matched_count != 1:
             raise RuntimeError(f"Unexpected number of documents updated: {result.deleted_count}.")
+
         return result
 
     @edit_permission_validation
@@ -225,10 +225,12 @@ class DataTable(HuntsmanBase):
             data_id = data_id.to_dict()
         if data_id is not None:
             data_id = encode_mongo_value(data_id)
+
         self.find(data_id, expected_count=1)  # Make sure there is only one match
         result = self._table.delete_one(data_id)
         if result.deleted_count != 1:
             raise RuntimeError(f"Unexpected number of documents deleted: {result.deleted_count}.")
+
         return result
 
     def update_file_data(self, filename, data, **kwargs):
