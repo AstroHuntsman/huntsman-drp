@@ -1,13 +1,14 @@
 """
-Screeners are objects that facilitate filtering of query results based on metadata. Screeners
-are created and configured for specific data types, e.g. raw bias frames.
+Screeners are objects that facilitate convenient and configurable filtering of query results based
+on metadata. Screeners are created and configured for specific data types, e.g. raw bias frames.
+Screeners can be parsed to the `query` method of `huntsman.drp.datatable.DataTable` objects.
 """
 import numpy as np
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.core import get_config
 from huntsman.drp.utils.library import load_module
-from huntsman.drp.utils.query import criteria_is_satisfied
+from huntsman.drp.utils.query import QueryCriteria
 
 
 class Screener(HuntsmanBase):
@@ -39,16 +40,13 @@ class Screener(HuntsmanBase):
         # Get the matches in the reference table
         df_ref = self._ref_table.query_matches(values=df[self._reference_key].values)
 
-        # Apply the configured criteria
-        for metric_name, criteria in self.screen_config["criteria"].items():
-            self.logger.debug(f"Screening {metric_name} with criteria: {criteria}.")
-            metric_data = metric_data = df_ref[metric_name].values
+        # Get the matches in the reference table
+        df_ref = self._ref_table.query_matches(values=df[self._reference_key].values)
 
-            # Check which rows satisfy criteria
-            meets_criteria = criteria_is_satisfied(metric_data, criteria)
-            self.logger.debug(f"{meets_criteria.sum()} of {meets_criteria.size} rows satisfy"
-                              f" {metric_name} criteria.")
-            screen_result = np.logical_and(screen_result, meets_criteria)
+        # Apply the configured criteria
+        criteria = QueryCriteria(self.screen_config["criteria"])
+        meets_criteria = criteria.is_satisfied(df_ref)
+        screen_result = np.logical_and(screen_result, meets_criteria)
 
         return screen_result
 
@@ -77,7 +75,7 @@ class CompoundScreener(HuntsmanBase):
             np.array of boolean type: True where rows should be kept.
         """
         screen_result = np.zeros(df.shape[0], dtype="bool")
-        for data_type, screener in self.screeners:
+        for data_type, screener in self.screeners.items():
             self.logger.debug(f"Applying screening for data type={data_type}.")
             screen_result = np.logical_or(screen_result, screener.screen(df))
         return screen_result

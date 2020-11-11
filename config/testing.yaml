@@ -16,9 +16,3 @@ exposure_sequence:
   saturate: 4096  # ADU
   bias: 32  # ADU
   pixel_size: 1.2  # Arcseconds per pixel
-
-
-screening:
-  science:
-    ref_table_key: "filename"
-    ref_table_class: huntsman.drp.datatable.RawQualityTable

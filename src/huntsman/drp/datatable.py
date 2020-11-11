@@ -10,7 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 
 from huntsman.drp.utils.date import parse_date, current_date
-from huntsman.drp.utils.query import QueryCriteria, criteria_is_satisfied, encode_mongo_value
+from huntsman.drp.utils.query import Criteria, QueryCriteria, encode_mongo_value
 from huntsman.drp.base import HuntsmanBase
 
 
@@ -123,7 +123,7 @@ class DataTable(HuntsmanBase):
 
             # Apply to dataframe
             parsed_dates = np.array([parse_date(d) for d in df[self._date_key].values])
-            keep = criteria_is_satisfied(parsed_dates, date_criteria)
+            keep = Criteria(date_criteria).is_satisfied(parsed_dates)
             df = df[keep].reset_index(drop=True)
 
         # Apply quality screening

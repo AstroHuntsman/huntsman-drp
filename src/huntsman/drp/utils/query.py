@@ -49,52 +49,28 @@ def encode_mongo_value(value):
     return value
 
 
-def criteria_is_satisfied(values, criteria):
-    """ Return a boolean array indicating which values satisfy the criteria.
-    Args:
-        values (np.array): The test values.
-        criteria (abc.Mapping): The criteria dictionary.
-    Returns:
-        boolean array: True if satisfies criteria, False otherise.
-    """
-    satisfied = np.ones_like(values, dtype="bool")
-    for operator, opvalue in criteria.items():
-        satisfied = np.logical_and(satisfied, OPERATORS[operator](values, opvalue))
-    return satisfied
+class Criteria(HuntsmanBase):
+    """ Criteria objects generally correspond to single metadata columns."""
 
+    _mongo_operators = MONGO_OPERATORS
+    _operator_keys = list(OPERATORS.keys())
 
-class QueryCriteria(HuntsmanBase):
-    """ The purpose of this class is to provide an abstract implementation of a query criteria,
-    allowing configured criteria to be easily converted to whatever format the database requires
-    and be applied to DataFrames.
-    """
+    def __init__(self, criteria):
+        self.criteria = self._parse_criteria(criteria)
 
-    def __init__(self, query_criteria, *args, **kwargs):
-        """
+    def is_satisfied(self, values):
+        """ Return a boolean array indicating which values satisfy the criteria.
         Args:
-            criteria (abc.Mappable): The query criteria.
+            values (np.array): The test values.
+            criteria (abc.Mapping): The criteria dictionary.
+        Returns:
+            boolean array: True if satisfies criteria, False otherise.
         """
-        super().__init__(*args, **kwargs)
-        self.query_criteria = deepcopy(query_criteria)
+        satisfied = np.ones_like(values, dtype="bool")
+        for operator, opvalue in self.criteria.items():
+            satisfied = np.logical_and(satisfied, OPERATORS[operator](values, opvalue))
 
-        # Parse the criteria
-        operator_keys = list(OPERATORS.keys())
-        for column_name, criteria in self.query_criteria.items():
-
-            # If a direct mapping, assume equals operator
-            if not isinstance(criteria, abc.Mapping):
-                self.query_criteria[column_name] = {"equals": criteria}
-                continue
-
-            # Check the operator keys are valid
-            for key in criteria.keys():
-                if key not in operator_keys:
-                    raise ValueError("Unrecognised operator key in query criteria for"
-                                     f" {column_name} column: {key}. Valid columns are:"
-                                     f" {operator_keys}.")
-
-    def __str__(self):
-        print(f"{self.query_criteria}")
+        return satisfied
 
     def to_mongo(self):
         """ Return the criteria as a dictionary suitable for pymongo.
@@ -102,15 +78,62 @@ class QueryCriteria(HuntsmanBase):
             dict: The query dictionary.
         """
         new = {}
-        for column_name, criteria in self.query_criteria.items():
-            d = {}
-            for k, v in criteria.items():
-                with suppress(KeyError):
-                    k = MONGO_OPERATORS[k]
-                if v is not None:
-                    d[k] = encode_mongo_value(v)
-            new[column_name] = d
+        for k, v in self.criteria.items():
+            with suppress(KeyError):
+                k = self._mongo_operators[k]
+            if v is not None:
+                new[k] = encode_mongo_value(v)
         return new
+
+    def _parse_criteria(self, criteria):
+        """ Parse the criteria into a standardised format.
+        Args:
+            query_criteria (abc.Mappable): The query criteria to be parsed.
+        Returns:
+            abc.Mappable: The parsed criteria.
+        """
+        if isinstance(criteria, QueryCriteria):
+            return deepcopy(criteria.criteria)
+
+        # If a direct mapping, assume equals operator
+        if not isinstance(criteria, abc.Mapping):
+            criteria = {"equals": criteria}
+
+        # Check the operator keys are valid
+        for key in criteria.keys():
+            if key not in self._operator_keys:
+                raise ValueError(f"Unrecognised operator key in query criteria: {key}."
+                                 f"Valid columns are: {self._operator_keys}.")
+        return deepcopy(criteria)
+
+
+class QueryCriteria(HuntsmanBase):
+    """ The purpose of this class is to provide an abstract implementation of a multi-column
+    query criteria, allowing configured criteria to be easily converted to whatever format the
+    database requires and be applied to DataFrames.
+    """
+
+    def __init__(self, criteria, *args, **kwargs):
+        """
+        Args:
+            criteria (abc.Mappable): The query criteria.
+            *args, **kwargs: Parsed to HuntsmanBase.
+        """
+        super().__init__(*args, **kwargs)
+        # Create criteria objects
+        self.criteria = {}
+        for column_name, column_criteria in criteria.items():
+            self.criteria[column_name] = Criteria(column_criteria)
+
+    def to_mongo(self):
+        """ Return the criteria as a dictionary suitable for pymongo.
+        Returns:
+            dict: The query dictionary.
+        """
+        result = {}
+        for column_name, column_criteria in self.criteria.items():
+            result[column_name] = column_criteria.to_mongo()
+        return result
 
     def is_satisfied(self, df):
         """ Return a boolean array indicating which rows satisfy the criteria.
@@ -119,18 +142,10 @@ class QueryCriteria(HuntsmanBase):
         Returns:
             boolean array: True if satisfies criteria, False otherise.
         """
-        satisfied = np.ones(df.shape[0], dtype="bool")
-        for column_name, column_criteria in self.query_criteria.keys():
-            values = df[column_name].values
-            satisfied = np.logical_and(satisfied, criteria_is_satisfied(values, column_criteria))
-        return satisfied
+        row_is_satisfied = np.ones(df.shape[0], dtype="bool")
 
-    def get_filtered_dataframe(self, df):
-        """ Return a copied DataFrame with only the rows that satisfy the criteria retained.
-        Args:
-            df (pd.DataFrame): The original DataFrame.
-        Returns:
-            pd.DataFrame: The filtered DataFrame.
-        """
-        satisfied = self.is_satisfied(df)
-        return df[satisfied].reset_index(drop=True).copy()
+        for column_name, column_criteria in self.criteria.items():
+            column_is_satisfied = column_criteria.is_satisfied(df[column_name].values)
+            row_is_satisfied = np.logical_and(row_is_satisfied, column_is_satisfied)
+
+        return row_is_satisfied
