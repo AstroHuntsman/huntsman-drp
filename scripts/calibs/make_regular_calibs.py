@@ -11,7 +11,7 @@ from multiprocessing import Pool
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date
 from huntsman.drp.datatable import RawDataTable
-from huntsman.drp.screening import Screener
+from huntsman.drp.screening import CalibScreener
 
 
 # TODO: Move this class
@@ -23,7 +23,7 @@ class RegularCalibMaker(HuntsmanBase):
         self.sleep_interval = sleep_interval
         self.day_range = day_range
         self.datatable = RawDataTable(config=self.config, logger=self.logger)
-        self._calib_screener = Screener("calib", config=self.config, logger=self.logger)
+        self._calib_screener = CalibScreener(config=self.config, logger=self.logger)
         self._nproc = nproc
         self._calib_types = self.config["calib"]["types"]
 

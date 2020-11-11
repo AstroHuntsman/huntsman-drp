@@ -70,3 +70,10 @@ refcat:
       lower: 0.9
     g_psf:
       upper: 19
+
+screening:
+  flat:
+    flip_asymm_h:
+      less_than: 100
+    flip_asymm_v:
+      less_than: 60

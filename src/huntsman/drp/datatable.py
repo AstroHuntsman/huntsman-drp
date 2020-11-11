@@ -1,15 +1,16 @@
 """Code to interface with the Huntsman database."""
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import timedelta
 from urllib.parse import quote_plus
+
+import numpy as np
 import pandas as pd
 
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 
-from huntsman.drp.utils.date import parse_date
-from huntsman.drp.utils.mongo import encode_metadata
-from huntsman.drp.utils.screening import satisfies_criteria
+from huntsman.drp.utils.date import parse_date, current_date
+from huntsman.drp.utils.query import QueryCriteria, criteria_is_satisfied
 from huntsman.drp.base import HuntsmanBase
 
 
@@ -71,7 +72,7 @@ class DataTable(HuntsmanBase):
         self._db = self._client[db_name]
         self._table = self._db[table_name]
 
-    def find(self, data_id, expected_count=None):
+    def find(self, query_criteria, expected_count=None):
         """
         Find metadata for one or more matches in a table.
         Args:
@@ -81,47 +82,50 @@ class DataTable(HuntsmanBase):
         Returns:
             list of dict: The find result.
         """
-        if data_id is not None:
-            data_id = encode_metadata(data_id)
-        cursor = self._table.find(data_id)
+        query_criteria = QueryCriteria(query_criteria).to_mongo()
+
+        cursor = self._table.find(query_criteria)
         df = pd.DataFrame(list(cursor))
+
         if expected_count is not None:
             if df.shape[0] != expected_count:
                 raise RuntimeError(f"Expected {expected_count} matches but found {df.shape[0]}.")
         return df
 
-    def query(self, date=None, date_start=None, date_end=None, query_dict=None, screener=None):
+    def query(self, date=None, date_start=None, date_end=None, query_criteria=None, screener=None):
         """
         Query the table, optionally with a date range.
         Args:
             date (date, optional): The specific date to query on.
             date_start (date, optional): The earliest date of returned rows.
             date_end (date, optional): The latest date of returned rows.
-            query_dict (dict, optional): Parsed to the query.
+            query_dict (abc.Mapping, optional): Parsed to the query.
             screener (huntsman.drp.screener.Screener, optional): If provided, will apply screening
                 to query result.
         Returns:
             list of dict: Dictionary of query results.
         """
-        if query_dict is not None:
-            query_dict = {key: value for key, value in query_dict.items() if value is not None}
-        df = self.find(query_dict)
+        df = self.find(query_criteria=query_criteria)
 
         # Apply date selection using parse_date
         # TODO remove this in favour of pymongo date handling
         if self._date_key in df.columns:
-            parsed_dates = [parse_date(d) for d in df[self._date_key].values]
-            criteria = {}
+
+            # Build query criteria
+            query_criteria = {}
             if date is not None:
-                criteria["equals"] = parse_date(date)
+                query_criteria["equals"] = parse_date(date)
             if date_start is not None:
-                criteria["minimum"] = parse_date(date_start)
+                query_criteria["greater_than_equals"] = parse_date(date_start)
             if date_end is not None:
-                criteria["maximum"] = parse_date(date_end)
-            keep = satisfies_criteria(parsed_dates, criteria, logger=self.logger,
-                                      metric_name=self._date_key)
+                query_criteria["less_than"] = parse_date(date_end)
+
+            # Apply to dataframe
+            parsed_dates = np.array([parse_date(d) for d in df[self._date_key].values])
+            keep = criteria_is_satisfied(parsed_dates, query_criteria)
             df = df[keep].reset_index(drop=True)
 
+        # Apply quality screening
         if screener is not None:
             self.logger.debug("Screening query result.")
             df = screener.screen_dataframe(df)
@@ -140,12 +144,12 @@ class DataTable(HuntsmanBase):
         Returns:
             list: Query result.
         """
-        date_now = datetime.utcnow()
+        date_now = current_date()
         date_start = date_now - timedelta(days=days, hours=hours, seconds=seconds)
         return self.query(date_start=date_start, query_dict=query_dict)
 
     def query_matches(self, values, match_key="filename", one_to_one=True, **kwargs):
-        """ Get matches with
+        """ Get rows matching values of a certain key.
         Args:
             table (huntsman.drp.datatable.DataTable): The data table to match with.
             match_key (str, optional): The key to match on. Default: 'filename'.

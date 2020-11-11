@@ -7,7 +7,7 @@ import numpy as np
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.core import get_config
 from huntsman.drp.utils.library import load_module
-from huntsman.drp.utils.screening import satisfies_criteria
+from huntsman.drp.utils.query import criteria_is_satisfied
 
 
 class Screener(HuntsmanBase):
@@ -43,8 +43,7 @@ class Screener(HuntsmanBase):
             metric_data = metric_data = df_ref[metric_name].values
 
             # Check which rows satisfy criteria
-            meets_criteria = satisfies_criteria(metric_data, criteria, logger=self.logger,
-                                                metric_name=metric_name)
+            meets_criteria = criteria_is_satisfied(metric_data, criteria)
             self.logger.debug(f"{meets_criteria.sum()} of {meets_criteria.size} rows satisfy"
                               f" {metric_name} criteria.")
             screen_result = np.logical_and(screen_result, meets_criteria)
