@@ -24,15 +24,14 @@ def initialise_pool(niceness):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--replace", action="store_true",
-                        help="If provided, delete existing quality metadata.")
     parser.add_argument("--nprocs", type=int, default=1,
                         help="The number of processes to run on.")
-    parser.add_argument("--limit", type=int, default=0, help="Only run this many files.")
+    parser.add_argument("--limit", type=int, default=0,
+                        help="Only run this many files."
+                             " If 0 (default), run all the files.")
     parser.add_argument("--niceness", type=int, default=5, help="The niceness level.")
 
     args = parser.parse_args()
-    replace = args.replace
     nprocs = args.nprocs
     limit = args.limit
     niceness = args.niceness
@@ -47,7 +46,7 @@ if __name__ == "__main__":
         filenames = filenames[:limit]
 
     # Get quality metadata for files
-    fn = partial(metadata_from_fits)
+    fn = partial(metadata_from_fits, logger=logger)
     logger.info(f"Getting quality metadata for {len(filenames)} files.")
     with Pool(nprocs, initializer=initialise_pool, initargs=(niceness,)) as pool:
         metadata_list = pool.map(fn, filenames)
@@ -56,6 +55,4 @@ if __name__ == "__main__":
     logger.info(f"Adding quality metadata to database.")
     dqtable = RawQualityTable()
     for filename, metadata in zip(filenames, metadata_list):
-        if replace:
-            dqtable.delete_file_data(filename)
         dqtable.update_file_data(filename, data=metadata)
