@@ -191,22 +191,24 @@ class DataTable(HuntsmanBase):
             self.insert_one(metadata, **kwargs)
 
     @edit_permission_validation
-    def update_document(self, data_id, metadata, **kwargs):
+    def update_document(self, data_id, metadata, upsert=False, **kwargs):
         """
         Update the document associated with the data_id.
         Args:
             data_id (dict): Dictionary of key: value pairs identifying the document.
             data (dict): Dictionary of key: value pairs to update in the database. The field will
                 be created if it does not already exist.
+            upsert (bool): If True, insert a new document if a matching document does not exist.
         Returns:
             `pymongo.results.UpdateResult`: The result of the update operation.
         """
-        self.find(data_id, expected_count=1)  # Make sure there is only one match
+        if not upsert:
+            self.find(data_id, expected_count=1)  # Make sure there is only one match
 
         # Since we are using pymongo we will have to do some parsing
         metadata = encode_mongo_value(metadata)
 
-        result = self._table.update_one(data_id, {'$set': metadata}, upsert=False)
+        result = self._table.update_one(data_id, {'$set': metadata}, upsert=upsert)
         if result.matched_count != 1:
             raise RuntimeError(f"Unexpected number of documents updated: {result.deleted_count}.")
 
