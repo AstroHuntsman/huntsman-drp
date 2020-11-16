@@ -1,4 +1,4 @@
-"""Code to interface with the Huntsman database."""
+"""Code to interface with the Huntsman mongo database."""
 from copy import deepcopy
 from collections import abc
 from contextlib import suppress
@@ -16,9 +16,22 @@ from huntsman.drp.utils.query import Criteria, QueryCriteria, encode_mongo_value
 from huntsman.drp.base import HuntsmanBase
 
 
+def _apply_action(func, metadata):
+    """
+    """
+    if isinstance(metadata, abc.Mapping):
+        func(metadata)
+    elif isinstance(metadata, abc.Iterable):
+        for item in metadata:
+            func(metadata)
+    raise TypeError(f"Invalid metadata data type: {type(metadata)}.")
+
+
 class DataTable(HuntsmanBase):
-    """ """
+    """ The primary goal of DataTable objects is to provide a minimal, easily-configurable and
+    user-friendly interface between the mongo database and the DRP."""
     _required_columns = None
+    _unique_columns = ("filename", )  # Required to identify a unique document
 
     def __init__(self, **kwargs):
         HuntsmanBase.__init__(self, **kwargs)
@@ -85,16 +98,51 @@ class DataTable(HuntsmanBase):
         date_start = date_now - timedelta(days=days, hours=hours, seconds=seconds)
         return self.query(date_start=date_start, criteria=criteria)
 
+    def insert(self, metadata):
+        """
+        """
+        return _apply_action(self._insert, metadata)
+
     def update(self, metadata):
-        """ Insert one or multiple single entry into the table.
+        """
+        """
+        return _apply_action(self._update, metadata)
+
+    def delete(self, metadata):
+        """
+        """
+        return _apply_action(self._delete, metadata)
+
+    def _insert(self, metadata):
+        """
+        """
+        # Ensure required columns exist
+        if self.required_columns is None:
+            return
+        for column_name in self._required_columns:
+            if column_name not in metadata.keys():
+                raise ValueError(f"New document missing required column: {column_name}.")
+        # Ensure new document is unique
+        unique_id = {k: metadata[k] for k in self._unique_columns}
+        query_result = self.query(criteria=unique_id)
+        if query_result.shape[0] != 0:
+            raise ValueError(f"Document already exists for {unique_id}.")
+        # Insert the new document
+        self._table.insert_one(deepcopy(metadata))
+
+    def _update(self, metadata, upsert=True):
+        """ Update one or multiple single entry into the table. MongoDB edits the first matching
+        document, so we need to check we are only matching with a single document.
         Args:
             metadata (dict): The document to insert.
         Returns:
             pymongo.results.UpdateResult: The update result object.
         """
-        VALIDATE DOCUMENT!!!
         if isinstance(metadata, abc.Mapping):
-            self._check_query_count(metadata, 1)
+            query_result = self.query(criteria=metadata)
+            if upsert and (query.shape[0] == 0):
+                return self._insert(metadata)
+
             update_result = self._table.update_one(deepcopy(metadata))
         elif isinstance(metadata, abc.Iterable):
             for item in metadata:
@@ -103,33 +151,39 @@ class DataTable(HuntsmanBase):
             raise TypeError(f"Invalid data type for update: {type(metadata)}.")
         return update_result
 
-    def delete(self, metadata):
-        """ Delete one or more entries from the table.
+    def _delete(self, metadata):
+        """ Delete one or more entries from the table. MongoDB deletes the first matching document,
+        so we need to check we are only matching with a single document.
         Args:
             metadata (abc.Mapping or abc.Iterable): The document(s) to insert.
         Returns:
             pymongo.results.DeleteResult: The delete result object.
         """
         if isinstance(metadata, abc.Mapping):
-            self._check_query_count(metadata, 1)
-            self.logger.debug(f"Deleting {metadata} from {self}.")
-            delete_result = self._table.delete_one(metadata)
+            query_count = self.query(criteria=metadata).shape[0]
+            if query_count == 0:
+                self.logger.warning(f"Tried to delete non-existent document from {self}:"
+                                    f" {metadata}.")
+                return
+            elif query_count == 1:
+                self.logger.debug(f"Deleting {metadata} from {self}.")
+                return self._table.delete_one(metadata)
+            else:
+                raise RuntimeError(f"Unexpected query result size: {query_count}>1.")
         elif isinstance(metadata, abc.Iterable):
             for item in metadata:
                 self.delete(item)
         else:
             raise TypeError(f"Invalid data type for update: {type(metadata)}.")
-        return delete_result
 
-    def _check_query_count(self, criteria, expected_count):
+    def _validate_document(self, metadata):
         """
         """
-        query_count = self.query(criteria=criteria).shape[0]
-        if not isinstance(expected_count, abc.Iterable):
-            expected_count = list(expected_count)
-        if query_count not in expected_count:
-            raise RuntimeError(f"Unexpected query result size: {query_count} not in"
-                               f" {expected_count}.")
+        if self.required_columns is None:
+            return
+        for column_name in self._required_columns:
+            if column_name not in metadata.keys():
+                raise ValueError(f"Document missing required column: {column_name}.")
 
 
 class RawDataTable(DataTable):
