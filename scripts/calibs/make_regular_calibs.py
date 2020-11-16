@@ -66,7 +66,7 @@ class RegularCalibMaker(HuntsmanBase):
                 filenames = query_result[self._filename_key].values
 
                 # Ingest the files
-                br.ingest_raw_data(filenames)
+                br.ingest_raw_data(filenames, ignore_ingested=True)
 
             # Make master calibs and archive them
             br.make_master_calibs()
