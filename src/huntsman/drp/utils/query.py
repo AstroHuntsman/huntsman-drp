@@ -102,8 +102,8 @@ class Criteria(HuntsmanBase):
         # Check the operator keys are valid
         for key in criteria.keys():
             if key not in self._operator_keys:
-                raise ValueError(f"Unrecognised operator key in query criteria: {key}."
-                                 f"Valid columns are: {self._operator_keys}.")
+                raise ValueError(f"Unrecognised operator in query criteria: '{key}''."
+                                 f" Valid operator names are: {self._operator_keys}.")
         return deepcopy(criteria)
 
 

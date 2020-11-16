@@ -48,7 +48,7 @@ class RegularCalibMaker(HuntsmanBase):
             self.logger.info(f"Retrieving raw files for {self._data_type_key}: {calib_type}.")
 
             # Get all filenames
-            criteria_raw = {self._data_type_key: {"equal": calib_type}}
+            criteria_raw = {self._data_type_key: {"equals": calib_type}}
             filenames_raw = self.rawtable.query(date_start=date_start, date_end=date_end,
                                                 criteria=criteria_raw)[self._filename_key].values
 
