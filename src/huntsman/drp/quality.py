@@ -9,11 +9,12 @@ from huntsman.drp.core import get_logger
 METRICS = "clipped_stats", "flipped_asymmetry"
 
 
-def metadata_from_fits(filename, config=None, logger=None):
+def metadata_from_fits(filename, config=None, logger=None, dtype="float32"):
     """
     Return a dictionary of simple image stats for the file.
     Args:
         filename (str): Filename of FITS image.
+        dtype (str or Type): Convert the image data to this type before processing.
     Returns:
         dict: A dictionary of metadata key: value pairs, including the filename.
     """
@@ -24,7 +25,7 @@ def metadata_from_fits(filename, config=None, logger=None):
 
     # Load the data from file
     try:
-        data = fits.getdata(filename)
+        data = fits.getdata(filename).astype(dtype)
     except Exception as err:  # Data may be missing or corrupt, so catch all errors here
         logger.error(f"Unable to read file {filename}: {err}")
         return result

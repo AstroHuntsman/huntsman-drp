@@ -6,7 +6,6 @@ Existing calibs for today's date will be overwritten.
 import time
 import argparse
 from datetime import timedelta
-from multiprocessing import Pool
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date
