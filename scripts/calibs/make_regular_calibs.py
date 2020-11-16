@@ -19,8 +19,8 @@ class RegularCalibMaker(HuntsmanBase):
     _data_type_key = "dataType"
     _filename_key = "filename"
 
-    def __init__(self, sleep_interval=86400, day_range=1000, nproc=1, config=None, logger=None,
-                 butler_repository=None, **kwargs):
+    def __init__(self, sleep_interval=86400, day_range=1000, config=None, logger=None,
+                 butler_repository=None, nproc=1, **kwargs):
         super().__init__(config=config, logger=logger, **kwargs)
         self.sleep_interval = sleep_interval
         self.day_range = day_range
@@ -28,6 +28,7 @@ class RegularCalibMaker(HuntsmanBase):
         self.dqtable = RawQualityTable(config=self.config, logger=self.logger)
         self._nproc = nproc
         self._calib_types = self.config["calibs"]["types"]
+        self._nproc = nproc
         if butler_repository is None:
             butler_repository = TemporaryButlerRepository(config=self.config, logger=self.logger)
         self._butler_repository = butler_repository
@@ -73,7 +74,7 @@ class RegularCalibMaker(HuntsmanBase):
                 br.ingest_raw_data(filenames, ignore_ingested=True)
 
             # Make master calibs and archive them
-            br.make_master_calibs()
+            br.make_master_calibs(procs=self._nproc)
             br.archive_master_calibs()
 
 
@@ -82,6 +83,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sleep_interval", type=int, default=86400)
     parser.add_argument("--day_range", type=int, default=30)
+    parser.add_argument("--nproc", type=int, default=1)
     args = parser.parse_args()
 
-    RegularCalibMaker(sleep_interval=args.sleep_interval, day_range=args.day_range).run()
+    RegularCalibMaker(sleep_interval=args.sleep_interval, day_range=args.day_range,
+                      nproc=args.nproc).run()
