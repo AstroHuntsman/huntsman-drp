@@ -10,6 +10,7 @@ from datetime import timedelta
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date
 from huntsman.drp.datatable import RawDataTable, RawQualityTable
+from huntsman.drp.butler import TemporaryButlerRepository
 
 
 # TODO: Move this class
@@ -19,7 +20,7 @@ class RegularCalibMaker(HuntsmanBase):
     _filename_key = "filename"
 
     def __init__(self, sleep_interval=86400, day_range=1000, nproc=1, config=None, logger=None,
-                 **kwargs):
+                 butler_repository=None, **kwargs):
         super().__init__(config=config, logger=logger, **kwargs)
         self.sleep_interval = sleep_interval
         self.day_range = day_range
@@ -27,6 +28,9 @@ class RegularCalibMaker(HuntsmanBase):
         self.dqtable = RawQualityTable(config=self.config, logger=self.logger)
         self._nproc = nproc
         self._calib_types = self.config["calibs"]["types"]
+        if butler_repository is None:
+            butler_repository = TemporaryButlerRepository(config=self.config, logger=self.logger)
+        self._butler_repository = butler_repository
 
     def run(self):
         """ Periodically create a new set of master calibs. """
@@ -43,29 +47,30 @@ class RegularCalibMaker(HuntsmanBase):
         date_start = date_end - timedelta(days=self.day_range)
 
         # Get latest files that satisfy screening criteria
-        for calib_type in self._calib_types:
-            self.logger.info(f"Retrieving raw files for {self._data_type_key}: {calib_type}.")
+        with self._butler_repository as br:
+            for calib_type in self._calib_types:
+                self.logger.info(f"Retrieving raw files for {self._data_type_key}: {calib_type}.")
 
-            # Get all filenames
-            criteria_raw = {self._data_type_key: calib_type}
-            filenames_raw = self.rawtable.query(date_start=date_start, date_end=date_end,
-                                                criteria=criteria_raw)[self._filename_key].values
+                # Get all filenames
+                criteria_raw = {self._data_type_key: calib_type}
+                filenames_raw = self.rawtable.query(
+                            date_end=date_end, criteria=criteria_raw)[self._filename_key].values
 
-            # Get filenames that satisfy screening criteria
-            criteria_qual = {self._filename_key: filenames_raw}
-            criteria_qual.update(self.config["screening"][calib_type])
-            query_result = self.dqtable.query(date_start=date_start, date_end=date_end,
-                                              criteria=criteria_qual)
-            self.logger.info(f"{query_result.shape[0]} raw files passed screening for"
-                             f" {self._data_type_key}: {calib_type}.")
-            filenames = query_result[self._filename_key].values
+                # Get filenames that satisfy screening criteria
+                criteria_qual = {self._filename_key: filenames_raw}
+                criteria_qual.update(self.config["screening"][calib_type])
+                query_result = self.dqtable.query(date_start=date_start, date_end=date_end,
+                                                  criteria=criteria_qual)
+                self.logger.info(f"{query_result.shape[0]} raw files passed screening for"
+                                 f" {self._data_type_key}: {calib_type}.")
+                filenames = query_result[self._filename_key].values
 
-            # Ingest the files
-            self.butler_repository.ingest_raw_data(filenames)
+                # Ingest the files
+                br.ingest_raw_data(filenames)
 
-        # Make master calibs and archive them
-        self.butler_repository.make_master_calibs()
-        self.butler_repository.archive_master_calibs()
+            # Make master calibs and archive them
+            br.make_master_calibs()
+            br.archive_master_calibs()
 
 
 if __name__ == "__main__":
