@@ -193,7 +193,7 @@ class DataTable(HuntsmanBase):
     @edit_permission_validation
     def update_document(self, data_id, metadata, upsert=False, **kwargs):
         """
-        Update the document associated with the data_id.
+        Update a single document associated with the data_id.
         Args:
             data_id (dict): Dictionary of key: value pairs identifying the document.
             data (dict): Dictionary of key: value pairs to update in the database. The field will
@@ -202,6 +202,14 @@ class DataTable(HuntsmanBase):
         Returns:
             `pymongo.results.UpdateResult`: The result of the update operation.
         """
+        # Check the dataID doesn't match with multiple documents
+        allowed_counts = [1]
+        if upsert:
+            allowed_counts.append(0)
+        n_matches = self.query(criteria=data_id).shape[0]
+        if n_matches not in allowed_counts:
+            raise RuntimeError(f"Data ID {data_id} matches with {n_matches} documents.")
+        # Update the document
         metadata = encode_mongo_data(metadata)
         result = self._table.update_one(data_id, {'$set': metadata}, upsert=upsert)
         return result
