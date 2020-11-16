@@ -4,16 +4,8 @@ from copy import deepcopy
 import numpy as np
 
 from huntsman.drp.base import HuntsmanBase
+from huntsman.drp.utils.mongo import MONGO_OPERATORS, encode_mongo_data
 
-# These are responsible for converting string keys into equivalent mongoDB operators
-MONGO_OPERATORS = {"equals": "$eq",
-                   "not_equals": "$ne",
-                   "greater_than": "$gt",
-                   "greater_than_equals": "$gte",
-                   "less_than": "$lt",
-                   "less_than_equals": "$lte",
-                   "in": "$in",
-                   "not_in": "$nin"}
 
 # These are responsible for applying logical operators based on a string key
 OPERATORS = {"equals": lambda x, y: x == y,
@@ -24,29 +16,6 @@ OPERATORS = {"equals": lambda x, y: x == y,
              "less_than_equals": lambda x, y: x <= y,
              "in": lambda x, y: np.isin(x, y),
              "not_in": lambda x, y: np.isin(x, y, invert=True)}
-
-
-def encode_mongo_data(value):
-    """ Encode object for a pymongodb query.
-    Args:
-        value (object): The value to encode.
-    Returns:
-        object: The encoded value.
-    """
-    if isinstance(value, abc.Mapping):
-        for k, v in value.items():
-            value[k] = encode_mongo_data(v)
-    elif isinstance(value, str):
-        pass
-    elif isinstance(value, abc.Iterable):
-        value = [encode_mongo_data(v) for v in value]
-    elif isinstance(value, np.bool_):
-        value = bool(value)
-    elif isinstance(value, np.int64):
-        value = int(value)
-    elif isinstance(value, np.float64):
-        value = float(value)
-    return value
 
 
 class Criteria(HuntsmanBase):

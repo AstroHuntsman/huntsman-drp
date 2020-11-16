@@ -10,7 +10,8 @@ from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 
 from huntsman.drp.utils.date import parse_date, current_date
-from huntsman.drp.utils.query import Criteria, QueryCriteria, encode_mongo_data
+from huntsman.drp.utils.query import Criteria, QueryCriteria
+from huntsman.drp.utils.mongo import encode_mongo_data
 from huntsman.drp.base import HuntsmanBase
 
 
