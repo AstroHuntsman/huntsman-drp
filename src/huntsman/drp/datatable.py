@@ -15,15 +15,6 @@ from huntsman.drp.utils.mongo import encode_mongo_data
 from huntsman.drp.base import HuntsmanBase
 
 
-def new_document_validation(func):
-    """Wrapper to validate a new document."""
-
-    def wrapper(self, metadata, *args, **kwargs):
-        self._validate_new_document(metadata)
-        return func(self, metadata, *args, **kwargs)
-    return wrapper
-
-
 def edit_permission_validation(func):
     """Wrapper to check permission to edit DB entries."""
 
@@ -168,18 +159,15 @@ class DataTable(HuntsmanBase):
 
         return df_matched
 
-    @edit_permission_validation
-    @new_document_validation
     def insert_one(self, metadata, **kwargs):
         """
         Insert a single entry into the table.
         Args:
             metadata (dict): The document to insert.
         """
-        del_id_key = "_id" not in metadata.keys()  # pymongo adds _id to metadata automatically
-        self._table.insert_one(metadata)
-        if del_id_key:
-            del metadata["_id"]
+        metadata = encode_mongo_data(metadata)
+        self._validate_new_document(metadata)
+        self._table.insert_one(metadata.copy())  # Copy because mongo modifies
 
     def insert_many(self, metadata_list, **kwargs):
         """

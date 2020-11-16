@@ -22,15 +22,15 @@ MONGO_OPERATORS = {"equals": "$eq",
 def encode_mongo_data(value):
     """ Encode object for a pymongodb query.
     Args:
-        value (object): The value to encode.
+        value (object): The data to encode.
     Returns:
-        object: The encoded value.
+        object: The encoded data.
     """
     if isinstance(value, abc.Mapping):
         for k, v in value.items():
             value[k] = encode_mongo_data(v)
     elif isinstance(value, str):
-        pass
+        pass  # Required because strings are also iterables
     elif isinstance(value, abc.Iterable):
         value = [encode_mongo_data(v) for v in value]
     else:
