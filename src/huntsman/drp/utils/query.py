@@ -26,7 +26,7 @@ OPERATORS = {"equals": lambda x, y: x == y,
              "not_in": lambda x, y: np.isin(x, y, invert=True)}
 
 
-def encode_mongo_value(value):
+def encode_mongo_data(value):
     """ Encode object for a pymongodb query.
     Args:
         value (object): The value to encode.
@@ -35,11 +35,11 @@ def encode_mongo_value(value):
     """
     if isinstance(value, abc.Mapping):
         for k, v in value.items():
-            value[k] = encode_mongo_value(v)
+            value[k] = encode_mongo_data(v)
     elif isinstance(value, str):
         pass
     elif isinstance(value, abc.Iterable):
-        value = [encode_mongo_value(v) for v in value]
+        value = [encode_mongo_data(v) for v in value]
     elif isinstance(value, np.bool_):
         value = bool(value)
     elif isinstance(value, np.int64):
@@ -82,7 +82,7 @@ class Criteria(HuntsmanBase):
             with suppress(KeyError):
                 k = self._mongo_operators[k]
             if v is not None:
-                new[k] = encode_mongo_value(v)
+                new[k] = encode_mongo_data(v)
         return new
 
     def _parse_criteria(self, criteria):

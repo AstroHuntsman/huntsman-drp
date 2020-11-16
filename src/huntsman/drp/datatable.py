@@ -10,7 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 
 from huntsman.drp.utils.date import parse_date, current_date
-from huntsman.drp.utils.query import Criteria, QueryCriteria, encode_mongo_value
+from huntsman.drp.utils.query import Criteria, QueryCriteria, encode_mongo_data
 from huntsman.drp.base import HuntsmanBase
 
 
@@ -202,16 +202,8 @@ class DataTable(HuntsmanBase):
         Returns:
             `pymongo.results.UpdateResult`: The result of the update operation.
         """
-        if not upsert:
-            self.find(data_id, expected_count=1)  # Make sure there is only one match
-
-        # Since we are using pymongo we will have to do some parsing
-        metadata = encode_mongo_value(metadata)
-
+        metadata = encode_mongo_data(metadata)
         result = self._table.update_one(data_id, {'$set': metadata}, upsert=upsert)
-        if result.matched_count != 1:
-            raise RuntimeError(f"Unexpected number of documents updated: {result.deleted_count}.")
-
         return result
 
     @edit_permission_validation
@@ -226,7 +218,7 @@ class DataTable(HuntsmanBase):
         with suppress(AttributeError):
             data_id = data_id.to_dict()
         if data_id is not None:
-            data_id = encode_mongo_value(data_id)
+            data_id = encode_mongo_data(data_id)
 
         self.find(data_id, expected_count=1)  # Make sure there is only one match
         result = self._table.delete_one(data_id)
