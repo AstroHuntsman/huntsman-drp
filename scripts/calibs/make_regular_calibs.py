@@ -31,14 +31,13 @@ class RegularCalibMaker(HuntsmanBase):
 
     def run(self):
         """ Periodically create a new set of master calibs. """
-        with Pool(self._nproc) as pool:
-            while True:
-                date = current_date()
-                self.logger.info(f"Queuing new calibs for calibDate: {date}")
-                pool.apply_async(self._run_next, (date,))
-
-                self.logger.info(f"Sleeping for {self.sleep_interval} seconds.")
-                time.sleep(self.sleep_interval)
+        # TODO: Implement actual queue
+        while True:
+            date = current_date()
+            self.logger.info(f"Queuing new calibs for calibDate: {date}")
+            self._run_next(date)
+            self.logger.info(f"Sleeping for {self.sleep_interval}s.")
+            time.sleep(self.sleep_interval)
 
     def _run_next(self, date_end):
         """ Run the next set of calibs. """
@@ -46,6 +45,7 @@ class RegularCalibMaker(HuntsmanBase):
 
         # Get latest files that satisfy screening criteria
         for calib_type in self._calib_types:
+            self.logger.info(f"Retrieving raw files for {self._data_type_key}: {calib_type}.")
 
             # Get all filenames
             criteria_raw = {self._data_type_key: {"equal": calib_type}}
@@ -57,6 +57,8 @@ class RegularCalibMaker(HuntsmanBase):
             criteria_qual.update(self.config["screening"][self._data_type_key])
             filenames = self.dqtable.query(date_start=date_start, date_end=date_end,
                                            criteria=criteria_qual)[self._filename_key].values
+            self.logger.info(f"{len(filenames)} raw files passed screening for"
+                             f" {self._data_type_key}: {calib_type}.")
 
             # Ingest the files
             self.butler_repository.ingest_raw_data(filenames)
