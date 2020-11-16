@@ -10,19 +10,21 @@ from multiprocessing import Pool
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date
-from huntsman.drp.datatable import RawQualityTable
+from huntsman.drp.datatable import RawDataTable, RawQualityTable
 
 
 # TODO: Move this class
 class RegularCalibMaker(HuntsmanBase):
 
     _data_type_key = "dataType"
+    _filename_key = "filename"
 
     def __init__(self, sleep_interval=86400, day_range=1000, nproc=1, config=None, logger=None,
                  **kwargs):
         super().__init__(config=config, logger=logger, **kwargs)
         self.sleep_interval = sleep_interval
         self.day_range = day_range
+        self.rawtable = RawDataTable(config=self.config, logger=self.logger)
         self.dqtable = RawQualityTable(config=self.config, logger=self.logger)
         self._nproc = nproc
         self._calib_types = self.config["calibs"]["types"]
@@ -31,7 +33,9 @@ class RegularCalibMaker(HuntsmanBase):
         """ Periodically create a new set of master calibs. """
         with Pool(self._nproc) as pool:
             while True:
-                pool.apply_async(self._run_next, (current_date(),))
+                date = current_date()
+                self.logger.info(f"Queuing new calibs for calibDate: {date}")
+                pool.apply_async(self._run_next, (date,))
 
                 self.logger.info(f"Sleeping for {self.sleep_interval} seconds.")
                 time.sleep(self.sleep_interval)
@@ -43,15 +47,19 @@ class RegularCalibMaker(HuntsmanBase):
         # Get latest files that satisfy screening criteria
         for calib_type in self._calib_types:
 
-            # Specify query criteria
-            criteria = {self._data_type_key: {"equal": calib_type}}
-            criteria.update(self.config["screening"][self._data_type_key])
+            # Get all filenames
+            criteria_raw = {self._data_type_key: {"equal": calib_type}}
+            filenames_raw = self.rawtable.query(date_start=date_start, date_end=date_end,
+                                                criteria=criteria_raw)[self._filename_key].values
 
-            # Query for this datatype
-            df = self.dqtable.query(date_start=date_start, date_end=date_end, criteria=criteria)
+            # Get filenames that satisfy screening criteria
+            criteria_qual = {self._filename_key: {"in": filenames_raw}}
+            criteria_qual.update(self.config["screening"][self._data_type_key])
+            filenames = self.dqtable.query(date_start=date_start, date_end=date_end,
+                                           criteria=criteria_qual)[self._filename_key].values
 
             # Ingest the files
-            self.butler_repository.ingest_raw_data(df["filenames"].values)
+            self.butler_repository.ingest_raw_data(filenames)
 
         # Make master calibs and archive them
         self.butler_repository.make_master_calibs()
