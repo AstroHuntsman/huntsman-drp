@@ -1,4 +1,6 @@
 """Code to interface with the Huntsman database."""
+from copy import deepcopy
+from collections import abc
 from contextlib import suppress
 from datetime import timedelta
 from urllib.parse import quote_plus
@@ -14,28 +16,9 @@ from huntsman.drp.utils.query import Criteria, QueryCriteria, encode_mongo_value
 from huntsman.drp.base import HuntsmanBase
 
 
-def new_document_validation(func):
-    """Wrapper to validate a new document."""
-
-    def wrapper(self, metadata, *args, **kwargs):
-        self._validate_new_document(metadata)
-        return func(self, metadata, *args, **kwargs)
-    return wrapper
-
-
-def edit_permission_validation(func):
-    """Wrapper to check permission to edit DB entries."""
-
-    def wrapper(self, *args, **kwargs):
-        self._validate_edit_permission(**kwargs)
-        return func(self, *args, **kwargs)
-    return wrapper
-
-
 class DataTable(HuntsmanBase):
     """ """
     _required_columns = None
-    _allow_edits = True
 
     def __init__(self, **kwargs):
         HuntsmanBase.__init__(self, **kwargs)
@@ -72,26 +55,18 @@ class DataTable(HuntsmanBase):
         self._db = self._client[db_name]
         self._table = self._db[table_name]
 
-    def query(self, criteria, expected_count=None):
-        """
-        Find metadata for one or more matches in a table.
+    def query(self, criteria=None):
+        """ Get data for one or more matches in the table.
         Args:
-            data_id (dict): The data ID to search for.
-            expected_count (int, optional): The expected number of matches. If given and it does
-                not match the actual number of matches, a `RuntimeError` is raised.
+            criteria (dict, optional): The query criteria.
         Returns:
-            list of dict: The find result.
+            pd.DataFrame: The query result.
         """
         if criteria is not None:
             criteria = QueryCriteria(criteria).to_mongo()
-
         cursor = self._table.find(criteria)
+        # Convert to pd.DataFrame
         df = pd.DataFrame(list(cursor))
-
-        if expected_count is not None:
-            if df.shape[0] != expected_count:
-                raise RuntimeError(f"Expected {expected_count} matches but found {df.shape[0]}.")
-
         self.logger.debug(f"Query returned {df.shape[0]} results.")
         return df
 
@@ -110,86 +85,51 @@ class DataTable(HuntsmanBase):
         date_start = date_now - timedelta(days=days, hours=hours, seconds=seconds)
         return self.query(date_start=date_start, criteria=criteria)
 
-    @edit_permission_validation
-    @new_document_validation
-    def insert_one(self, metadata, **kwargs):
-        """
-        Insert a single entry into the table.
+    def update(self, metadata):
+        """ Insert one or multiple single entry into the table.
         Args:
             metadata (dict): The document to insert.
-        """
-        del_id_key = "_id" not in metadata.keys()  # pymongo adds _id to metadata automatically
-        self._table.insert_one(metadata)
-        if del_id_key:
-            del metadata["_id"]
-
-    def insert_many(self, metadata_list, **kwargs):
-        """
-        Insert a single entry into the table.
-        Args:
-            metadata_list (list of dict): The documents to insert.
-            **kwargs: Parsed to `insert_one`.
-        """
-        for metadata in metadata_list:
-            self.insert_one(metadata, **kwargs)
-
-    @edit_permission_validation
-    def update_document(self, data_id, metadata, **kwargs):
-        """
-        Update the document associated with the data_id.
-        Args:
-            data_id (dict): Dictionary of key: value pairs identifying the document.
-            data (dict): Dictionary of key: value pairs to update in the database. The field will
-                be created if it does not already exist.
         Returns:
-            `pymongo.results.UpdateResult`: The result of the update operation.
+            pymongo.results.UpdateResult: The update result object.
         """
-        self.find(data_id, expected_count=1)  # Make sure there is only one match
+        VALIDATE DOCUMENT!!!
+        if isinstance(metadata, abc.Mapping):
+            self._check_query_count(metadata, 1)
+            update_result = self._table.update_one(deepcopy(metadata))
+        elif isinstance(metadata, abc.Iterable):
+            for item in metadata:
+                self.update(item)
+        else:
+            raise TypeError(f"Invalid data type for update: {type(metadata)}.")
+        return update_result
 
-        # Since we are using pymongo we will have to do some parsing
-        metadata = encode_mongo_value(metadata)
-
-        result = self._table.update_one(data_id, {'$set': metadata}, upsert=False)
-        if result.matched_count != 1:
-            raise RuntimeError(f"Unexpected number of documents updated: {result.deleted_count}.")
-
-        return result
-
-    @edit_permission_validation
-    def delete_document(self, data_id, **kwargs):
-        """
-        Delete the document associated with the data_id.
+    def delete(self, metadata):
+        """ Delete one or more entries from the table.
         Args:
-            data_id (dict): Dictionary of key: value pairs identifying the document.
+            metadata (abc.Mapping or abc.Iterable): The document(s) to insert.
         Returns:
-            `pymongo.results.UpdateResult`: The result of the delete operation.
+            pymongo.results.DeleteResult: The delete result object.
         """
-        with suppress(AttributeError):
-            data_id = data_id.to_dict()
-        if data_id is not None:
-            data_id = encode_mongo_value(data_id)
+        if isinstance(metadata, abc.Mapping):
+            self._check_query_count(metadata, 1)
+            self.logger.debug(f"Deleting {metadata} from {self}.")
+            delete_result = self._table.delete_one(metadata)
+        elif isinstance(metadata, abc.Iterable):
+            for item in metadata:
+                self.delete(item)
+        else:
+            raise TypeError(f"Invalid data type for update: {type(metadata)}.")
+        return delete_result
 
-        self.find(data_id, expected_count=1)  # Make sure there is only one match
-        result = self._table.delete_one(data_id)
-        if result.deleted_count != 1:
-            raise RuntimeError(f"Unexpected number of documents deleted: {result.deleted_count}.")
-
-        return result
-
-    def _validate_edit_permission(self, bypass_allow_edits=False, **kwargs):
-        """Raise a PermissionError if not `bypass_allow_edits` or `self._allow_edits`."""
-        if not (bypass_allow_edits or self._allow_edits):
-            raise PermissionError("Edits are not allowed by-default for this table. If you are"
-                                  "sure you want to do this, use `bypass_allow_edits=True`.")
-
-    def _validate_new_document(self, metadata):
-        """Make sure the required columns are in the metadata."""
-        if self._required_columns is None:
-            return
-        missing = [k for k in self._required_columns if k not in metadata.keys()]
-        if len(missing) != 0:
-            raise ValueError(f"Missing columns for update: {missing}.")
-        self.find(metadata, expected_count=0)
+    def _check_query_count(self, criteria, expected_count):
+        """
+        """
+        query_count = self.query(criteria=criteria).shape[0]
+        if not isinstance(expected_count, abc.Iterable):
+            expected_count = list(expected_count)
+        if query_count not in expected_count:
+            raise RuntimeError(f"Unexpected query result size: {query_count} not in"
+                               f" {expected_count}.")
 
 
 class RawDataTable(DataTable):
