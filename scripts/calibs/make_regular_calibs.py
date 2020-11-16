@@ -54,7 +54,7 @@ class RegularCalibMaker(HuntsmanBase):
 
             # Get filenames that satisfy screening criteria
             criteria_qual = {self._filename_key: {"in": filenames_raw}}
-            criteria_qual.update(self.config["screening"][self._data_type_key])
+            criteria_qual.update(self.config["screening"][calib_type])
             filenames = self.dqtable.query(date_start=date_start, date_end=date_end,
                                            criteria=criteria_qual)[self._filename_key].values
             self.logger.info(f"{len(filenames)} raw files passed screening for"
