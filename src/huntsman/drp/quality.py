@@ -25,8 +25,8 @@ def metadata_from_fits(filename, config=None, logger=None):
     # Load the data from file
     try:
         data = fits.getdata(filename)
-    except FileNotFoundError:
-        logger.error(f"File not found: {filename}.")
+    except Exception as err:  # Data may be missing or corrupt, so catch all errors here
+        logger.error(f"Unable to read file {filename}: {err}")
         return result
 
     # Calculate metrics
