@@ -47,17 +47,18 @@ class RegularCalibMaker(HuntsmanBase):
             self.logger.info(f"Retrieving raw files for {self._data_type_key}: {calib_type}.")
 
             # Get all filenames
-            criteria_raw = {self._data_type_key: {"equals": calib_type}}
+            criteria_raw = {self._data_type_key: calib_type}
             filenames_raw = self.rawtable.query(date_start=date_start, date_end=date_end,
                                                 criteria=criteria_raw)[self._filename_key].values
 
             # Get filenames that satisfy screening criteria
-            criteria_qual = {self._filename_key: {"in": filenames_raw}}
+            criteria_qual = {self._filename_key: filenames_raw}
             criteria_qual.update(self.config["screening"][calib_type])
-            filenames = self.dqtable.query(date_start=date_start, date_end=date_end,
-                                           criteria=criteria_qual)[self._filename_key].values
-            self.logger.info(f"{len(filenames)} raw files passed screening for"
+            query_result = self.dqtable.query(date_start=date_start, date_end=date_end,
+                                              criteria=criteria_qual)
+            self.logger.info(f"{query_result.shape[0]} raw files passed screening for"
                              f" {self._data_type_key}: {calib_type}.")
+            filenames = query_result[self._filename_key].values
 
             # Ingest the files
             self.butler_repository.ingest_raw_data(filenames)

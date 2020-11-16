@@ -64,9 +64,12 @@ class Criteria(HuntsmanBase):
         if isinstance(criteria, QueryCriteria):
             return deepcopy(criteria.criteria)
 
-        # If a direct mapping, assume equals operator
+        # If a direct mapping, assume 'equals' or 'in' operator
         if not isinstance(criteria, abc.Mapping):
-            criteria = {"equals": criteria}
+            if isinstance(criteria, abc.Iterable) and not isinstance(criteria, str):
+                criteria = {"in": criteria}
+            else:
+                criteria = {"equals": criteria}
 
         # Check the operator keys are valid
         for key in criteria.keys():
