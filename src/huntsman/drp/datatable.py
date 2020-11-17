@@ -16,13 +16,17 @@ from huntsman.drp.utils.query import QueryCriteria, encode_mongo_value
 
 def _apply_operation(func, metadata):
     """ Apply a function to the metadata. metadata can either be a mappable, in which case the
-    function is called with metadata as its first argument, or it can be an iterable, in which
-    case the function will be successively applied to each of its items (assumed to be mappings).
+    function is called with metadata as its first argument, an iterable, in which case the function
+    will be successively applied to each of its items (assumed to be mappings), or a pd.DataFrame,
+    in which case the function will be applied to each of its rows.
     Args:
         func (Function): The function to apply.
-        metadata (abc.Mapping or abc.Iterable): The metadata to process.
+        metadata (pd.DataFrame, abc.Mapping or abc.Iterable): The metadata to process.
     """
-    if isinstance(metadata, abc.Mapping):
+    if isinstance(metadata, pd.DataFrame):
+        for _, item in metadata.iterrows():
+            func(encode_mongo_value(item))
+    elif isinstance(metadata, abc.Mapping):
         func(encode_mongo_value(metadata))
     elif isinstance(metadata, abc.Iterable):
         for item in metadata:
@@ -102,13 +106,14 @@ class DataTable(HuntsmanBase):
         return _apply_operation(self._insert_one, metadata)
 
     @require_unlocked
-    def update(self, data_id, metadata):
+    def update(self, data_id, metadata, upsert=False):
         """ Update a single document in the table.
         Args:
             data_id (dict): The data ID of the document to update.
             metadata (dict): The new metadata to be inserted.
+            upsert (bool): If True, will create a new document if there is no matching entry.
         """
-        fn = partial(self._update_one, data_id=encode_mongo_value(data_id))
+        fn = partial(self._update_one, data_id=encode_mongo_value(data_id), upsert=upsert)
         return _apply_operation(fn, metadata)
 
     @require_unlocked
@@ -150,8 +155,6 @@ class DataTable(HuntsmanBase):
             data_id (dict): The dictionary specifying the single document to delete.
         """
         # Ensure required columns exist
-        if self.required_columns is None:
-            return
         if self._required_columns is not None:
             for column_name in self._required_columns:
                 if column_name not in metadata.keys():
@@ -167,20 +170,24 @@ class DataTable(HuntsmanBase):
         self.logger.debug(f"Inserting new document into {self}: {metadata}.")
         self._table.insert_one(metadata)
 
-    def _update_one(self, data_id, metadata):
+    def _update_one(self, data_id, metadata, upsert):
         """ Update a single document in the table. MongoDB edits the first matching
         document, so we need to check we are only matching with a single document. A new document
         will be created if there are no matches in the table.
         Args:
             data_id (dict): The data ID of the document to update.
             metadata (dict): The new metadata to be inserted.
+            upsert (bool): If True, will create a new document if there is no matching entry.
         """
         query_count = self.query(criteria=data_id).shape[0]
         if query_count > 1:
             raise RuntimeError(f"data ID matches with more than one document: {data_id}.")
         elif query_count == 0:
-            new_metadata = data_id.copy().update(metadata.copy())
-            return self._insert_one(new_metadata)
+            if upsert:
+                new_metadata = data_id.copy().update(metadata.copy())
+                return self._insert_one(new_metadata)
+            else:
+                raise RuntimeError(f"No matching entry for {data_id} in {self}.")
         else:
             self._table.update_one(data_id, {'$set': metadata})
 

@@ -54,7 +54,7 @@ def test_query_latest(raw_data_table, config, tol=1):
     assert len(qresult) == 0
 
 
-def test_update_file_data(raw_data_table):
+def test_update(raw_data_table):
     """Test that we can update a document specified by a filename."""
     data = raw_data_table.query().iloc[0]
     # Get a filename to use as an identifier
@@ -66,17 +66,12 @@ def test_update_file_data(raw_data_table):
     assert old_value != new_value  # Let's be sure...
     # Update the key with the new value
     update_dict = {key: new_value}
-    raw_data_table.update_file_data(filename=filename, data=update_dict, bypass_allow_edits=True)
+    data_id = {"filename": filename}
+    raw_data_table.update(data_id, update_dict)
     # Check the values match
     data_updated = raw_data_table.query().iloc[0]
     assert data_updated["_id"] == data["_id"]
     assert data_updated[key] == new_value
-    # Change back to original value
-    update_dict = {key: old_value}
-    raw_data_table.update_file_data(filename=filename, data=update_dict, bypass_allow_edits=True)
-    data_updated = raw_data_table.query().iloc[0]
-    assert data_updated["_id"] == data["_id"]
-    assert data_updated[key] == old_value
 
 
 def test_update_file_data_bad_filename(raw_data_table):
@@ -87,13 +82,12 @@ def test_update_file_data_bad_filename(raw_data_table):
     assert filename not in filenames
     update_dict = {"A Key": "A Value"}
     with pytest.raises(RuntimeError):
-        raw_data_table.update_file_data(filename=filename, data=update_dict,
-                                        bypass_allow_edits=True)
+        raw_data_table.update_file_data(filename=filename, data=update_dict)
 
 
 def test_update_no_permission(raw_data_table):
     """ Make sure we can't edit things without permission. """
-    filename = ""
-    update_dict = {}
+    raw_data_table.lock()
     with pytest.raises(PermissionError):
-        raw_data_table.update_file_data(filename=filename, data=update_dict)
+        raw_data_table.update({"filename": "notafile"}, {})
+    raw_data_table.unlock()
