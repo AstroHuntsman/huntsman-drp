@@ -1,6 +1,5 @@
 directories:
-  archive:
-    master_calibs: ${HUNTSMAN_MOUNT}/archive/calibs
+  archive: ${HUNTSMAN_MOUNT}/archive
 
 fits_header:
   date_key: "DATE-OBS"
@@ -74,5 +73,7 @@ refcat:
 
 screening:
   flat:
-    flip_asymm_h: 100
-    flip_asymm_v: 60
+    flip_asymm_h:
+      less_than: 100
+    flip_asymm_v:
+      less_than: 60

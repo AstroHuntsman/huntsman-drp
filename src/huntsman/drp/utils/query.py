@@ -4,16 +4,8 @@ from copy import deepcopy
 import numpy as np
 
 from huntsman.drp.base import HuntsmanBase
+from huntsman.drp.utils.mongo import MONGO_OPERATORS, encode_mongo_data
 
-# These are responsible for converting string keys into equivalent mongoDB operators
-MONGO_OPERATORS = {"equals": "$eq",
-                   "not_equals": "$ne",
-                   "greater_than": "$gt",
-                   "greater_than_equals": "$gte",
-                   "less_than": "$lt",
-                   "less_than_equals": "$lte",
-                   "in": "$in",
-                   "not_in": "$nin"}
 
 # These are responsible for applying logical operators based on a string key
 OPERATORS = {"equals": lambda x, y: x == y,
@@ -88,7 +80,7 @@ class Criteria(HuntsmanBase):
                     raise KeyError(f"Unrecognised criteria operator: {k}. Should be one of: "
                                    f" {list(self._mongo_operators.keys())}")
             if v is not None:
-                new[k] = encode_mongo_value(v)
+                new[k] = encode_mongo_data(v)
         return new
 
     def _parse_criteria(self, criteria):
@@ -101,15 +93,18 @@ class Criteria(HuntsmanBase):
         if isinstance(criteria, QueryCriteria):
             return deepcopy(criteria.criteria)
 
-        # If a direct mapping, assume equals operator
+        # If a direct mapping, assume 'equals' or 'in' operator
         if not isinstance(criteria, abc.Mapping):
-            criteria = {"equals": criteria}
+            if isinstance(criteria, abc.Iterable) and not isinstance(criteria, str):
+                criteria = {"in": criteria}
+            else:
+                criteria = {"equals": criteria}
 
         # Check the operator keys are valid
         for key in criteria.keys():
             if key not in self._operator_keys:
-                raise ValueError(f"Unrecognised operator key in query criteria: {key}."
-                                 f"Valid columns are: {self._operator_keys}.")
+                raise ValueError(f"Unrecognised operator in query criteria: '{key}''."
+                                 f" Valid operator names are: {self._operator_keys}.")
         return deepcopy(criteria)
 
 
