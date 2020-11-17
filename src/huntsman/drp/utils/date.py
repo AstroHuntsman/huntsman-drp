@@ -13,13 +13,15 @@ def parse_date(date):
     Returns:
         A `datetime.datetime` object.
     """
+    if isinstance(date, int):
+        return datetime.fromtimestamp(date / 1e3)
     if isinstance(date, pd.Timestamp):
         return datetime.fromtimestamp(date)
     with suppress(AttributeError):
         date = date.strip("(UTC)")
     if type(date) is datetime:
         return date
-    return parse_date_dateutil(object)
+    return parse_date_dateutil(date)
 
 
 def date_to_ymd(object):

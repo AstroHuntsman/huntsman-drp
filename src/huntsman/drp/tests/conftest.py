@@ -11,7 +11,7 @@ from huntsman.drp.butler import ButlerRepository, TemporaryButlerRepository
 # Config
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def config():
     return get_config(ignore_local=True, testing=True)
 
@@ -19,7 +19,7 @@ def config():
 # Reference catalogue
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def reference_catalogue(config):
     return TapReferenceCatalogue(config=config)
 
@@ -47,7 +47,7 @@ def butler_repos(fixed_butler_repo, temp_butler_repo):
 # Testing data
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def fits_header_translator(config):
     return FitsHeaderTranslator(config=config)
 
