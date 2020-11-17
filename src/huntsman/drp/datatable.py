@@ -1,5 +1,6 @@
 """Code to interface with the Huntsman mongo database."""
 from collections import abc
+from copy import deepcopy
 from functools import partial
 from datetime import timedelta
 from urllib.parse import quote_plus
@@ -10,7 +11,7 @@ from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.utils.date import current_date
+from huntsman.drp.utils.date import current_date, parse_date
 from huntsman.drp.utils.query import QueryCriteria, encode_mongo_value
 
 
@@ -31,7 +32,8 @@ def _apply_operation(func, metadata):
     elif isinstance(metadata, abc.Iterable):
         for item in metadata:
             func(encode_mongo_value(item))
-    raise TypeError(f"Invalid metadata type: {type(metadata)}.")
+    else:
+        raise TypeError(f"Invalid metadata type: {type(metadata)}.")
 
 
 def require_unlocked(func):
@@ -48,7 +50,7 @@ def require_unlocked(func):
 class DataTable(HuntsmanBase):
     """ The primary goal of DataTable objects is to provide a minimal, easily-configurable and
     user-friendly interface between the mongo database and the DRP that enforces standardisation
-    of new documents."""
+    of new documents. """
     _required_columns = None
     _unique_columns = ("filename", )  # Required to identify a unique document
     is_locked = False
@@ -68,19 +70,40 @@ class DataTable(HuntsmanBase):
     def unlock(self):
         self.is_locked = False
 
-    def query(self, criteria=None):
+    def query(self, criteria=None, date_start=None, date_end=None, date=None):
         """ Get data for one or more matches in the table.
         Args:
             criteria (dict, optional): The query criteria.
+            date_start (object, optional): The start of the queried date range.
+            date_end (object, optional):  The end of the queried date range.
+            date (object, optional): The exact date to query on.
         Returns:
             pd.DataFrame: The query result.
         """
-        if criteria is not None:
-            criteria = QueryCriteria(criteria).to_mongo()
+        if criteria is None:
+            criteria = {}
+
+        # Add date range to criteria if given
+        date_criteria = {}
+        if date_start is not None:
+            date_criteria.update({"greater_than_equals": parse_date(date_start)})
+        if date_end is not None:
+            date_criteria.update({"less_than": parse_date(date_end)})
+        if date is not None:
+            date_criteria.update({"equals": parse_date(date)})
+        if date_criteria:
+            criteria = deepcopy(criteria)
+            criteria[self._date_key] = date_criteria
+
+        # Perform the query
+        self.logger.debug(f"Performing query with criteria: {criteria}.")
+        criteria = QueryCriteria(criteria).to_mongo()
         cursor = self._table.find(criteria)
+
         # Convert to a DataFrame object
         df = pd.DataFrame(list(cursor))
         self.logger.debug(f"Query returned {df.shape[0]} results.")
+
         return df
 
     def query_latest(self, days=0, hours=0, seconds=0, criteria=None):
@@ -98,12 +121,14 @@ class DataTable(HuntsmanBase):
         return self.query(date_start=date_start, criteria=criteria)
 
     @require_unlocked
-    def insert(self, metadata):
+    def insert(self, metadata, overwrite=False):
         """ Insert a new document into the table after ensuring it is valid and unique.
         Args:
             data_id (dict): The dictionary specifying the single document to delete.
+            overwrite (bool): If True, will overwrite the existing document for this dataId.
         """
-        return _apply_operation(self._insert_one, metadata)
+        fn = partial(self._insert_one, overwrite=overwrite)
+        return _apply_operation(fn, metadata)
 
     @require_unlocked
     def update(self, data_id, metadata, upsert=False):
@@ -149,10 +174,11 @@ class DataTable(HuntsmanBase):
         self._db = self._client[db_name]
         self._table = self._db[table_name]
 
-    def _insert_one(self, metadata):
+    def _insert_one(self, metadata, overwrite):
         """ Insert a new document into the table after ensuring it is valid and unique.
         Args:
             data_id (dict): The dictionary specifying the single document to delete.
+            overwrite (bool): If True, will overwrite the existing document for this dataId.
         """
         # Ensure required columns exist
         if self._required_columns is not None:
@@ -160,11 +186,19 @@ class DataTable(HuntsmanBase):
                 if column_name not in metadata.keys():
                     raise ValueError(f"New document missing required column: {column_name}.")
 
-        # Ensure new document is unique
+        # Check for matches in data table
         unique_id = {k: metadata[k] for k in self._unique_columns}
-        query_count = self.query(criteria=unique_id).shape[0]
-        if query_count != 0:
-            raise ValueError(f"Document already exists for {unique_id}.")
+        query_result = self.query(criteria=unique_id)
+        query_count = query_result.shape[0]
+
+        if query_count == 1:
+            if overwrite:
+                self.delete(query_result)
+            else:
+                raise ValueError(f"Found existing document for {unique_id} in {self}."
+                                 " Pass overwrite=True to overwrite.")
+        elif query_count != 0:
+            raise ValueError(f"Multiple matches found for document in {self}: {unique_id}.")
 
         # Insert the new document
         self.logger.debug(f"Inserting new document into {self}: {metadata}.")

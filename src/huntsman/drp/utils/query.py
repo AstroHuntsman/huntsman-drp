@@ -33,6 +33,8 @@ def encode_mongo_value(value):
     Returns:
         object: The encoded value.
     """
+    with suppress(AttributeError):
+        value = value.to_dict()
     if isinstance(value, abc.Mapping):
         for k, v in value.items():
             value[k] = encode_mongo_value(v)
@@ -79,8 +81,12 @@ class Criteria(HuntsmanBase):
         """
         new = {}
         for k, v in self.criteria.items():
-            with suppress(KeyError):
+            try:
                 k = self._mongo_operators[k]
+            except KeyError:
+                if k not in self._mongo_operators.values():
+                    raise KeyError(f"Unrecognised criteria operator: {k}. Should be one of: "
+                                   f" {list(self._mongo_operators.keys())}")
             if v is not None:
                 new[k] = encode_mongo_value(v)
         return new
