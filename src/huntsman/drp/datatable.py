@@ -1,35 +1,34 @@
 """Code to interface with the Huntsman mongo database."""
-from copy import deepcopy
 from collections import abc
-from contextlib import suppress
+from functools import partial
 from datetime import timedelta
 from urllib.parse import quote_plus
 
-import numpy as np
 import pandas as pd
 
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 
-from huntsman.drp.utils.date import parse_date, current_date
-from huntsman.drp.utils.query import Criteria, QueryCriteria, encode_mongo_value
 from huntsman.drp.base import HuntsmanBase
+from huntsman.drp.utils.date import current_date
+from huntsman.drp.utils.query import QueryCriteria, encode_mongo_value
 
 
 def _apply_action(func, metadata):
     """
     """
     if isinstance(metadata, abc.Mapping):
-        func(metadata)
+        func(encode_mongo_value(metadata))
     elif isinstance(metadata, abc.Iterable):
         for item in metadata:
             func(metadata)
-    raise TypeError(f"Invalid metadata data type: {type(metadata)}.")
+    raise TypeError(f"Invalid metadata type: {type(metadata)}.")
 
 
 class DataTable(HuntsmanBase):
     """ The primary goal of DataTable objects is to provide a minimal, easily-configurable and
-    user-friendly interface between the mongo database and the DRP."""
+    user-friendly interface between the mongo database and the DRP that enforces standardisation
+    of new documents."""
     _required_columns = None
     _unique_columns = ("filename", )  # Required to identify a unique document
 
@@ -78,7 +77,7 @@ class DataTable(HuntsmanBase):
         if criteria is not None:
             criteria = QueryCriteria(criteria).to_mongo()
         cursor = self._table.find(criteria)
-        # Convert to pd.DataFrame
+        # Convert to a DataFrame object
         df = pd.DataFrame(list(cursor))
         self.logger.debug(f"Query returned {df.shape[0]} results.")
         return df
@@ -99,91 +98,84 @@ class DataTable(HuntsmanBase):
         return self.query(date_start=date_start, criteria=criteria)
 
     def insert(self, metadata):
+        """ Insert a new document into the table after ensuring it is valid and unique.
+        Args:
+            data_id (dict): The dictionary specifying the single document to delete.
         """
-        """
-        return _apply_action(self._insert, metadata)
+        return _apply_action(self._insert_one, metadata)
 
-    def update(self, metadata):
+    def update(self, data_id, metadata):
+        """ Update a single document in the table.
+        Args:
+            data_id (dict): The data ID of the document to update.
+            metadata (dict): The new metadata to be inserted.
         """
-        """
-        return _apply_action(self._update, metadata)
+        fn = partial(self._update_one, data_id=encode_mongo_value(data_id))
+        return _apply_action(fn, metadata)
 
     def delete(self, metadata):
+        """ Delete one document from the table.
+        Args:
+            data_id (dict): The dictionary specifying the single document to delete.
         """
-        """
-        return _apply_action(self._delete, metadata)
+        return _apply_action(self._delete_one, metadata)
 
-    def _insert(self, metadata):
-        """
+    def _insert_one(self, metadata):
+        """ Insert a new document into the table after ensuring it is valid and unique.
+        Args:
+            data_id (dict): The dictionary specifying the single document to delete.
         """
         # Ensure required columns exist
         if self.required_columns is None:
             return
-        for column_name in self._required_columns:
-            if column_name not in metadata.keys():
-                raise ValueError(f"New document missing required column: {column_name}.")
+        if self._required_columns is not None:
+            for column_name in self._required_columns:
+                if column_name not in metadata.keys():
+                    raise ValueError(f"New document missing required column: {column_name}.")
+
         # Ensure new document is unique
         unique_id = {k: metadata[k] for k in self._unique_columns}
-        query_result = self.query(criteria=unique_id)
-        if query_result.shape[0] != 0:
+        query_count = self.query(criteria=unique_id).shape[0]
+        if query_count != 0:
             raise ValueError(f"Document already exists for {unique_id}.")
+
         # Insert the new document
-        self._table.insert_one(deepcopy(metadata))
+        self.logger.debug(f"Inserting new document into {self}: {metadata}.")
+        self._table.insert_one(metadata)
 
-    def _update(self, metadata, upsert=True):
-        """ Update one or multiple single entry into the table. MongoDB edits the first matching
-        document, so we need to check we are only matching with a single document.
+    def _update_one(self, data_id, metadata):
+        """ Update a single document in the table. MongoDB edits the first matching
+        document, so we need to check we are only matching with a single document. A new document
+        will be created if there are no matches in the table.
         Args:
-            metadata (dict): The document to insert.
-        Returns:
-            pymongo.results.UpdateResult: The update result object.
+            data_id (dict): The data ID of the document to update.
+            metadata (dict): The new metadata to be inserted.
         """
-        if isinstance(metadata, abc.Mapping):
-            query_result = self.query(criteria=metadata)
-            if upsert and (query.shape[0] == 0):
-                return self._insert(metadata)
-
-            update_result = self._table.update_one(deepcopy(metadata))
-        elif isinstance(metadata, abc.Iterable):
-            for item in metadata:
-                self.update(item)
+        query_count = self.query(criteria=data_id).shape[0]
+        if query_count > 1:
+            raise RuntimeError(f"data ID matches with more than one document: {data_id}.")
+        elif query_count == 0:
+            new_metadata = data_id.copy().update(metadata.copy())
+            return self._insert_one(new_metadata)
         else:
-            raise TypeError(f"Invalid data type for update: {type(metadata)}.")
-        return update_result
+            self._table.update_one(data_id, {'$set': metadata})
 
-    def _delete(self, metadata):
-        """ Delete one or more entries from the table. MongoDB deletes the first matching document,
-        so we need to check we are only matching with a single document.
+    def _delete_one(self, data_id):
+        """ Delete one document from the table. MongoDB deletes the first matching document,
+        so we need to check we are only matching with a single document. A warining is logged if
+        no document is matched.
         Args:
-            metadata (abc.Mapping or abc.Iterable): The document(s) to insert.
-        Returns:
-            pymongo.results.DeleteResult: The delete result object.
+            data_id (dict): The dictionary specifying the single document to delete.
         """
-        if isinstance(metadata, abc.Mapping):
-            query_count = self.query(criteria=metadata).shape[0]
-            if query_count == 0:
-                self.logger.warning(f"Tried to delete non-existent document from {self}:"
-                                    f" {metadata}.")
-                return
-            elif query_count == 1:
-                self.logger.debug(f"Deleting {metadata} from {self}.")
-                return self._table.delete_one(metadata)
-            else:
-                raise RuntimeError(f"Unexpected query result size: {query_count}>1.")
-        elif isinstance(metadata, abc.Iterable):
-            for item in metadata:
-                self.delete(item)
-        else:
-            raise TypeError(f"Invalid data type for update: {type(metadata)}.")
-
-    def _validate_document(self, metadata):
-        """
-        """
-        if self.required_columns is None:
-            return
-        for column_name in self._required_columns:
-            if column_name not in metadata.keys():
-                raise ValueError(f"Document missing required column: {column_name}.")
+        query_count = self.query(criteria=data_id).shape[0]
+        if query_count > 1:
+            raise RuntimeError(f"Metadata matches with more than one document: {data_id}.")
+        elif query_count == 0:
+            self.logger.warning(f"Tried to delete non-existent document from {self}:"
+                                f" {data_id}.")
+        elif query_count == 1:
+            self.logger.debug(f"Deleting {data_id} from {self}.")
+            self._table.delete_one(data_id)
 
 
 class RawDataTable(DataTable):
