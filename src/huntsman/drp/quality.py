@@ -22,7 +22,7 @@ def metadata_from_fits(filename, config=None, logger=None, dtype="float32"):
     if logger is None:
         logger = get_logger()
     logger.debug(f"Calculating metadata for {filename}.")
-    result = dict(filename=filename, QUALITY_FLAG_NAME=True)
+    result = {"filename": filename, QUALITY_FLAG_NAME: True}
 
     # Load the data from file
     try:

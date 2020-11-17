@@ -1,6 +1,5 @@
 directories:
-  archive:
-    master_calibs: ${HUNTSMAN_MOUNT}/archive/calibs
+  archive: ${HUNTSMAN_MOUNT}/archive
 
 fits_header:
   mappings:
