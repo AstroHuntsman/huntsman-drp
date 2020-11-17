@@ -52,7 +52,7 @@ def fits_header_translator(config):
     return FitsHeaderTranslator(config=config)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def raw_data_table(tmp_path_factory, config, fits_header_translator):
     """
     Create a temporary directory populated with fake FITS images, then parse the images into the

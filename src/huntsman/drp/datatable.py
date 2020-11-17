@@ -131,14 +131,14 @@ class DataTable(HuntsmanBase):
         return _apply_operation(fn, metadata)
 
     @require_unlocked
-    def update(self, data_id, metadata, upsert=False):
+    def update(self, metadata, upsert=False):
         """ Update a single document in the table.
         Args:
             data_id (dict): The data ID of the document to update.
             metadata (dict): The new metadata to be inserted.
             upsert (bool): If True, will create a new document if there is no matching entry.
         """
-        fn = partial(self._update_one, data_id=encode_mongo_value(data_id), upsert=upsert)
+        fn = partial(self._update_one, upsert=upsert)
         return _apply_operation(fn, metadata)
 
     @require_unlocked
@@ -187,8 +187,8 @@ class DataTable(HuntsmanBase):
                     raise ValueError(f"New document missing required column: {column_name}.")
 
         # Check for matches in data table
-        unique_id = {k: metadata[k] for k in self._unique_columns}
-        query_result = self.query(criteria=unique_id)
+        unique_id = self._get_unique_id(metadata)
+        query_result = self.query(criteria=self._get_unique_id(metadata))
         query_count = query_result.shape[0]
 
         if query_count == 1:
@@ -204,7 +204,7 @@ class DataTable(HuntsmanBase):
         self.logger.debug(f"Inserting new document into {self}: {metadata}.")
         self._table.insert_one(metadata)
 
-    def _update_one(self, data_id, metadata, upsert):
+    def _update_one(self, metadata, upsert):
         """ Update a single document in the table. MongoDB edits the first matching
         document, so we need to check we are only matching with a single document. A new document
         will be created if there are no matches in the table.
@@ -213,6 +213,7 @@ class DataTable(HuntsmanBase):
             metadata (dict): The new metadata to be inserted.
             upsert (bool): If True, will create a new document if there is no matching entry.
         """
+        data_id = self._get_unique_id(metadata)
         query_count = self.query(criteria=data_id).shape[0]
         if query_count > 1:
             raise RuntimeError(f"data ID matches with more than one document: {data_id}.")
@@ -241,6 +242,15 @@ class DataTable(HuntsmanBase):
         elif query_count == 1:
             self.logger.debug(f"Deleting {data_id} from {self}.")
             self._table.delete_one(data_id)
+
+    def _get_unique_id(self, metadata):
+        """ Return the unique identifier for the metadata.
+        Args:
+            metadata (abc.Mapping): The metadata.
+        Returns:
+            dict: The unique document identifier.
+        """
+        return encode_mongo_value({k: metadata[k] for k in self._unique_columns})
 
 
 class RawDataTable(DataTable):

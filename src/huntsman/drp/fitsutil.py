@@ -2,6 +2,9 @@ from copy import copy
 from functools import partial
 from astropy.io import fits
 
+import json
+from bson.json_util import loads
+
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import parse_date
 
@@ -120,4 +123,5 @@ class FitsHeaderTranslator(FitsHeaderTranslatorBase):
     def _translate_date(self, header):
         """ Translate the date from the FITS header to a format recognised by pymongo. """
         date_key = self.config["fits_header"]["date_key"]
-        return parse_date(header[date_key])
+        date_str = parse_date(header[date_key])
+        return date_str

@@ -15,6 +15,7 @@ def test_parse_script(raw_data_table):
     metadata_json = output.stdout
     metadata = json.loads(metadata_json)
     # Make sure we have consistent values
+    print(metadata)
     assert len(metadata) == len(raw_data) - 1   # No _id column
     for key, value in metadata.items():
         assert raw_data[key] == value
