@@ -65,12 +65,13 @@ def raw_data_table(tmp_path_factory, config, fits_header_translator):
 
     # Populate the database
     raw_data_table = RawDataTable(config=config)
+    raw_data_table.unlock()
     for filename, header in expseq.header_dict.items():
         # Parse the header
         parsed_header = fits_header_translator.parse_header(header)
         parsed_header["filename"] = filename
         # Insert the parsed header into the DB table
-        raw_data_table.insert_one(parsed_header, bypass_allow_edits=True)
+        raw_data_table.insert(parsed_header)
 
     # Make sure table has the correct number of rows
     assert len(raw_data_table.query()) == expseq.file_count
@@ -78,13 +79,12 @@ def raw_data_table(tmp_path_factory, config, fits_header_translator):
 
     # Remove the metadata from the DB ready for other tests
     all_metadata = raw_data_table.query()
-    for i in range(all_metadata.shape[0]):
-        raw_data_table.delete_document(all_metadata.iloc[i], bypass_allow_edits=True)
+    raw_data_table.delete(all_metadata)
 
 
 @pytest.fixture(scope="function")
 def raw_quality_table(config):
     table = RawQualityTable(config=config)
     yield table
-    for filename in table.query()["filename"].values:
-        table.delete_document({"filename": filename}, bypass_allow_edits=True)
+    all_metadata = table.query()
+    table.delete(all_metadata)

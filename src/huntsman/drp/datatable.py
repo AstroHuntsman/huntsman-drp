@@ -30,12 +30,24 @@ def _apply_operation(func, metadata):
     raise TypeError(f"Invalid metadata type: {type(metadata)}.")
 
 
+def require_unlocked(func):
+    """ Raise a PermissionError if the function is called when the table is locked. """
+
+    def _require_unlocked(self, *args, **kwargs):
+        if self.is_locked:
+            raise PermissionError(f"{self} must be unlocked to call {func.__name__}. To unlock,"
+                                  "call the `unlock` method.")
+        return func(self, *args, **kwargs)
+    return _require_unlocked
+
+
 class DataTable(HuntsmanBase):
     """ The primary goal of DataTable objects is to provide a minimal, easily-configurable and
     user-friendly interface between the mongo database and the DRP that enforces standardisation
     of new documents."""
     _required_columns = None
     _unique_columns = ("filename", )  # Required to identify a unique document
+    is_locked = False
 
     def __init__(self, **kwargs):
         HuntsmanBase.__init__(self, **kwargs)
@@ -46,9 +58,69 @@ class DataTable(HuntsmanBase):
         db_name = self.config["mongodb"]["db_name"]
         self._initialise(db_name, self._table_name)
 
-    def _initialise(self, db_name, table_name):
+    def lock(self):
+        self.is_locked = True
+
+    def unlock(self):
+        self.is_locked = False
+
+    def query(self, criteria=None):
+        """ Get data for one or more matches in the table.
+        Args:
+            criteria (dict, optional): The query criteria.
+        Returns:
+            pd.DataFrame: The query result.
         """
-        Initialise the datebase.
+        if criteria is not None:
+            criteria = QueryCriteria(criteria).to_mongo()
+        cursor = self._table.find(criteria)
+        # Convert to a DataFrame object
+        df = pd.DataFrame(list(cursor))
+        self.logger.debug(f"Query returned {df.shape[0]} results.")
+        return df
+
+    def query_latest(self, days=0, hours=0, seconds=0, criteria=None):
+        """ Convenience function to query the latest files in the db.
+        Args:
+            days (int): default 0.
+            hours (int): default 0.
+            seconds (int): default 0.
+            criteria (dict, optional): Criteria for the query.
+        Returns:
+            list: Query result.
+        """
+        date_now = current_date()
+        date_start = date_now - timedelta(days=days, hours=hours, seconds=seconds)
+        return self.query(date_start=date_start, criteria=criteria)
+
+    @require_unlocked
+    def insert(self, metadata):
+        """ Insert a new document into the table after ensuring it is valid and unique.
+        Args:
+            data_id (dict): The dictionary specifying the single document to delete.
+        """
+        return _apply_operation(self._insert_one, metadata)
+
+    @require_unlocked
+    def update(self, data_id, metadata):
+        """ Update a single document in the table.
+        Args:
+            data_id (dict): The data ID of the document to update.
+            metadata (dict): The new metadata to be inserted.
+        """
+        fn = partial(self._update_one, data_id=encode_mongo_value(data_id))
+        return _apply_operation(fn, metadata)
+
+    @require_unlocked
+    def delete(self, metadata):
+        """ Delete one document from the table.
+        Args:
+            data_id (dict): The dictionary specifying the single document to delete.
+        """
+        return _apply_operation(self._delete_one, metadata)
+
+    def _initialise(self, db_name, table_name):
+        """ Initialise the database.
         Args:
             db_name (str): The name of the (mongo) database.
             table_name (str): The name of the table (mongo collection).
@@ -71,59 +143,6 @@ class DataTable(HuntsmanBase):
             raise err
         self._db = self._client[db_name]
         self._table = self._db[table_name]
-
-    def query(self, criteria=None):
-        """ Get data for one or more matches in the table.
-        Args:
-            criteria (dict, optional): The query criteria.
-        Returns:
-            pd.DataFrame: The query result.
-        """
-        if criteria is not None:
-            criteria = QueryCriteria(criteria).to_mongo()
-        cursor = self._table.find(criteria)
-        # Convert to a DataFrame object
-        df = pd.DataFrame(list(cursor))
-        self.logger.debug(f"Query returned {df.shape[0]} results.")
-        return df
-
-    def query_latest(self, days=0, hours=0, seconds=0, criteria=None):
-        """
-        Convenience function to query the latest files in the db.
-        Args:
-            days (int): default 0.
-            hours (int): default 0.
-            seconds (int): default 0.
-            criteria (dict, optional): Criteria for the query.
-        Returns:
-            list: Query result.
-        """
-        date_now = current_date()
-        date_start = date_now - timedelta(days=days, hours=hours, seconds=seconds)
-        return self.query(date_start=date_start, criteria=criteria)
-
-    def insert(self, metadata):
-        """ Insert a new document into the table after ensuring it is valid and unique.
-        Args:
-            data_id (dict): The dictionary specifying the single document to delete.
-        """
-        return _apply_operation(self._insert_one, metadata)
-
-    def update(self, data_id, metadata):
-        """ Update a single document in the table.
-        Args:
-            data_id (dict): The data ID of the document to update.
-            metadata (dict): The new metadata to be inserted.
-        """
-        fn = partial(self._update_one, data_id=encode_mongo_value(data_id))
-        return _apply_operation(fn, metadata)
-
-    def delete(self, metadata):
-        """ Delete one document from the table.
-        Args:
-            data_id (dict): The dictionary specifying the single document to delete.
-        """
-        return _apply_operation(self._delete_one, metadata)
 
     def _insert_one(self, metadata):
         """ Insert a new document into the table after ensuring it is valid and unique.
@@ -186,6 +205,7 @@ class DataTable(HuntsmanBase):
 class RawDataTable(DataTable):
     """Table to store metadata for raw data synced via NiFi from Huntsman."""
     _table_key = "raw_data"
+    is_locked = True
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
