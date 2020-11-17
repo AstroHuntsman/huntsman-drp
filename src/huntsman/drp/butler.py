@@ -136,7 +136,7 @@ class ButlerRepository(HuntsmanBase):
         archive_dir = self.config["directories"]["archive"]
         calib_datatable = MasterCalibTable(config=self.config, logger=self.logger)
 
-        for calib_type in ("flat", "bias"):
+        for calib_type in self.config["calibs"]["types"]:
             # Retrieve filenames and dataIds for all files of this type
             data_ids, filenames = get_files_of_type(f"calibrations.{calib_type}",
                                                     directory=self.calib_directory,
