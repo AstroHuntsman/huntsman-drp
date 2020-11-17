@@ -14,14 +14,19 @@ from huntsman.drp.utils.date import current_date
 from huntsman.drp.utils.query import QueryCriteria, encode_mongo_value
 
 
-def _apply_action(func, metadata):
-    """
+def _apply_operation(func, metadata):
+    """ Apply a function to the metadata. metadata can either be a mappable, in which case the
+    function is called with metadata as its first argument, or it can be an iterable, in which
+    case the function will be successively applied to each of its items (assumed to be mappings).
+    Args:
+        func (Function): The function to apply.
+        metadata (abc.Mapping or abc.Iterable): The metadata to process.
     """
     if isinstance(metadata, abc.Mapping):
         func(encode_mongo_value(metadata))
     elif isinstance(metadata, abc.Iterable):
         for item in metadata:
-            func(metadata)
+            func(encode_mongo_value(item))
     raise TypeError(f"Invalid metadata type: {type(metadata)}.")
 
 
@@ -102,7 +107,7 @@ class DataTable(HuntsmanBase):
         Args:
             data_id (dict): The dictionary specifying the single document to delete.
         """
-        return _apply_action(self._insert_one, metadata)
+        return _apply_operation(self._insert_one, metadata)
 
     def update(self, data_id, metadata):
         """ Update a single document in the table.
@@ -111,14 +116,14 @@ class DataTable(HuntsmanBase):
             metadata (dict): The new metadata to be inserted.
         """
         fn = partial(self._update_one, data_id=encode_mongo_value(data_id))
-        return _apply_action(fn, metadata)
+        return _apply_operation(fn, metadata)
 
     def delete(self, metadata):
         """ Delete one document from the table.
         Args:
             data_id (dict): The dictionary specifying the single document to delete.
         """
-        return _apply_action(self._delete_one, metadata)
+        return _apply_operation(self._delete_one, metadata)
 
     def _insert_one(self, metadata):
         """ Insert a new document into the table after ensuring it is valid and unique.
@@ -181,8 +186,6 @@ class DataTable(HuntsmanBase):
 class RawDataTable(DataTable):
     """Table to store metadata for raw data synced via NiFi from Huntsman."""
     _table_key = "raw_data"
-    _date_key = "taiObs"
-    _allow_edits = False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -192,8 +195,6 @@ class RawDataTable(DataTable):
 class RawQualityTable(DataTable):
     """ Table to store data quality metadata for raw data. """
     _table_key = "raw_quality"
-    _required_columns = ("filename",)
-    _allow_edits = True
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -203,7 +204,6 @@ class MasterCalibTable(DataTable):
     """ Table to store metadata for master calibs. """
     _table_key = "master_calib"
     _required_columns = ("filename", "calibDate")
-    _allow_edits = True
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
