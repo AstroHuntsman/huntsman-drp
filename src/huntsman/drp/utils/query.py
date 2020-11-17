@@ -36,6 +36,10 @@ def encode_mongo_value(value):
         value = [encode_mongo_value(v) for v in value]
     elif isinstance(value, np.bool_):
         value = bool(value)
+    elif isinstance(value, np.int32):
+        value = int(value)
+    elif isinstance(value, np.float32):
+        value = float(value)
     elif isinstance(value, np.int64):
         value = int(value)
     elif isinstance(value, np.float64):
