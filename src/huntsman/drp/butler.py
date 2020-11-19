@@ -9,7 +9,7 @@ from lsst.daf.persistence.policy import Policy
 
 from huntsman.drp.base import HuntsmanBase
 import huntsman.drp.lsst_tasks as lsst
-from huntsman.drp.datatable import MasterCalibTable
+from huntsman.drp.datatable import RawDataTable, MasterCalibTable
 from huntsman.drp.refcat import TapReferenceCatalogue
 from huntsman.drp.utils.date import date_to_ymd, current_date
 from huntsman.drp.utils.butler import get_files_of_type
@@ -172,11 +172,12 @@ class ButlerRepository(HuntsmanBase):
             ingest (bool, optional): If True (default), ingest refcat into butler repo.
         """
         # Get the RA / Dec for each ingested science frame
-        keys = [self._ra_key, self._dec_key]
-        metalist = self.butler.queryMetadata("raw", format=keys,
-                                             dataId={'dataType': self._science_type})
-        ra_list = [m[self._ra_key] for m in metalist]
-        dec_list = [m[self._dec_key] for m in metalist]
+        _, all_filenames = get_files_of_type("exposures.raw", self.butler_directory,
+                                             policy=self._policy)
+        datatable = RawDataTable(config=self.config, logger=self.logger)
+        df = datatable.query(criteria={"filename": all_filenames, "dataType": self._science_type})
+        ra_list = df[self._ra_key].values
+        dec_list = df[self._dec_key].values
         self.logger.debug(f"Creating reference catalogue for {len(ra_list)} science frames.")
 
         # Make the reference catalogue

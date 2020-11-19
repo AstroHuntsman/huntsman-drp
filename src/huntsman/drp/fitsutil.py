@@ -2,9 +2,6 @@ from copy import copy
 from functools import partial
 from astropy.io import fits
 
-import json
-from bson.json_util import loads
-
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import parse_date
 
