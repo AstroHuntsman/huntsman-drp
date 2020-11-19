@@ -132,11 +132,27 @@ def make_master_calibs(datasetType, data_ids, calib_date, butler_repository, rer
         run_command(cmd)
 
 
-def processCcd(butler_directory, calib_directory, rerun, filter_name, dataType='science'):
-    """Process ingested exposures."""
-    cmd = f"processCcd.py {butler_directory} --rerun {rerun}"
-    cmd += f" --id dataType={dataType} filter={filter_name}"
+def make_calexps(data_ids, rerun, butler_directory, calib_directory, nodes=1, procs=1):
+    """ Make calibrated exposures (calexps) using the LSST stack. These are astrometrically
+    and photometrically calibrated as well as background subtracted. There are several byproducts
+    of making calexps including sky background maps and preliminary source catalogues and metadata,
+    inclding photometric zeropoints.
+    Args:
+        data_ids (list of abc.Mapping): The data IDs of the science frames to process.
+        rerun (str): The name of the rerun.
+        butler_directory (str): The butler repository directory name.
+        calib_directory (str): The calib directory used by the butler repository.
+        nodes (int): The number of nodes to run on.
+        procs (int): The number of processes to use per node.
+    """
+    cmd = f"processCcd.py {butler_directory}"
+    cmd += f" --rerun {rerun}"
     cmd += f" --calib {calib_directory}"
+    for data_id in data_ids:
+        cmd += " --id"
+        for k, v in data_id.items():
+            cmd += f" {k}={v}"
+    cmd += f" --nodes {nodes} --procs {procs}"
     subprocess.check_output(cmd, shell=True)
 
 

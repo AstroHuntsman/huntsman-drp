@@ -19,6 +19,7 @@ class ButlerRepository(HuntsmanBase):
     _policy_filename = Policy.defaultPolicyFile("obs_huntsman", "HuntsmanMapper.yaml",
                                                 relativePath="policy")
     _default_rerun = "default_rerun"
+    _science_type = "science"
 
     def __init__(self, directory, calib_directory=None, initialise=True, **kwargs):
         super().__init__(**kwargs)
@@ -176,6 +177,26 @@ class ButlerRepository(HuntsmanBase):
             result_dict.append(d)
         c.close()
         return result_dict
+
+    def make_calexps(self, rerun=None, nodes=1, procs=1):
+        """ Make calibrated exposures (calexps) using the LSST stack.
+        Args:
+            rerun (str, optional): The name of the rerun. If None (default), use default value.
+            nodes (int, optional): Run on this many nodes (default 1).
+            procs (int, optional): Run on this many procs per node (default 1).
+        """
+        if rerun is None:
+            rerun = self._default_rerun
+
+        # Get dataIds for the raw science frames
+        keys = list(self.butler.getKeys("raw").keys())
+        metalist = self.butler.queryMetadata("raw", format=keys,
+                                             dataId={'dataType': self._science_type})
+        data_ids = [{k: v for k, v in zip(keys, m)} for m in metalist]
+
+        # Process the science frames
+        lsst.make_calexps(data_ids, rerun=rerun, butler_directory=self.butler_directory,
+                          calib_directory=self.calib_directory, nodes=nodes, procs=procs)
 
     def _initialise(self):
         """Initialise a new butler repository."""
