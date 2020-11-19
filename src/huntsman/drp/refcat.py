@@ -1,3 +1,4 @@
+import os
 from tempfile import NamedTemporaryFile
 from contextlib import suppress
 import numpy as np
@@ -86,5 +87,6 @@ class TapReferenceCatalogue(HuntsmanBase):
                 result = pd.concat([result, df[is_new]], ignore_index=False)
         self.logger.debug(f"{result.shape[0]} sources in reference catalogue.")
         if filename is not None:
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
             result.to_csv(filename)
         return result

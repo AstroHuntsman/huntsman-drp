@@ -33,6 +33,7 @@ class ButlerRepository(HuntsmanBase):
             calib_directory = os.path.join(directory, "CALIB")
         self.calib_directory = calib_directory
         self._calib_validity = self.config["calibs"]["validity"]
+        self._refcat_filename = os.path.join(self.butler_directory, "refcat_raw", "refcat_raw.csv")
 
         # Load the policy file
         self._policy = Policy(self._policy_filename)
