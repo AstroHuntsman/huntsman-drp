@@ -178,8 +178,8 @@ class ButlerRepository(HuntsmanBase):
         ra_list = []
         dec_list = []
         for data_id, filename in zip(data_ids, filenames):
-            md = self.butler.queryMetadata("raw", ["dataType"], dataId=data_id)
-            if md["dataType"] == "science":  # Only select science files
+            data_type = self.butler.queryMetadata("raw", ["dataType"], dataId=data_id)[0]
+            if data_type == "science":  # Only select science files
                 header = read_fits_header(filename)
                 ra_list.append(header[self._ra_key])
                 dec_list.append(header[self._dec_key])
