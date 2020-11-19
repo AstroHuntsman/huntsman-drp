@@ -152,7 +152,7 @@ def make_calexps(data_ids, rerun, butler_directory, calib_directory, nodes=1, pr
         cmd += " --id"
         for k, v in data_id.items():
             cmd += f" {k}={v}"
-    cmd += f" --nodes {nodes} --procs {procs}"
+    cmd += f" -j {procs}"
     subprocess.check_output(cmd, shell=True)
 
 

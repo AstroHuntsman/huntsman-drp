@@ -178,12 +178,11 @@ class ButlerRepository(HuntsmanBase):
         c.close()
         return result_dict
 
-    def make_calexps(self, rerun=None, nodes=1, procs=1):
+    def make_calexps(self, rerun=None, procs=1):
         """ Make calibrated exposures (calexps) using the LSST stack.
         Args:
             rerun (str, optional): The name of the rerun. If None (default), use default value.
-            nodes (int, optional): Run on this many nodes (default 1).
-            procs (int, optional): Run on this many procs per node (default 1).
+            procs (int, optional): Run on this many processes (default 1).
         """
         if rerun is None:
             rerun = self._default_rerun
@@ -196,7 +195,7 @@ class ButlerRepository(HuntsmanBase):
 
         # Process the science frames
         lsst.make_calexps(data_ids, rerun=rerun, butler_directory=self.butler_directory,
-                          calib_directory=self.calib_directory, nodes=nodes, procs=procs)
+                          calib_directory=self.calib_directory, procs=procs)
 
     def _initialise(self):
         """Initialise a new butler repository."""
