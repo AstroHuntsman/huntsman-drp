@@ -70,7 +70,7 @@ refcat:
     class_star:
       lower: 0.9
     g_psf:
-      upper: 19
+      upper: 16
 
 screening:
   flat:
