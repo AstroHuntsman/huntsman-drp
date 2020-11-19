@@ -9,10 +9,11 @@ from lsst.daf.persistence.policy import Policy
 
 from huntsman.drp.base import HuntsmanBase
 import huntsman.drp.lsst_tasks as lsst
-from huntsman.drp.datatable import RawDataTable, MasterCalibTable
+from huntsman.drp.datatable import MasterCalibTable
 from huntsman.drp.refcat import TapReferenceCatalogue
 from huntsman.drp.utils.date import date_to_ymd, current_date
 from huntsman.drp.utils.butler import get_files_of_type
+from huntsman.drp.fitsutil import read_fits_header
 
 
 class ButlerRepository(HuntsmanBase):
@@ -20,7 +21,6 @@ class ButlerRepository(HuntsmanBase):
     _policy_filename = Policy.defaultPolicyFile("obs_huntsman", "HuntsmanMapper.yaml",
                                                 relativePath="policy")
     _default_rerun = "default_rerun"
-    _science_type = "science"
     _ra_key = "RA-MNT"
     _dec_key = "DEC-MNT"  # TODO: Move to config
 
@@ -171,13 +171,18 @@ class ButlerRepository(HuntsmanBase):
         Args:
             ingest (bool, optional): If True (default), ingest refcat into butler repo.
         """
-        # Get the RA / Dec for each ingested science frame
-        _, all_filenames = get_files_of_type("exposures.raw", self.butler_directory,
-                                             policy=self._policy)
-        datatable = RawDataTable(config=self.config, logger=self.logger)
-        df = datatable.query(criteria={"filename": all_filenames, "dataType": self._science_type})
-        ra_list = df[self._ra_key].values
-        dec_list = df[self._dec_key].values
+        # Get the filenames of ingested images
+        data_ids, filenames = get_files_of_type("exposures.raw", self.butler_directory,
+                                                policy=self._policy)
+        # Use the FITS header sto retrieve the RA/Dec info
+        ra_list = []
+        dec_list = []
+        for data_id, filename in zip(data_ids, filenames):
+            md = self.butler.queryMetadata("raw", ["dataType"], dataId=data_id)
+            if md["dataType"] == "science":  # Only select science files
+                header = read_fits_header(filename)
+                ra_list.append(header[self._ra_key])
+                dec_list.append(header[self._dec_key])
         self.logger.debug(f"Creating reference catalogue for {len(ra_list)} science frames.")
 
         # Make the reference catalogue
@@ -199,8 +204,7 @@ class ButlerRepository(HuntsmanBase):
 
         # Get dataIds for the raw science frames
         keys = list(self.butler.getKeys("raw").keys())
-        metalist = self.butler.queryMetadata("raw", format=keys,
-                                             dataId={'dataType': self._science_type})
+        metalist = self.butler.queryMetadata("raw", format=keys, dataId={'dataType': "science"})
         data_ids = [{k: v for k, v in zip(keys, m)} for m in metalist]
 
         # Process the science frames
