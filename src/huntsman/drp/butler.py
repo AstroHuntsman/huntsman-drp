@@ -10,6 +10,7 @@ from lsst.daf.persistence.policy import Policy
 from huntsman.drp.base import HuntsmanBase
 import huntsman.drp.lsst_tasks as lsst
 from huntsman.drp.datatable import MasterCalibTable
+from huntsman.drp.refcat import TapReferenceCatalogue
 from huntsman.drp.utils.date import date_to_ymd, current_date
 from huntsman.drp.utils.butler import get_files_of_type
 
@@ -20,6 +21,8 @@ class ButlerRepository(HuntsmanBase):
                                                 relativePath="policy")
     _default_rerun = "default_rerun"
     _science_type = "science"
+    _ra_key = "RA-MNT"
+    _dec_key = "DEC-MNT"  # TODO: Move to config
 
     def __init__(self, directory, calib_directory=None, initialise=True, **kwargs):
         super().__init__(**kwargs)
@@ -28,7 +31,7 @@ class ButlerRepository(HuntsmanBase):
         self.butler_directory = directory
         if (calib_directory is None) and (directory is not None):
             calib_directory = os.path.join(directory, "CALIB")
-        self._calib_directory = calib_directory
+        self.calib_directory = calib_directory
         self._calib_validity = self.config["calibs"]["validity"]
 
         # Load the policy file
@@ -45,10 +48,6 @@ class ButlerRepository(HuntsmanBase):
     def __exit__(self, *args, **kwargs):
         pass
 
-    @property
-    def calib_directory(self):
-        return self._calib_directory
-
     def get_filename(self, data_type, data_id):
         """ Get the filename for a data ID of data type.
         Args:
@@ -62,8 +61,7 @@ class ButlerRepository(HuntsmanBase):
         return filename
 
     def ingest_raw_data(self, filenames, **kwargs):
-        """
-        Ingest raw data into the repository.
+        """ Ingest raw data into the repository.
         Args:
             filenames (iterable of str): The list of raw data filenames.
         """
@@ -72,15 +70,6 @@ class ButlerRepository(HuntsmanBase):
 
         # For some reason we need to make a new butler object...
         self.butler = dafPersist.Butler(inputs=self.butler_directory)
-
-    def ingest_reference_catalogue(self, filenames):
-        """
-        Ingest the reference catalogue into the repository.
-        Args:
-            filenames (iterable of str): The list of filenames containing reference data.
-        """
-        self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} files.")
-        lsst.ingest_reference_catalogue(self.butler_directory, filenames)
 
     def make_master_flats(self, calib_date=None, rerun=None, **kwargs):
         """ Make master flats from ingested raw data.
@@ -157,8 +146,7 @@ class ButlerRepository(HuntsmanBase):
                 calib_datatable.insert(metadata, overwrite=True)
 
     def query_calib_metadata(self, table):
-        """
-        Query the ingested calibs. TODO: Replace with the "official" Butler version.
+        """ Query the ingested calibs. TODO: Replace with the "official" Butler version.
         Args:
             table (str): Table name. Can either be "flat" or "bias".
         Returns:
@@ -177,6 +165,27 @@ class ButlerRepository(HuntsmanBase):
             result_dict.append(d)
         c.close()
         return result_dict
+
+    def make_reference_catalogue(self, ingest=True):
+        """ Make the reference catalogue for the ingested science frames.
+        Args:
+            ingest (bool, optional): If True (default), ingest refcat into butler repo.
+        """
+        # Get the RA / Dec for each ingested science frame
+        keys = [self._ra_key, self._dec_key]
+        metalist = self.butler.queryMetadata("raw", format=keys,
+                                             dataId={'dataType': self._science_type})
+        ra_list = [m[self._ra_key] for m in metalist]
+        dec_list = [m[self._dec_key] for m in metalist]
+        self.logger.debug(f"Creating reference catalogue for {len(ra_list)} science frames.")
+
+        # Make the reference catalogue
+        tap = TapReferenceCatalogue(config=self.config, logger=self.logger)
+        tap.make_reference_catalogue(ra_list, dec_list, filename=self._refcat_filename)
+
+        # Ingest into the repository
+        if ingest:
+            self._ingest_reference_catalogue(filenames=(self._refcat_filename,))
 
     def make_calexps(self, rerun=None, procs=1):
         """ Make calibrated exposures (calexps) using the LSST stack.
@@ -245,6 +254,14 @@ class ButlerRepository(HuntsmanBase):
             self.ingest_master_calibs(calib_type, filenames)
 
         return filenames
+
+    def _ingest_reference_catalogue(self, filenames):
+        """ Ingest the reference catalogue into the repository.
+        Args:
+            filenames (iterable of str): The list of filenames containing reference data.
+        """
+        self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} files.")
+        lsst.ingest_reference_catalogue(self.butler_directory, filenames)
 
 
 class TemporaryButlerRepository(ButlerRepository):

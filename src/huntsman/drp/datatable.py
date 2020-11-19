@@ -274,7 +274,7 @@ class RawQualityTable(DataTable):
 class MasterCalibTable(DataTable):
     """ Table to store metadata for master calibs. """
     _table_key = "master_calib"
-    _required_columns = ("filename", "calibDate")
+    _required_columns = ("filename", "calibDate")  # TODO: Move to config
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

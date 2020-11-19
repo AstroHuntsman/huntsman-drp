@@ -51,6 +51,7 @@ mongodb:
     raw_data: "raw_data"
     master_calib: "master_calib"
     raw_quality: "raw_quality"
+    refcat: "refcat"
 
 calibs:
   types:
@@ -59,6 +60,7 @@ calibs:
   validity: 1000
 
 refcat:
+  filename: ${HUNTSMAN_MOUNT}/refcat/skymapper_dr3.csv
   tap_url: http://api.skymapper.nci.org.au/aus/tap/
   tap_table: dr3.master
   ra_key: raj2000

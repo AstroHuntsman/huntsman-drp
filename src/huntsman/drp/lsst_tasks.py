@@ -148,11 +148,11 @@ def make_calexps(data_ids, rerun, butler_directory, calib_directory, nodes=1, pr
     cmd = f"processCcd.py {butler_directory}"
     cmd += f" --rerun {rerun}"
     cmd += f" --calib {calib_directory}"
+    cmd += f" -j {procs}"
     for data_id in data_ids:
         cmd += " --id"
         for k, v in data_id.items():
             cmd += f" {k}={v}"
-    cmd += f" -j {procs}"
     subprocess.check_output(cmd, shell=True)
 
 
