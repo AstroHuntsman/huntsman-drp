@@ -5,7 +5,7 @@ import subprocess
 from lsst.pipe.tasks.ingest import IngestTask
 from lsst.utils import getPackageDir
 
-from lsst.meas.algorithms import IngestIndexedReferenceTask
+# from lsst.meas.algorithms import IngestIndexedReferenceTask
 # from lsst.pipe.drivers.constructCalibs import BiasTask, FlatTask
 
 from huntsman.drp.core import get_logger

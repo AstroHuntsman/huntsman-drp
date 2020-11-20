@@ -8,8 +8,7 @@ import astropy.units as u
 import numpy as np
 
 import lsst.pipe.base as pipeBase
-from .indexerRegistry import IndexerRegistry
-
+from lsst.meas.algorithms.indexerRegistry import IndexerRegistry
 from lsst.meas.algorithms.ingestIndexManager import IngestIndexManager
 from lsst.meas.algorithms.ingestIndexReferenceTask import (IngestIndexedReferenceConfig,
                                                            IngestReferenceRunner)
