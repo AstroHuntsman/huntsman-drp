@@ -135,7 +135,7 @@ def make_master_calibs(datasetType, data_ids, calib_date, butler_repository, rer
         run_command(cmd)
 
 
-def make_calexps(data_ids, rerun, butler_directory, calib_directory, nodes=1, procs=1):
+def make_calexps(data_ids, rerun, butler_directory, calib_directory, no_exit=True, procs=1):
     """ Make calibrated exposures (calexps) using the LSST stack. These are astrometrically
     and photometrically calibrated as well as background subtracted. There are several byproducts
     of making calexps including sky background maps and preliminary source catalogues and metadata,
@@ -145,10 +145,13 @@ def make_calexps(data_ids, rerun, butler_directory, calib_directory, nodes=1, pr
         rerun (str): The name of the rerun.
         butler_directory (str): The butler repository directory name.
         calib_directory (str): The calib directory used by the butler repository.
-        nodes (int): The number of nodes to run on.
-        procs (int): The number of processes to use per node.
+        no_exit (bool, optional): If True (default), the program will not exit if an error is
+            raised by the stack.
+        procs (int, optional): The number of processes to use per node.  Default 1.
     """
     cmd = f"processCcd.py {butler_directory}"
+    if no_exit:
+        cmd += " --noExit"
     cmd += f" --rerun {rerun}"
     cmd += f" --calib {calib_directory}"
     cmd += f" -j {procs}"
