@@ -8,7 +8,7 @@ import lsst.daf.persistence as dafPersist
 from lsst.daf.persistence.policy import Policy
 
 from huntsman.drp.base import HuntsmanBase
-import huntsman.drp.lsst_tasks as lsst
+from huntsman.drp.lsst import tasks
 from huntsman.drp.datatable import MasterCalibTable
 from huntsman.drp.refcat import TapReferenceCatalogue
 from huntsman.drp.utils.date import date_to_ymd, current_date
@@ -67,7 +67,7 @@ class ButlerRepository(HuntsmanBase):
             filenames (iterable of str): The list of raw data filenames.
         """
         self.logger.debug(f"Ingesting {len(filenames)} files.")
-        lsst.ingest_raw_data(filenames, butler_directory=self.butler_directory, **kwargs)
+        tasks.ingest_raw_data(filenames, butler_directory=self.butler_directory, **kwargs)
 
         # For some reason we need to make a new butler object...
         self.butler = dafPersist.Butler(inputs=self.butler_directory)
@@ -117,8 +117,8 @@ class ButlerRepository(HuntsmanBase):
             validity = self._calib_validity
         self.logger.info(f"Ingesting {len(filenames)} master {calib_type} calibs with validity="
                          f"{validity}.")
-        lsst.ingest_master_calibs(calib_type, filenames, self.butler_directory,
-                                  self.calib_directory, validity=validity)
+        tasks.ingest_master_calibs(calib_type, filenames, self.butler_directory,
+                                   self.calib_directory, validity=validity)
 
     def archive_master_calibs(self):
         """ Copy the master calibs from this Butler repository into the calib archive directory
@@ -209,8 +209,8 @@ class ButlerRepository(HuntsmanBase):
         data_ids = [{k: v for k, v in zip(keys, m)} for m in metalist]
 
         # Process the science frames
-        lsst.make_calexps(data_ids, rerun=rerun, butler_directory=self.butler_directory,
-                          calib_directory=self.calib_directory, procs=procs)
+        tasks.make_calexps(data_ids, rerun=rerun, butler_directory=self.butler_directory,
+                           calib_directory=self.calib_directory, procs=procs)
 
     def _initialise(self):
         """Initialise a new butler repository."""
@@ -247,8 +247,8 @@ class ButlerRepository(HuntsmanBase):
         # Construct the master bias frames
         self.logger.debug(f"Creating master {calib_type} frames for calibDate={calib_date} with"
                           f" dataIds: {data_ids}.")
-        lsst.make_master_calibs(calib_type, data_ids, butler_repository=self, rerun=rerun,
-                                nodes=nodes, procs=procs, calib_date=calib_date)
+        tasks.make_master_calibs(calib_type, data_ids, butler_repository=self, rerun=rerun,
+                                 nodes=nodes, procs=procs, calib_date=calib_date)
 
         # Get filenames of the master calibs
         calib_dir = os.path.join(self.butler_directory, "rerun", rerun)
@@ -267,7 +267,7 @@ class ButlerRepository(HuntsmanBase):
             filenames (iterable of str): The list of filenames containing reference data.
         """
         self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} files.")
-        lsst.ingest_reference_catalogue(self.butler_directory, filenames)
+        tasks.ingest_reference_catalogue(self.butler_directory, filenames)
 
 
 class TemporaryButlerRepository(ButlerRepository):

@@ -8,12 +8,15 @@ from lsst.utils import getPackageDir
 from lsst.meas.algorithms import IngestIndexedReferenceTask
 # from lsst.pipe.drivers.constructCalibs import BiasTask, FlatTask
 
+from huntsman.drp.core import get_logger
 from huntsman.drp.utils.date import date_to_ymd
 from huntsman.drp.utils.butler import get_unique_calib_ids, fill_calib_keys
-from huntsman.drp.core import get_logger
+from huntsman.drp.lsst.ingest_refcat_task import HuntsmanIngestIndexedReferenceTask
 
 
 def run_command(cmd, logger=None):
+    """
+    """
     if logger is None:
         logger = get_logger()
     logger.debug(f"Running LSST command in subprocess: {cmd}")
@@ -42,7 +45,7 @@ def ingest_reference_catalogue(butler_directory, filenames, output_directory=Non
     # Load the config file
     pkgdir = getPackageDir("obs_huntsman")
     config_file = os.path.join(pkgdir, "config", "ingestSkyMapperReference.py")
-    config = IngestIndexedReferenceTask.ConfigClass()
+    config = HuntsmanIngestIndexedReferenceTask.ConfigClass()
     config.load(config_file)
 
     # Convert the files into the correct format and place them into the repository
@@ -51,7 +54,7 @@ def ingest_reference_catalogue(butler_directory, filenames, output_directory=Non
             "--output", output_directory,
             "--clobber-config",
             *filenames]
-    IngestIndexedReferenceTask.parseAndRun(args=args)
+    HuntsmanIngestIndexedReferenceTask.parseAndRun(args=args)
 
 
 def ingest_master_calibs(datasetType, filenames, butler_directory, calib_directory, validity):

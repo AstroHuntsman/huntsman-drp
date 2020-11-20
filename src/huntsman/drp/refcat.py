@@ -52,6 +52,8 @@ class TapReferenceCatalogue(HuntsmanBase):
                 query += f" AND {param} >= {prange['lower']}"
             with suppress(KeyError):
                 query += f" AND {param} < {prange['upper']}"
+            with suppress(KeyError):
+                query += f" AND {param} = {prange['equal']}"
 
         # Apply limit on number of returned rows
         if self._tap_limit is not None:
