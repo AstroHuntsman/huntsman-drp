@@ -7,11 +7,8 @@ import multiprocessing
 import astropy.units as u
 import numpy as np
 
-import lsst.pipe.base as pipeBase
-from lsst.meas.algorithms.indexerRegistry import IndexerRegistry
+from lsst.meas.algorithms import IngestIndexedReferenceTask
 from lsst.meas.algorithms.ingestIndexManager import IngestIndexManager
-from lsst.meas.algorithms.ingestIndexReferenceTask import (IngestIndexedReferenceConfig,
-                                                           IngestReferenceRunner)
 
 # global shared counter to keep track of source ids
 # (multiprocess sharing is most easily done with a global)
@@ -106,43 +103,9 @@ class singleProccessIngestIndexManager(IngestIndexManager):
                               percent)
 
 
-class HuntsmanIngestIndexedReferenceTask(pipeBase.CmdLineTask):
-    """Class for producing and loading indexed reference catalogs.
-    This implements an indexing scheme based on hierarchical triangular
-    mesh (HTM). The term index really means breaking the catalog into
-    localized chunks called shards.  In this case each shard contains
-    the entries from the catalog in a single HTM trixel
-    For producing catalogs this task makes the following assumptions
-    about the input catalogs:
-    - RA, Dec are in decimal degrees.
-    - Epoch is available in a column, in a format supported by astropy.time.Time.
-    - There are no off-diagonal covariance terms, such as covariance
-      between RA and Dec, or between PM RA and PM Dec. Support for such
-     covariance would have to be added to to the config, including consideration
-     of the units in the input catalog.
-    Parameters
-    ----------
-    butler : `lsst.daf.persistence.Butler`
-        Data butler for reading and writing catalogs
-    """
-    canMultiprocess = False
-    ConfigClass = IngestIndexedReferenceConfig
-    RunnerClass = IngestReferenceRunner
-    _DefaultName = 'IngestIndexedReferenceTask'
+class HuntsmanIngestIndexedReferenceTask(IngestIndexedReferenceTask):
+    """ Override to not spend ages making file locks. """
 
-    @classmethod
-    def _makeArgumentParser(cls):
-        """Create an argument parser.
-        This returns a standard parser with an extra "files" argument.
-        """
-        parser = pipeBase.InputOnlyArgumentParser(name=cls._DefaultName)
-        parser.add_argument("files", nargs="+", help="Names of files to index")
-        return parser
-
-    def __init__(self, *args, butler=None, **kwargs):
-        self.butler = butler
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.indexer = IndexerRegistry[self.config.dataset_config.indexer.name](
-            self.config.dataset_config.indexer.active)
-        self.makeSubtask('file_reader')
         self.IngestManager = singleProccessIngestIndexManager
