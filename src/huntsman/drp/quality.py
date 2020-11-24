@@ -62,7 +62,7 @@ def clipped_stats(data, file_info, logger, **kwargs):
             "well_fullfrac": well_fullfrac}
 
 
-def flipped_asymmetry(data, **kwargs):
+def flipped_asymmetry(data, file_info, **kwargs):
     """
     Calculate the asymmetry statistics by flipping data in x and y directions.
     """
