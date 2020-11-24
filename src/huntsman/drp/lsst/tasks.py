@@ -20,7 +20,7 @@ def run_command(cmd, logger=None):
     if logger is None:
         logger = get_logger()
     logger.debug(f"Running LSST command in subprocess: {cmd}")
-    return subprocess.check_output(cmd, shell=True)
+    return subprocess.run(cmd, shell=True, check=True)
 
 
 def ingest_raw_data(filename_list, butler_directory, mode="link", ignore_ingested=False):
