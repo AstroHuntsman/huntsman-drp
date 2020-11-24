@@ -59,7 +59,7 @@ def clipped_stats(data, file_info, logger, **kwargs):
     well_fullfrac = median / saturate
 
     return {"clipped_mean": mean, "clipped_median": median, "clipped_std": stdev,
-            "well_fullfrac": median}
+            "well_fullfrac": well_fullfrac}
 
 
 def flipped_asymmetry(data, **kwargs):
