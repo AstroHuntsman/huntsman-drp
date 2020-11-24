@@ -105,8 +105,8 @@ class DataTable(HuntsmanBase):
         df = pd.DataFrame(list(cursor))
         self.logger.debug(f"Query returned {df.shape[0]} results.")
 
-        # Replace field that's entirely space (or empty) with NaN
-        df.replace(r'^\s+$', np.nan, regex=True, inplace=True)
+        # Replace empty strings with nan
+        df.replace("", np.nan, inplace=True)
 
         return df
 
