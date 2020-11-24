@@ -11,7 +11,7 @@ if __name__ == "__main__":
     br = ButlerRepository("/home/lsst/test-butler-repo")
 
     df = rdt.query({"dataType": "science", "expTime": 60, "ccd": 8})
-    cond = np.isfinite(df["RA-MNT"].values)
+    cond = np.isfinite(df["RA-MNT"].values.astype("float"))
     df = df[cond].reset_index(drop=True)
     fnames_sci = df["filename"].values[:1]
 
