@@ -181,7 +181,7 @@ class ButlerRepository(HuntsmanBase):
         for data_id, filename in zip(data_ids, filenames):
             data_type = self.butler.queryMetadata("raw", ["dataType"], dataId=data_id)[0]
             if data_type == "science":  # Only select science files
-                header = read_fits_header(filename, ext="all")
+                header = read_fits_header(filename, ext="all")  # Use all as .fz extension is lost
                 ra_list.append(header[self._ra_key])
                 dec_list.append(header[self._dec_key])
         self.logger.debug(f"Creating reference catalogue for {len(ra_list)} science frames.")

@@ -25,6 +25,7 @@ def read_fits_header(filename, ext="auto"):
             except IndexError:
                 if i > 1:
                     return header
+            i += 1
     elif ext == "auto":
         if filename.endswith(".fits"):
             ext = 0
