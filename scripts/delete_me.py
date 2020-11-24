@@ -7,7 +7,7 @@ if __name__ == "__main__":
     mct = MasterCalibTable()
     br = ButlerRepository("/home/lsst/test-butler-repo")
 
-    fnames_sci = rdt.query({"dataType": "science", "expTime": 60})["filename"].values[:1]
+    fnames_sci = rdt.query({"dataType": "science", "expTime": 60, "ccd": 8})["filename"].values[:1]
     fnames_bias = mct.query({"datasetType": "bias"})["filename"].values
     fnames_flat = mct.query({"datasetType": "flat"})["filename"].values
 

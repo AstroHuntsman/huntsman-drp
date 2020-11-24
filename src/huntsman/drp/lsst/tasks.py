@@ -159,7 +159,7 @@ def make_calexps(data_ids, rerun, butler_directory, calib_directory, no_exit=Tru
         cmd += " --id"
         for k, v in data_id.items():
             cmd += f" {k}={v}"
-    subprocess.check_output(cmd, shell=True)
+    run_command(cmd)
 
 
 def makeDiscreteSkyMap(butler_directory='DATA', rerun='processCcdOutputs:coadd'):
