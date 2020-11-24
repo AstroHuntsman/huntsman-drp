@@ -80,3 +80,6 @@ screening:
       less_than: 100
     flip_asymm_v:
       less_than: 60
+    well_fullfrac:
+      greater_than: 0.10
+      less_than: 0.22
