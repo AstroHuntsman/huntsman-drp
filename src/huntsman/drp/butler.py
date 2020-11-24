@@ -205,6 +205,7 @@ class ButlerRepository(HuntsmanBase):
 
         # Get dataIds for the raw science frames
         keys = list(self.butler.getKeys("raw").keys())
+        keys.append("filter")  # We also need the filter name to match dataIds with flats
         metalist = self.butler.queryMetadata("raw", format=keys, dataId={'dataType': "science"})
         data_ids = [{k: v for k, v in zip(keys, m)} for m in metalist]
 
