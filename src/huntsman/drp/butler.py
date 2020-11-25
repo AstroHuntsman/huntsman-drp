@@ -31,7 +31,7 @@ class ButlerRepository(HuntsmanBase):
         self.butler_directory = directory
         if (calib_directory is None) and (directory is not None):
             calib_directory = os.path.join(directory, "CALIB")
-        self.calib_directory = calib_directory
+        self._calib_directory = calib_directory
         self._calib_validity = self.config["calibs"]["validity"]
         self._refcat_filename = os.path.join(self.butler_directory, "refcat_raw", "refcat_raw.csv")
 
@@ -48,6 +48,10 @@ class ButlerRepository(HuntsmanBase):
 
     def __exit__(self, *args, **kwargs):
         pass
+
+    @property
+    def calib_directory(self):
+        return self._calib_directory
 
     def get_filename(self, data_type, data_id):
         """ Get the filename for a data ID of data type.
