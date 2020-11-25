@@ -81,5 +81,5 @@ screening:
     flip_asymm_v:
       less_than: 60
     well_fullfrac:
-      greater_than: 0.10
-      less_than: 0.22
+      greater_than: 0.13
+      less_than: 0.19
