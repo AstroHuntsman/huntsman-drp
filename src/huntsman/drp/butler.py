@@ -33,7 +33,12 @@ class ButlerRepository(HuntsmanBase):
             calib_directory = os.path.join(directory, "CALIB")
         self._calib_directory = calib_directory
         self._calib_validity = self.config["calibs"]["validity"]
-        self._refcat_filename = os.path.join(self.butler_directory, "refcat_raw", "refcat_raw.csv")
+
+        if self.butler_directory is None:
+            self._refcat_filename = None
+        else:
+            self._refcat_filename = os.path.join(self.butler_directory,
+                                                 "refcat_raw", "refcat_raw.csv")
 
         # Load the policy file
         self._policy = Policy(self._policy_filename)
@@ -285,6 +290,7 @@ class TemporaryButlerRepository(ButlerRepository):
         """Create temporary directory and initialise as a Bulter repository."""
         self._tempdir = TemporaryDirectory()
         self.butler_directory = self._tempdir.name
+        self._refcat_filename = os.path.join(self.butler_directory, "refcat_raw", "refcat_raw.csv")
         self._initialise()
         return self
 
@@ -293,6 +299,7 @@ class TemporaryButlerRepository(ButlerRepository):
         self.butler = None
         self._tempdir.cleanup()
         self.butler_directory = None
+        self._refcat_filename = None
 
     @property
     def calib_directory(self):
