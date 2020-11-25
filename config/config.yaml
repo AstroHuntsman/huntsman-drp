@@ -71,7 +71,7 @@ refcat:
       lower: 0.9
     g_psf:
       upper: 15
-    FLAGS:
+    flags:
       equal: 0
 
 screening:
