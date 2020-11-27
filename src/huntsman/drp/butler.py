@@ -285,11 +285,11 @@ class ButlerRepository(HuntsmanBase):
         missing_ids_json = data_ids_required_json - data_ids_json
         return [json.loads(_) for _ in missing_ids_json]
 
-    def _data_id_to_calib_id(self, datasetType, data_ids):
+    def _data_id_to_calib_id(self, datasetType, data_ids, keys_ignore=["calibId"]):
         """ Convert a list of dataIds to corresponding list of calibIds using union of keys.
         """
         calib_keys = list(self.butler.getKeys(datasetType).keys())
-        keys = [k for k in data_ids.keys() if k in calib_keys]
+        keys = [k for k in calib_keys if k not in keys_ignore]
         calib_ids = [{k: data_id[k] for k in keys} for data_id in data_ids]
         return keys, calib_ids
 
