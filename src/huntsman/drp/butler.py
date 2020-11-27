@@ -242,7 +242,7 @@ class ButlerRepository(HuntsmanBase):
         """ Check that the correct number of master calibs have been ingested.
 
         """
-        keys_ignore = ["id", "calibId", "validStart", "validEnd"]
+        keys_ignore = ["id", "calibDate", "validStart", "validEnd"]
 
         # Get dataIds of raw ingested calibs
         raw_bias_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': "bias"})
