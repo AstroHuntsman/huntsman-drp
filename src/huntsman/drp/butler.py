@@ -89,7 +89,9 @@ class ButlerRepository(HuntsmanBase):
                 (default), will use the current date.
             rerun (str): The name of the rerun.
         """
-        return self._make_master_calibs("flat", calib_date=calib_date, rerun=rerun, **kwargs)
+        result = self._make_master_calibs("flat", calib_date=calib_date, rerun=rerun, **kwargs)
+        self._check_master_calibs("flat")
+        return result
 
     def make_master_biases(self, calib_date=None, rerun=None, **kwargs):
         """ Make master biases from ingested raw data.
@@ -98,7 +100,10 @@ class ButlerRepository(HuntsmanBase):
                 (default), will use the current date.
             rerun (str, optional): The name of the rerun.
         """
-        return self._make_master_calibs("bias", calib_date=calib_date, rerun=rerun, **kwargs)
+        result = self._make_master_calibs("bias", calib_date=calib_date, rerun=rerun, **kwargs)
+        # Check the correct number of calibs have been created
+        self._check_master_calibs("bias")
+        return result
 
     def make_master_calibs(self, calib_date=None, rerun=None, skip_bias=False, **kwargs):
         """ Make master calibs from ingested raw calib data.
@@ -238,38 +243,32 @@ class ButlerRepository(HuntsmanBase):
         value_list = self.butler.queryMetadata(datasetType, format=keys, dataId=data_id)
         return [{k: v for k, v in zip(keys, _)} for _ in value_list]
 
-    def _check_master_calibs(self, mode="warning"):
-        """ Check that the correct number of master calibs have been ingested.
-
+    def _check_master_calibs(self, datasetType, mode="warning"):
+        """ Check that the correct number of master calibs have been created following a call
+        to make_master_calibs.
         """
         keys_ignore = ["id", "calibDate", "validStart", "validEnd"]
 
+        extra_keys = []
+        if datasetType == "flat":
+            extra_keys.append("filter")  # TODO: Get this info somewhere else
+
         # Get dataIds of raw ingested calibs
-        raw_bias_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': "bias"})
-        raw_flat_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': "flat"},
-                                                  extra_keys=["filter"])
+        raw_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': datasetType},
+                                             extra_keys=extra_keys)
 
         # Get calibIds of master calibs that *should* be ingested
-        bias_ids = self._data_id_to_calib_id("bias", raw_bias_ids, keys_ignore=keys_ignore)
-        flat_ids = self._data_id_to_calib_id("flat", raw_flat_ids, keys_ignore=keys_ignore)
+        calib_ids_required = self._data_id_to_calib_id("bias", raw_ids, keys_ignore=keys_ignore)
 
         # Get calibIds of ingested master calibs
-        ingested_bias_ids = self.query_calib_metadata("bias", keys_ignore=keys_ignore)
-        ingested_flat_ids = self.query_calib_metadata("flat", keys_ignore=keys_ignore)
+        calib_ids_ingested = self.query_calib_metadata(datasetType, keys_ignore=keys_ignore)
 
         # Check for missing master calibs
-        missing_bias_ids = self._get_missing_data_ids(ingested_bias_ids, bias_ids)
-        missing_flat_ids = self._get_missing_data_ids(ingested_flat_ids, flat_ids)
+        missing_ids = self._get_missing_data_ids(calib_ids_ingested, calib_ids_required)
 
         # Handle result
-        has_missing_bias = len(missing_bias_ids) > 0
-        has_missing_flat = len(missing_flat_ids) > 0
-        if has_missing_bias or has_missing_flat:
-            msg = ""
-            if has_missing_bias:
-                msg += f"{len(missing_bias_ids)} missing master bias frames: {missing_bias_ids}. "
-            if has_missing_flat:
-                msg += f"{len(missing_flat_ids)} missing master flat frames: {missing_flat_ids}. "
+        if len(missing_ids) > 0:
+            msg = f"{len(missing_ids)} missing master {datasetType} calibs: {missing_ids}."
             if mode == "warning":
                 self.logger.warning(msg)
             elif mode == "error":
@@ -278,7 +277,7 @@ class ButlerRepository(HuntsmanBase):
             else:
                 raise ValueError(f"Unrecongised mode: {mode}.")
         else:
-            self.logger.debug("No missing calibs detected.")
+            self.logger.debug(f"No missing {datasetType} calibs detected.")
 
     def _get_missing_data_ids(self, data_ids, data_ids_required):
         """ Find any data_ids that are not present in data_ids_required. This is tricky as dict
