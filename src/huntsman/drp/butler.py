@@ -243,7 +243,7 @@ class ButlerRepository(HuntsmanBase):
         value_list = self.butler.queryMetadata(datasetType, format=keys, dataId=data_id)
         return [{k: v for k, v in zip(keys, _)} for _ in value_list]
 
-    def _check_master_calibs(self, datasetType, mode="warning"):
+    def _check_master_calibs(self, datasetType, mode="error"):
         """ Check that the correct number of master calibs have been created following a call
         to make_master_calibs.
         """
