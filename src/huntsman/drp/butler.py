@@ -242,7 +242,7 @@ class ButlerRepository(HuntsmanBase):
         """ Check that the correct number of master calibs have been ingested.
 
         """
-        keys_ignore = ["calibId", "validStart", "validEnd"]
+        keys_ignore = ["id", "calibId", "validStart", "validEnd"]
 
         # Get dataIds of raw ingested calibs
         raw_bias_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': "bias"})
@@ -268,8 +268,8 @@ class ButlerRepository(HuntsmanBase):
             msg = ""
             if has_missing_bias:
                 msg += f"{len(missing_bias_ids)} missing master bias frames: {missing_bias_ids}. "
-            if has_missing_bias:
-                msg += f"{len(missing_flat_ids)} missing master flat frames: {missing_bias_ids}. "
+            if has_missing_flat:
+                msg += f"{len(missing_flat_ids)} missing master flat frames: {missing_flat_ids}. "
             if mode == "warning":
                 self.logger.warning(msg)
             elif mode == "error":
