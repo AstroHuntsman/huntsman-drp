@@ -278,7 +278,7 @@ class ButlerRepository(HuntsmanBase):
         else:
             self.logger.debug("No missing calibs detected.")
 
-    def _get_missing_data_ids(data_ids, data_ids_required):
+    def _get_missing_data_ids(self, data_ids, data_ids_required):
         """ Find any data_ids that are not present in data_ids_required. This is tricky as dict
         objects are not hashable and we cannot use the "set" functionality directly. We therefore
         serialise the dicts to str following this method:
