@@ -1,5 +1,6 @@
 import os
 import shutil
+import json
 from contextlib import suppress
 from tempfile import TemporaryDirectory
 import sqlite3
@@ -155,10 +156,10 @@ class ButlerRepository(HuntsmanBase):
                 metadata["datasetType"] = calib_type
                 calib_datatable.insert(metadata, overwrite=True)
 
-    def query_calib_metadata(self, table):
+    def query_calib_metadata(self, datasetType):
         """ Query the ingested calibs. TODO: Replace with the "official" Butler version.
         Args:
-            table (str): Table name. Can either be "flat" or "bias".
+            datasetType (str): Table name. Can either be "flat" or "bias".
         Returns:
             list of dict: The query result in column: value.
         """
@@ -166,7 +167,7 @@ class ButlerRepository(HuntsmanBase):
         conn = sqlite3.connect(os.path.join(self.calib_directory, "calibRegistry.sqlite3"))
         c = conn.cursor()
         # Query the calibs
-        result = c.execute(f"SELECT * from {table}")
+        result = c.execute(f"SELECT * from {datasetType}")
         result_dict = []
         for row in result:
             d = {}
@@ -213,14 +214,84 @@ class ButlerRepository(HuntsmanBase):
             rerun = self._default_rerun
 
         # Get dataIds for the raw science frames
-        keys = list(self.butler.getKeys("raw").keys())
-        keys.append("filter")  # We also need the filter name to match dataIds with flats
-        metalist = self.butler.queryMetadata("raw", format=keys, dataId={'dataType': "science"})
-        data_ids = [{k: v for k, v in zip(keys, m)} for m in metalist]
+        data_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': "science"},
+                                              extra_keys=["filter"])
 
         # Process the science frames
         tasks.make_calexps(data_ids, rerun=rerun, butler_directory=self.butler_directory,
                            calib_directory=self.calib_directory, procs=procs)
+
+        # Check if we have the right number of calibs
+        self._check_master_calibs()
+
+    def get_ingested_metadata(self, datasetType="raw", data_id=None, extra_keys=None):
+        """ Get dataIds for datasetType.
+
+        """
+        keys = list(self.butler.getKeys(datasetType).keys())
+        if extra_keys is not None:
+            keys.extend(extra_keys)
+        value_list = self.butler.queryMetadata(datasetType, format=keys, dataId=data_id)
+        return [{k: v for k, v in zip(keys, _)} for _ in value_list]
+
+    def _check_master_calibs(self, mode="warning"):
+        """ Check that the correct number of master calibs have been ingested.
+
+        """
+        # Get dataIds of raw ingested calibs
+        raw_bias_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': "bias"})
+        raw_flat_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': "flat"},
+                                                  extra_keys=["filter"])
+
+        # Get calibIds of master calibs that *should* be ingested
+        keys_bias, bias_ids = self._data_id_to_calib_id("bias", raw_bias_ids)
+        keys_flat, flat_ids = self._data_id_to_calib_id("flat", raw_flat_ids)
+
+        # Get calibIds of ingested master calibs
+        ingested_bias_ids = self.query_calib_metadata("bias", keys=keys_bias)
+        ingested_flat_ids = self.query_calib_metadata("flat", keys=keys_flat)
+
+        # Check for missing master calibs
+        missing_bias_ids = self._get_missing_data_ids(bias_ids, ingested_bias_ids)
+        missing_flat_ids = self._get_missing_data_ids(flat_ids, ingested_flat_ids)
+
+        # Handle result
+        has_missing_bias = len(missing_bias_ids) > 0
+        has_missing_flat = len(missing_flat_ids) > 0
+        if has_missing_bias or has_missing_flat:
+            msg = ""
+            if has_missing_bias:
+                msg += f"{len(missing_bias_ids)} missing master bias frames: {missing_bias_ids}. "
+            if has_missing_bias:
+                msg += f"{len(missing_flat_ids)} missing master flat frames: {missing_bias_ids}. "
+            if mode == "warning":
+                self.logger.warning(msg)
+            elif mode == "error":
+                self.logger.error(msg)
+                raise FileNotFoundError(msg)
+            else:
+                raise ValueError(f"Unrecongised mode: {mode}.")
+        else:
+            self.logger.debug("No missing calibs detected.")
+
+    def _get_missing_data_ids(data_ids, data_ids_required):
+        """ Find any data_ids that are not present in data_ids_required. This is tricky as dict
+        objects are not hashable and we cannot use the "set" functionality directly. We therefore
+        serialise the dicts to str following this method:
+        https://stackoverflow.com/questions/11092511/python-list-of-unique-dictionaries
+        """
+        data_ids_json = set([json.dumps(_, sort_keys=True) for _ in data_ids])
+        data_ids_required_json = set([json.dumps(_, sort_keys=True) for _ in data_ids_required])
+        missing_ids_json = data_ids_required_json - data_ids_json
+        return [json.loads(_) for _ in missing_ids_json]
+
+    def _data_id_to_calib_id(self, datasetType, data_ids):
+        """ Convert a list of dataIds to corresponding list of calibIds using union of keys.
+        """
+        calib_keys = list(self.butler.getKeys(datasetType).keys())
+        keys = [k for k in data_ids.keys() if k in calib_keys]
+        calib_ids = [{k: data_id[k] for k in keys} for data_id in data_ids]
+        return keys, calib_ids
 
     def _initialise(self):
         """Initialise a new butler repository."""
