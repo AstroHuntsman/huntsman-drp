@@ -242,22 +242,24 @@ class ButlerRepository(HuntsmanBase):
         """ Check that the correct number of master calibs have been ingested.
 
         """
+        keys_ignore = ["calibId", "validStart", "validEnd"]
+
         # Get dataIds of raw ingested calibs
         raw_bias_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': "bias"})
         raw_flat_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': "flat"},
                                                   extra_keys=["filter"])
 
         # Get calibIds of master calibs that *should* be ingested
-        bias_ids = self._data_id_to_calib_id("bias", raw_bias_ids, keys_ignore=["calibId"])
-        flat_ids = self._data_id_to_calib_id("flat", raw_flat_ids, keys_ignore=["calibId"])
+        bias_ids = self._data_id_to_calib_id("bias", raw_bias_ids, keys_ignore=keys_ignore)
+        flat_ids = self._data_id_to_calib_id("flat", raw_flat_ids, keys_ignore=keys_ignore)
 
         # Get calibIds of ingested master calibs
-        ingested_bias_ids = self.query_calib_metadata("bias", keys_ignore=["calibId"])
-        ingested_flat_ids = self.query_calib_metadata("flat", keys_ignore=["calibId"])
+        ingested_bias_ids = self.query_calib_metadata("bias", keys_ignore=keys_ignore)
+        ingested_flat_ids = self.query_calib_metadata("flat", keys_ignore=keys_ignore)
 
         # Check for missing master calibs
-        missing_bias_ids = self._get_missing_data_ids(bias_ids, ingested_bias_ids)
-        missing_flat_ids = self._get_missing_data_ids(flat_ids, ingested_flat_ids)
+        missing_bias_ids = self._get_missing_data_ids(ingested_bias_ids, bias_ids)
+        missing_flat_ids = self._get_missing_data_ids(ingested_flat_ids, flat_ids)
 
         # Handle result
         has_missing_bias = len(missing_bias_ids) > 0
