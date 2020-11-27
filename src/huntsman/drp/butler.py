@@ -156,10 +156,11 @@ class ButlerRepository(HuntsmanBase):
                 metadata["datasetType"] = calib_type
                 calib_datatable.insert(metadata, overwrite=True)
 
-    def query_calib_metadata(self, datasetType):
+    def query_calib_metadata(self, datasetType, keys_ignore=None):
         """ Query the ingested calibs. TODO: Replace with the "official" Butler version.
         Args:
             datasetType (str): Table name. Can either be "flat" or "bias".
+            keys_ognore (list of str, optional): If provided, drop these keys from result.
         Returns:
             list of dict: The query result in column: value.
         """
@@ -168,14 +169,17 @@ class ButlerRepository(HuntsmanBase):
         c = conn.cursor()
         # Query the calibs
         result = c.execute(f"SELECT * from {datasetType}")
-        result_dict = []
+        metadata_list = []
         for row in result:
             d = {}
             for idx, col in enumerate(c.description):
                 d[col[0]] = row[idx]
-            result_dict.append(d)
+            metadata_list.append(d)
         c.close()
-        return result_dict
+        if keys_ignore is not None:
+            keys_keep = [k for k in metadata_list[0].keys() if k not in keys_ignore]
+            metadata_list = [{k: _[k] for k in keys_keep} for _ in metadata_list]
+        return metadata_list
 
     def make_reference_catalogue(self, ingest=True):
         """ Make the reference catalogue for the ingested science frames.
@@ -244,12 +248,12 @@ class ButlerRepository(HuntsmanBase):
                                                   extra_keys=["filter"])
 
         # Get calibIds of master calibs that *should* be ingested
-        keys_bias, bias_ids = self._data_id_to_calib_id("bias", raw_bias_ids)
-        keys_flat, flat_ids = self._data_id_to_calib_id("flat", raw_flat_ids)
+        bias_ids = self._data_id_to_calib_id("bias", raw_bias_ids, keys_ignore=["calibId"])
+        flat_ids = self._data_id_to_calib_id("flat", raw_flat_ids, keys_ignore=["calibId"])
 
         # Get calibIds of ingested master calibs
-        ingested_bias_ids = self.query_calib_metadata("bias", keys=keys_bias)
-        ingested_flat_ids = self.query_calib_metadata("flat", keys=keys_flat)
+        ingested_bias_ids = self.query_calib_metadata("bias", keys_ignore=["calibId"])
+        ingested_flat_ids = self.query_calib_metadata("flat", keys_ignore=["calibId"])
 
         # Check for missing master calibs
         missing_bias_ids = self._get_missing_data_ids(bias_ids, ingested_bias_ids)
@@ -285,13 +289,14 @@ class ButlerRepository(HuntsmanBase):
         missing_ids_json = data_ids_required_json - data_ids_json
         return [json.loads(_) for _ in missing_ids_json]
 
-    def _data_id_to_calib_id(self, datasetType, data_ids, keys_ignore=["calibId"]):
+    def _data_id_to_calib_id(self, datasetType, data_ids, keys_ignore=None):
         """ Convert a list of dataIds to corresponding list of calibIds using union of keys.
         """
         calib_keys = list(self.butler.getKeys(datasetType).keys())
-        keys = [k for k in calib_keys if k not in keys_ignore]
-        calib_ids = [{k: data_id[k] for k in keys} for data_id in data_ids]
-        return keys, calib_ids
+        if keys_ignore is not None:
+            calib_keys = [k for k in calib_keys if k not in keys_ignore]
+        calib_ids = [{k: data_id[k] for k in calib_keys} for data_id in data_ids]
+        return calib_ids
 
     def _initialise(self):
         """Initialise a new butler repository."""
