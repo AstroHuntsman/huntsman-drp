@@ -243,9 +243,14 @@ class ButlerRepository(HuntsmanBase):
         value_list = self.butler.queryMetadata(datasetType, format=keys, dataId=data_id)
         return [{k: v for k, v in zip(keys, _)} for _ in value_list]
 
-    def _check_master_calibs(self, datasetType, mode="error"):
+    def _check_master_calibs(self, datasetType, raise_error=True):
         """ Check that the correct number of master calibs have been created following a call
-        to make_master_calibs.
+        to make_master_calibs. This function compares the set of calibIds that should be ingested
+        (using ingested raw calibs) to the calibIds that actually exist and are ingested.
+        Args:
+            datasetType (str): The dataset type. Should be a valid calib dataset type (e.g. bias).
+            raise_error (bool, optional): If True (default), an error will be raised if there
+                are missing calibIds. Else, a warning is generated.
         """
         keys_ignore = ["id", "calibDate", "validStart", "validEnd"]
 
@@ -258,7 +263,8 @@ class ButlerRepository(HuntsmanBase):
                                              extra_keys=extra_keys)
 
         # Get calibIds of master calibs that *should* be ingested
-        calib_ids_required = self._data_id_to_calib_id("bias", raw_ids, keys_ignore=keys_ignore)
+        calib_ids_required = self._data_id_to_calib_id(datasetType, raw_ids,
+                                                       keys_ignore=keys_ignore)
 
         # Get calibIds of ingested master calibs
         calib_ids_ingested = self.query_calib_metadata(datasetType, keys_ignore=keys_ignore)
@@ -269,13 +275,11 @@ class ButlerRepository(HuntsmanBase):
         # Handle result
         if len(missing_ids) > 0:
             msg = f"{len(missing_ids)} missing master {datasetType} calibs: {missing_ids}."
-            if mode == "warning":
-                self.logger.warning(msg)
-            elif mode == "error":
+            if raise_error:
                 self.logger.error(msg)
                 raise FileNotFoundError(msg)
             else:
-                raise ValueError(f"Unrecongised mode: {mode}.")
+                self.logger.warning(msg)
         else:
             self.logger.debug(f"No missing {datasetType} calibs detected.")
 
@@ -284,6 +288,12 @@ class ButlerRepository(HuntsmanBase):
         objects are not hashable and we cannot use the "set" functionality directly. We therefore
         serialise the dicts to str following this method:
         https://stackoverflow.com/questions/11092511/python-list-of-unique-dictionaries
+        Args:
+            data_ids (list of dict): The dataIds to check.
+            data_ids_required (list of dict): The dataIds required to exist in data_ids. Any dataId
+                that is not present in data_ids_required is returned.
+        Returns:
+            list of dict: List of unique data_ids that are not in data_ids_required.
         """
         data_ids_json = set([json.dumps(_, sort_keys=True) for _ in data_ids])
         data_ids_required_json = set([json.dumps(_, sort_keys=True) for _ in data_ids_required])
@@ -291,7 +301,15 @@ class ButlerRepository(HuntsmanBase):
         return [json.loads(_) for _ in missing_ids_json]
 
     def _data_id_to_calib_id(self, datasetType, data_ids, keys_ignore=None):
-        """ Convert a list of dataIds to corresponding list of calibIds using union of keys.
+        """ Convert a list of dataIds to corresponding list of calibIds. TODO: Figure out if this
+        functionality already exists somewhere in the LSST stack.
+        Args:
+            datasetType (str): The dataset type, e.g. bias or flat.
+            data_ids (list of dict): The dataIds to convert to calibIds.
+            keys_ignore (list of str, optional): If given, the returned calibIds will not contain
+                any of the keys listed in keys_ignore.
+        Returns:
+            list of dict: The corresponding calibIds.
         """
         calib_keys = list(self.butler.getKeys(datasetType).keys())
         if keys_ignore is not None:
