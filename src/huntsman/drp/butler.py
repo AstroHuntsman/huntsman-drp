@@ -329,7 +329,8 @@ class ButlerRepository(HuntsmanBase):
                 f.write(self._mapper)
         self.butler = dafPersist.Butler(inputs=self.butler_directory)
 
-    def _make_master_calibs(self, calib_type, calib_date, rerun, nodes=1, procs=1, ingest=True):
+    def _make_master_calibs(self, calib_type, calib_date, rerun, nodes=1, procs=1, ingest=True,
+                            clean=True):
         """ Use the LSST stack to create master calibs.
         Args:
             calib_type (str): The dataset type, e.g. bias, flat.
@@ -339,6 +340,9 @@ class ButlerRepository(HuntsmanBase):
             proces (int, optional): Run on this many processes per node. Default=1.
             ingest (bool, optional): If True (default), ingest the master calibs into the butler
                 repository.
+            clean (bool, optional): If True (default), will remove dataIds that cannot be processed
+                before running the LSST task. This is helpful if e.g. there is a missing bias
+                when creating master flats.
         Returns:
             list of str: The filenames of the master calibs.
         """
@@ -349,7 +353,16 @@ class ButlerRepository(HuntsmanBase):
         metalist = self.butler.queryMetadata("raw", format=keys, dataId={'dataType': calib_type})
         data_ids = [{k: v for k, v in zip(keys, m)} for m in metalist]
 
-        # Construct the master bias frames
+        # Clean the dataIds
+        if clean:
+            if calib_type == "flat":
+                # Check there is a bias for each raw flat exposure
+                bias_md = self.query_calib_metadata("bias")
+                bias_ids = self._data_id_to_calib_id()
+                for data_id in data_ids:
+                    pass
+
+        # Construct the master calibs
         self.logger.debug(f"Creating master {calib_type} frames for calibDate={calib_date} with"
                           f" dataIds: {data_ids}.")
         tasks.make_master_calibs(calib_type, data_ids, butler_repository=self, rerun=rerun,
