@@ -330,7 +330,7 @@ class ButlerRepository(HuntsmanBase):
         self.butler = dafPersist.Butler(inputs=self.butler_directory)
 
     def _make_master_calibs(self, calib_type, calib_date, rerun, nodes=1, procs=1, ingest=True,
-                            clean=True):
+                            clean=False):
         """ Use the LSST stack to create master calibs.
         Args:
             calib_type (str): The dataset type, e.g. bias, flat.
@@ -340,9 +340,9 @@ class ButlerRepository(HuntsmanBase):
             proces (int, optional): Run on this many processes per node. Default=1.
             ingest (bool, optional): If True (default), ingest the master calibs into the butler
                 repository.
-            clean (bool, optional): If True (default), will remove dataIds that cannot be processed
+            clean (bool, optional): If True, will remove dataIds that cannot be processed
                 before running the LSST task. This is helpful if e.g. there is a missing bias
-                when creating master flats.
+                when creating master flats. Default False.
         Returns:
             list of str: The filenames of the master calibs.
         """
@@ -355,10 +355,11 @@ class ButlerRepository(HuntsmanBase):
 
         # Clean the dataIds
         if clean:
+            raise NotImplementedError  # TODO: implement this!
             if calib_type == "flat":
                 # Check there is a bias for each raw flat exposure
                 bias_md = self.query_calib_metadata("bias")
-                bias_ids = self._data_id_to_calib_id()
+                bias_ids = self._data_id_to_calib_id("bias", data_ids)
                 for data_id in data_ids:
                     pass
 
