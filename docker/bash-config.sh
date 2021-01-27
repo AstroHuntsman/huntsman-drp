@@ -7,6 +7,7 @@ setup obs_huntsman v1
 setup huntsman_drp v1
 setup display_firefly
 # Unfortunately we have to chown the mount point
+# NB: this might cause problems if the screener needs this mounted as well
 sudo chown -R ${USER} ${HUNTSMAN_MOUNT}
 # ---- Below this line are temporary requirements for astrometry.net ----
 alias python=python3
