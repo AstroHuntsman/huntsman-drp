@@ -258,6 +258,35 @@ class ExposureTable(DataTable):
         super().__init__(**kwargs)
         self._required_columns = self.config["fits_header"]["required_columns"]
 
+    def find_matching_raw_calibs(self, filename, days=None, **kwargs):
+        """ Get matching calibs for a given file.
+
+
+        """
+        # Get metadata for this file
+        document = self.query(criteria={"filename": filename})
+        date = document[self._date_key]
+
+        # Get date range for calibs
+        if days is None:
+            days = self.config["calibs"]["validity"]
+        date_start = date - timedelta(days=days)
+        date_end = date + timedelta(days=days)
+
+        calib_metadata = []
+        # Loop over raw calib dataTypes
+        for calib_type, matching_columns in self.config["calibs"]["matching_columns"].items():
+
+            # Matching raw calibs must satisfy these criteria
+            criteria = {m: document[m] for m in matching_columns}
+            criteria["dataType"] = calib_type
+
+            documents = self.query(date_start=date_start, date_end=date_end, criteria=criteria,
+                                   screen=True, **kwargs)
+            calib_metadata.extend(documents)
+
+        return calib_metadata
+
 
 class MasterCalibTable(DataTable):
     """ Table to store metadata for master calibs. """

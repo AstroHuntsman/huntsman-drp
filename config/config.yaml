@@ -57,7 +57,16 @@ calibs:
   types:
     - flat
     - bias
+    - dark
   validity: 1000
+  matching_columns:  # These columns are for matching raw calibs with raw science frames
+    flat:
+      - filter
+      - ccd
+    bias:
+      - ccd
+    dark:
+      - ccd
 
 refcat:
   tap_url: http://api.skymapper.nci.org.au/aus/tap/

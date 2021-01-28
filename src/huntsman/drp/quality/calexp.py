@@ -4,12 +4,12 @@ from huntsman.drp.quality.utils import screen_success
 from huntsman.drp.butler import TemporaryButlerRepository
 
 
-class DataQualityMonitor(HuntsmanBase):
+class CalexpMonitor(HuntsmanBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._stop = False
-        self._file_info_list = None
+        self._filenames = None
         self._table = DataTable(config=self.config, logger=self.logger)
 
     def start(self):
@@ -37,11 +37,11 @@ class DataQualityMonitor(HuntsmanBase):
     def _refresh_file_list(self):
         """
         """
-        file_info_list = []
-        for file_info in self._table.query(self._query):
+        filenames = []
+        for file_info in self._table.query(self._query, criteria={"dataType": "science"}):
             if self._requires_processing(file_info):
-                file_info_list.append(file_info)
-        self._file_info_list = file_info_list
+                filenames.append(file_info["filename"])
+        self._filenames = filenames
 
     def _requires_processing(self, file_info):
         """
@@ -53,10 +53,24 @@ class DataQualityMonitor(HuntsmanBase):
     def _process_files(self):
         """
         """
+        # Get corresponding raw calibs
+        filenames_calib = []
+        for filename in self._filenames:
+            filenames_calib.extend(self._table.find_matching_raw_calibs(filename), key="filename")
+
         with TemporaryButlerRepository() as br:
-            br.ingest_raw_data()
-            br.ingest_master_calibs()
+
+            # Ingest raw exposures
+            br.ingest_raw_data(self._filenames)
+            br.ingest_raw_data(filenames_calib)
+
+            # Make the master calibs
+            br.make_master_calibs()
+
+            # Make the calexps
             br.make_calexps()
+
+            # Update the datatable with the metadata
             quality_metadata = br.get_calexp_metadata()
             self._insert_metadata(quality_metadata)
 
