@@ -64,3 +64,4 @@ services:
       - OBS_HUNTSMAN=/opt/lsst/software/stack/obs_huntsman
       - HUNTSMAN_DRP=/opt/lsst/software/stack/huntsman-drp
       - HUNTSMAN_MOUNT=${HUNTSMAN_MOUNT}
+    command: python /opt/lsst/software/stack/huntsman-drp/scripts/quality/data-quality-monitor.py

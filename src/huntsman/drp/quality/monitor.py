@@ -47,6 +47,7 @@ class DataQualityMonitor(HuntsmanBase):
         """
         """
         # TODO: Also need to check if it has already been processed
+        # TODO: Handle the screen implicitly in the table query
         return screen_success(file_info)
 
     def _process_files(self):
