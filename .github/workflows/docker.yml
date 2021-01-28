@@ -14,14 +14,14 @@ jobs:
     - name: Publish HuntsmanDRP image to DockerHub
       uses: elgohr/Publish-Docker-Github-Action@master
       with:
-        name: huntsmanarray/drp:develop
+        name: huntsmanarray/drp-lsst:develop
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         workdir: docker
     - name: Publish screener to DockerHub
       uses: elgohr/Publish-Docker-Github-Action@master
       with:
-        name: huntsmanarray/screener:develop
+        name: huntsmanarray/drp:develop
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         workdir: docker/screening
