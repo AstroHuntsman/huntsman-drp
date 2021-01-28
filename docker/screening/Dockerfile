@@ -21,11 +21,14 @@ RUN apt-get update -y && \
     bash Miniconda3-latest-Linux-x86_64.sh -b && \
     rm -f Miniconda3-latest-Linux-x86_64.sh && \
     conda init bash && \
-    conda create -n screener python=3.7 numpy astropy ipython pymongo && \
+    . ~/.bashrc && \
+    conda create -n screener python=3.7 numpy astropy ipython pymongo matplotlib && \
+    conda activate screener && \
     pip install astroquery panoptes-utils && \
     # Downgrade coverage version to avoid pytest issues
     pip uninstall -y coverage && \
-    pip install coverage==4.5.4
+    pip install coverage==4.5.4 && \
+    conda deactivate
 
 
 WORKDIR /home
