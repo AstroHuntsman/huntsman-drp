@@ -52,6 +52,7 @@ services:
       build:
         context: "${HUNTSMAN_DRP}/docker/screening"
       network_mode: "host"
+      restart: on-failure
       stdin_open: true
       tty: true
       volumes:    # screener image built on panoptes-plate-solver
