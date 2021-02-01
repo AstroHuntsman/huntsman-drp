@@ -69,7 +69,7 @@ class CalexpMonitor(HuntsmanBase):
 
             # Sleep if no new files
             if len(self._filenames) == 0:
-                self.logger.debug("No new files to process. Sleeping for {self._sleep}s.")
+                self.logger.debug(f"No new files to process. Sleeping for {self._sleep}s.")
                 time.sleep(self._sleep)
                 continue
 

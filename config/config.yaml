@@ -22,25 +22,34 @@ fits_header:
     - "visit"
     - "ccd"
 
-camera_mappings:
-  "1815420013090900": 1
-  "371d420013090900": 2
-  "0e2c420013090900": 3
-  "0f1d420013090900": 4
-  "361d420013090900": 5
-  "3528420013090900": 6
-  "370d420013090900": 7
-  "1919420013090900": 8
-  "2d194b0013090900": 9
-  "2014420013090900": 10
-  "83F010774": 11
-  "83F011167": 12
-  "83F011791": 13
-  "83F010801": 14
-  "83F011758": 15
-  "83F011810": 16
-  "TESTCAM01": 17
-  "TESTCAM02": 18
+cameras:
+  plate_scale: 527.54167  # arcsec/mm
+  default_preset: "zwo"
+  presets:
+    zwo:
+      width: 5496
+      height: 3672
+      saturation: 4095
+      gain: 1.145
+      read_noise: 2.4
+      pixel_size: 0.0024  # mm (?)
+  devices:
+    - name: "1815420013090900"
+    - name: "371d420013090900"
+    - name: "0e2c420013090900"
+    - name: "0f1d420013090900"
+    - name: "361d420013090900"
+    - name: "3528420013090900"
+    - name: "370d420013090900"
+    - name: "1919420013090900"
+    - name: "2d194b0013090900"
+    - name: "2014420013090900"
+    - name: "TESTCAM01"
+      width: 100
+      height: 100
+    - name: "TESTCAM02"
+      width: 500
+      height: 500
 
 mongodb:
   hostname: "localhost"
