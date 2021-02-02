@@ -2,6 +2,7 @@ import os
 
 from huntsman.drp.utils.date import current_date
 from huntsman.drp.datatable import MasterCalibTable
+from huntsman.drp.utils.testing import create_test_bulter_repository
 
 
 def test_initialise(butler_repos):
@@ -57,7 +58,8 @@ def test_ingest(exposure_table, butler_repos, config):
                                                dataId={"dataType": "bias"})
             assert len(data_ids) == n_bias
 
-
+import pytest
+@pytest.mark.skip()
 def test_make_master_calibs(exposure_table, temp_butler_repo, config):
     """ Make sure the correct number of master bias frames are produced."""
     test_config = config["exposure_sequence"]
@@ -111,6 +113,10 @@ def test_make_master_calibs(exposure_table, temp_butler_repo, config):
             assert os.path.isfile(filename)
 
 
-def test_make_calexp():
-    """
-    """
+def test_make_calexp(tmpdir):
+    """ Test that we can make calibrated exposures. """
+    br = create_test_bulter_repository(str(tmpdir))
+    br.make_master_calibs()
+    br.make_calexps()
+    md = br.butler.queryMetadata("calexp", ["filter"], dataId={"dataType": "science"})
+    assert len(md) == 1
