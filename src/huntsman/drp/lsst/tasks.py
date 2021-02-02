@@ -135,7 +135,8 @@ def make_master_calibs(datasetType, data_ids, calib_date, butler_repository, rer
         run_command(cmd)
 
 
-def make_calexps(data_ids, rerun, butler_directory, calib_directory, no_exit=True, procs=1):
+def make_calexps(data_ids, rerun, butler_directory, calib_directory, no_exit=True, procs=1,
+                 clobber_config=False):
     """ Make calibrated exposures (calexps) using the LSST stack. These are astrometrically
     and photometrically calibrated as well as background subtracted. There are several byproducts
     of making calexps including sky background maps and preliminary source catalogues and metadata,
@@ -159,6 +160,8 @@ def make_calexps(data_ids, rerun, butler_directory, calib_directory, no_exit=Tru
         cmd += " --id"
         for k, v in data_id.items():
             cmd += f" {k}={v}"
+    if clobber_config:
+        cmd += " --clobber-config"
     run_command(cmd)
 
 

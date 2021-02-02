@@ -21,7 +21,7 @@ class ButlerRepository(HuntsmanBase):
     _mapper = "lsst.obs.huntsman.HuntsmanMapper"
     _policy_filename = Policy.defaultPolicyFile("obs_huntsman", "HuntsmanMapper.yaml",
                                                 relativePath="policy")
-    _default_rerun = "default_rerun"
+    _default_rerun = "default"
     _ra_key = "RA-MNT"
     _dec_key = "DEC-MNT"  # TODO: Move to config
 
@@ -203,7 +203,7 @@ class ButlerRepository(HuntsmanBase):
         if ingest:
             self.ingest_reference_catalogue(filenames=(self._refcat_filename,))
 
-    def make_calexps(self, rerun=None, procs=1):
+    def make_calexps(self, rerun=None, procs=1, **kwargs):
         """ Make calibrated exposures (calexps) using the LSST stack.
         Args:
             rerun (str, optional): The name of the rerun. If None (default), use default value.
@@ -214,16 +214,16 @@ class ButlerRepository(HuntsmanBase):
         self._setup_rerun(rerun)
 
         # Get dataIds for the raw science frames
-        data_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': "science"},
-                                              extra_keys=["filter"])
+        data_ids = self._get_metadata(datasetType="raw", data_id={'dataType': "science"},
+                                      extra_keys=["filter"])
 
         # Process the science frames
         tasks.make_calexps(data_ids, rerun=rerun, butler_directory=self.butler_directory,
-                           calib_directory=self.calib_directory, procs=procs)
+                           calib_directory=self.calib_directory, procs=procs, **kwargs)
 
         # TODO: Check if we have the right number of calexps
 
-    def get_ingested_metadata(self, datasetType="raw", data_id=None, extra_keys=None):
+    def _get_metadata(self, datasetType="raw", data_id=None, extra_keys=None):
         """ Get dataIds for datasetType.
 
         """
@@ -249,7 +249,7 @@ class ButlerRepository(HuntsmanBase):
             extra_keys.append("filter")  # TODO: Get this info somewhere else
 
         # Get dataIds of raw ingested calibs
-        raw_ids = self.get_ingested_metadata(datasetType="raw", data_id={'dataType': datasetType},
+        raw_ids = self._get_metadata(datasetType="raw", data_id={'dataType': datasetType},
                                              extra_keys=extra_keys)
 
         # Get calibIds of master calibs that *should* be ingested
