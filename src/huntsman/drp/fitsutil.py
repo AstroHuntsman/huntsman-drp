@@ -101,7 +101,7 @@ class FitsHeaderTranslatorBase(HuntsmanBase):
         camera_name = md["CAM-ID"]
         for i, camera_config in enumerate(self.huntsman_config["cameras"]["devices"]):
             if camera_config["camera_name"] == camera_name:
-                return i
+                return i + 1  # i+1 to match camera config in obs_huntsman
         raise RuntimeError(f"No config entry found for camera {camera_name}.")
 
     def _map_header_key(self, md, header_key):

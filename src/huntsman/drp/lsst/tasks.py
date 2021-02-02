@@ -23,8 +23,8 @@ def run_command(cmd, logger=None):
     return subprocess.run(cmd, shell=True, check=True)
 
 
-def ingest_raw_data(filename_list, butler_directory, mode="link", ignore_ingested=False):
-    """
+def ingest_raw_data(filename_list, butler_directory, mode="link", ignore_ingested=True):
+    """ Ingest raw files into a butler repository.
 
     """
     # Create the ingest task

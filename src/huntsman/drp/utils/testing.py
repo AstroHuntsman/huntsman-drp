@@ -23,4 +23,8 @@ def create_test_bulter_repository(directory, config=None, **kwargs):
     # Ingest test data into butler repository
     br.ingest_raw_data(filenames)
 
+    # Ingest the refcat
+    filename_refcat = os.path.join(datadir, "refcat.csv")
+    br.ingest_reference_catalogue([filename_refcat])
+
     return br
