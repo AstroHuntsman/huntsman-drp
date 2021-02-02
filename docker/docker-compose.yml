@@ -36,10 +36,6 @@ services:
     network_mode: "host"
     stdin_open: true
     tty: true
-    ports:
-      - "9888:9888"
-      - "9889:9889"
-      - "9890:9890"
     volumes:
       - obs_huntsman:/opt/lsst/software/stack/obs_huntsman
       - huntsman_drp:/opt/lsst/software/stack/huntsman-drp

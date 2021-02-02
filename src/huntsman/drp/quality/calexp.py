@@ -2,13 +2,13 @@ import time
 from threading import Thread
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.datatable import DataTable
+from huntsman.drp.datatable import ExposureTable
 from huntsman.drp.butler import TemporaryButlerRepository
 
 CALEXP_SCREEN_FLAG = "screened_calexp"
 
 
-class CalexpMonitor(HuntsmanBase):
+class CalexpQualityMonitor(HuntsmanBase):
 
     def __init__(self, sleep=600, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -17,7 +17,7 @@ class CalexpMonitor(HuntsmanBase):
         self._stop = False
         self._filenames = None
         self._n_processed = 0
-        self._table = DataTable(config=self.config, logger=self.logger)
+        self._table = ExposureTable(config=self.config, logger=self.logger)
         self._monitor_thread = Thread(target=self._async_process_files)
 
     @property
@@ -51,6 +51,7 @@ class CalexpMonitor(HuntsmanBase):
                                            screen=True):
             if self._requires_processing(file_info):
                 filenames.append(file_info["filename"])
+        self.logger.info(f"Found {len(filenames)} files that require processing.")
         self._filenames = filenames
 
     def _async_process_files(self):
@@ -69,7 +70,7 @@ class CalexpMonitor(HuntsmanBase):
 
             # Sleep if no new files
             if len(self._filenames) == 0:
-                self.logger.debug(f"No new files to process. Sleeping for {self._sleep}s.")
+                self.logger.info(f"No new files to process. Sleeping for {self._sleep}s.")
                 time.sleep(self._sleep)
                 continue
 
