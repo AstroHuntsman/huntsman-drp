@@ -13,7 +13,7 @@ from huntsman.drp.lsst import tasks
 from huntsman.drp.datatable import MasterCalibTable
 from huntsman.drp.refcat import TapReferenceCatalogue
 from huntsman.drp.utils.date import date_to_ymd, current_date
-from huntsman.drp.utils.butler import get_files_of_type
+from huntsman.drp.utils.lsst.butler import get_files_of_type
 from huntsman.drp.fitsutil import read_fits_header
 
 

@@ -10,7 +10,7 @@ from lsst.utils import getPackageDir
 
 from huntsman.drp.core import get_logger
 from huntsman.drp.utils.date import date_to_ymd
-from huntsman.drp.utils.butler import get_unique_calib_ids, fill_calib_keys
+from huntsman.drp.utils.lsst.butler import get_unique_calib_ids, fill_calib_keys
 from huntsman.drp.lsst.ingest_refcat_task import HuntsmanIngestIndexedReferenceTask
 
 

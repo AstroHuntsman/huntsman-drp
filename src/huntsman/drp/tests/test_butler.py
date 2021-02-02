@@ -109,3 +109,8 @@ def test_make_master_calibs(exposure_table, temp_butler_repo, config):
         assert sum([c == "bias" for c in datasettypes]) == n_bias
         for filename in filenames:
             assert os.path.isfile(filename)
+
+
+def test_make_calexp():
+    """
+    """
