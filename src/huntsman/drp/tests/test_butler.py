@@ -35,7 +35,7 @@ def test_ingest(exposure_table, butler_repos, config):
     config = config["exposure_sequence"]
     n_filters = len(config["filters"])
 
-    filenames = exposure_table.query(key="filename")
+    filenames = exposure_table.find(key="filename")
     for butler_repo in butler_repos:
         with butler_repo as br:
 
@@ -71,7 +71,7 @@ def test_make_master_calibs(exposure_table, temp_butler_repo, config):
     n_flat = test_config["n_cameras"] * n_filters
 
     # Use the Butler repo to make the calibs
-    filenames = exposure_table.query(key="filename")
+    filenames = exposure_table.find(key="filename")
     with temp_butler_repo as br:
         br.ingest_raw_data(filenames)
 
@@ -105,7 +105,7 @@ def test_make_master_calibs(exposure_table, temp_butler_repo, config):
 
         # Check the calibs in the archive
         master_calib_table = MasterCalibTable(config=config)
-        calib_metadata = master_calib_table.query()
+        calib_metadata = master_calib_table.find()
         filenames = [c["filename"] for c in calib_metadata]
         datasettypes = [c["datasetType"] for c in calib_metadata]
         assert len(calib_metadata) == n_flat + n_bias

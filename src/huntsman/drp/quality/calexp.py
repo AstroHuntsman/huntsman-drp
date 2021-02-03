@@ -20,8 +20,9 @@ def get_quality_metrics(calexp):
 
 
 class CalexpQualityMonitor(HuntsmanBase):
-
-    _rerun = "default"
+    """ Class to continually evauate and archive calexp quality metrics for raw exposures that
+    have not already been processed. Intended to run as a docker service.
+    """
 
     def __init__(self, sleep=600, exposure_table=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,6 +38,10 @@ class CalexpQualityMonitor(HuntsmanBase):
 
     @property
     def is_running(self):
+        """ Check if the monitor is running.
+        Returns:
+            bool: True if running, else False.
+        """
         return self.status["running"]
 
     @property
@@ -51,22 +56,19 @@ class CalexpQualityMonitor(HuntsmanBase):
         return status
 
     def start(self):
-        """
-        """
+        """ Start the montioring. """
         self.logger.info(f"Starting {self}.")
         self._stop = False
         self._monitor_thread.start()
 
     def stop(self):
-        """
-        """
+        """ Stop the monitoring. """
         self.logger.info(f"Stopping {self}.")
         self._stop = True
         self._monitor_thread.join()
 
     def _refresh_file_list(self):
-        """
-        """
+        """ Update the list of files that require processing. """
         filenames = []
         # TODO: Screen raw data before ingesting it here
         for file_info in self._exposure_table.find({"dataType": "science"}):
@@ -112,14 +114,14 @@ class CalexpQualityMonitor(HuntsmanBase):
 
         with TemporaryButlerRepository() as br:
 
-            # Ingest raw exposures
+            # Ingest raw exposures into the bulter repository
             br.ingest_raw_data(self._filenames)
             br.ingest_raw_data(filenames_calib)
 
             # Make the master calibs
             br.make_master_calibs()
 
-            # Make the reference catalogue
+            # Make and ingest the bespoke reference catalogue
             br.make_reference_catalogue()
 
             # Make the calexps, also getting the dataIds to match with their raw frames
@@ -133,7 +135,7 @@ class CalexpQualityMonitor(HuntsmanBase):
 
                 metrics = get_quality_metrics(calexp)
 
-                # Make the document to insert into the DB
+                # Make the document and update the DB
                 document = {k: data_id[k] for k in required_keys}
                 to_update = {"quality": {"calexp": metrics}}
                 self._exposure_table.update_one(document, to_update=to_update)

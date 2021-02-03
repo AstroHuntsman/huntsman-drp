@@ -134,7 +134,7 @@ class DataTable(HuntsmanBase):
                 raise RuntimeError(f"Found existing document for {document} in {self}."
                                    " Pass overwrite=True to overwrite.")
         elif count != 0:
-            raise ValueError(f"Multiple matches found for document in {self}: {document}.")
+            raise RuntimeError(f"Multiple matches found for document in {self}: {document}.")
 
         # Insert the document
         self.logger.debug(f"Inserting new document into {self}: {document}.")
@@ -152,9 +152,10 @@ class DataTable(HuntsmanBase):
 
         count = self._table.count_documents(document)
         if count > 1:
-            raise ValueError(f"Multiple matches found for document in {self}: {document}.")
+            raise RuntimeError(f"Multiple matches found for document in {self}: {document}.")
         elif (count == 0) and not upsert:
-            raise ValueError(f"No matches found for document in {self}. Use upsert=True to upsert.")
+            raise RuntimeError(f"No matches found for document in {self}. Use upsert=True to"
+                               " upsert.")
         self._table.update_one(document, {'$set': to_update})
 
     def delete_one(self, document_filter):
@@ -166,9 +167,9 @@ class DataTable(HuntsmanBase):
 
         count = self._table.count_documents(document)
         if count > 1:
-            raise ValueError(f"Multiple matches found for document in {self}: {document}.")
+            raise RuntimeError(f"Multiple matches found for document in {self}: {document}.")
         elif (count == 0):
-            raise ValueError(f"No matches found for document in {self}: {document}.")
+            raise RuntimeError(f"No matches found for document in {self}: {document}.")
         self._table.delete_one(document)
 
     def insert_many(self, documents, **kwargs):

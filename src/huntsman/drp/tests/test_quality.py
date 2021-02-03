@@ -20,8 +20,7 @@ def test_metadata_from_fits(metadata_dataframe, config):
 
 
 def test_calexp_quality_monitor(exposure_table_real_data):
-    """
-    """
+    """ Test that the quality monitor is able to calculate and archive calexp metrics. """
     n_to_process = exposure_table_real_data.count_documents({"dataType": "science"})
     m = CalexpQualityMonitor(exposure_table=exposure_table_real_data, sleep=1)
     m.start()

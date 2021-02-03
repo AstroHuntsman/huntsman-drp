@@ -116,7 +116,7 @@ class ButlerRepository(HuntsmanBase):
         return self.get(datasetType + "_filename", dataId=dataId, **kwargs)
 
     def get_data_ids(self, datasetType, dataId=None, extra_keys=None, rerun=None):
-        """ Get dataIds for datasetType.
+        """ Get ingested dataIds for a given datasetType.
         Args:
             datasetType (str): The datasetType (raw, bias, flat etc.).
             dataId (dict, optional): A complete or partial dataId to match with.
@@ -209,7 +209,7 @@ class ButlerRepository(HuntsmanBase):
                 # Insert the metadata into the calib database
                 metadata["filename"] = archived_filename
                 metadata["datasetType"] = calib_type
-                calib_datatable.insert(metadata, overwrite=True)
+                calib_datatable.insert_one(metadata, overwrite=True)
 
     def query_calib_metadata(self, datasetType, keys_ignore=None):
         """ Query the ingested calibs. TODO: Replace with the "official" Butler version.
