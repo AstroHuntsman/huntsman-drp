@@ -283,6 +283,8 @@ class ButlerRepository(HuntsmanBase):
         data_ids = self.get_data_ids(datasetType="raw", dataId={'dataType': "science"},
                                      extra_keys=["filter"])
 
+        self.logger.info(f"Making calexps from {len(data_ids)} dataIds.")
+
         # Process the science frames
         tasks.make_calexps(data_ids, rerun=rerun, butler_directory=self.butler_directory,
                            calib_directory=self.calib_directory, **kwargs)
@@ -350,13 +352,8 @@ class ButlerRepository(HuntsmanBase):
             calib_type (str): The dataset type, e.g. bias, flat.
             calib_date (date): The date to associate with the master calibs.
             rerun (str): The rerun name.
-            nodes (int, optional): Run on this many nodes. Default=1.
-            proces (int, optional): Run on this many processes per node. Default=1.
             ingest (bool, optional): If True (default), ingest the master calibs into the butler
                 repository.
-            clean (bool, optional): If True, will remove dataIds that cannot be processed
-                before running the LSST task. This is helpful if e.g. there is a missing bias
-                when creating master flats. Default False.
         Returns:
             list of str: The filenames of the master calibs.
         """

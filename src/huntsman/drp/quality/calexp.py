@@ -23,15 +23,21 @@ class CalexpQualityMonitor(HuntsmanBase):
 
     _rerun = "default"
 
-    def __init__(self, sleep=600, *args, **kwargs):
+    def __init__(self, sleep=600, exposure_table=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._sleep = sleep
 
         self._stop = False
-        self._filenames = None
+        self._filenames = []
         self._n_processed = 0
-        self._table = ExposureTable(config=self.config, logger=self.logger)
+        if exposure_table is None:
+            exposure_table = ExposureTable(config=self.config, logger=self.logger)
+        self._exposure_table = exposure_table
         self._monitor_thread = Thread(target=self._async_process_files)
+
+    @property
+    def is_running(self):
+        return self.status["running"]
 
     @property
     def status(self):
@@ -63,9 +69,11 @@ class CalexpQualityMonitor(HuntsmanBase):
         """
         filenames = []
         # TODO: Screen raw data before ingesting it here
-        for file_info in self._table.query(self._query, criteria={"dataType": "science"}):
+        for file_info in self._exposure_table.find({"dataType": "science"}):
+
             if self._requires_processing(file_info):
                 filenames.append(file_info["filename"])
+
         self.logger.info(f"Found {len(filenames)} files that require processing.")
         self._filenames = filenames
 
@@ -99,7 +107,8 @@ class CalexpQualityMonitor(HuntsmanBase):
         # Get filenames of corresponding raw calibs
         filenames_calib = set()
         for filename in self._filenames:
-            filenames_calib.update(self._table.find_matching_raw_calibs(filename), key="filename")
+            filenames_calib.update(
+                self._exposure_table.find_matching_raw_calibs(filename, key="filename"))
 
         with TemporaryButlerRepository() as br:
 
@@ -109,6 +118,9 @@ class CalexpQualityMonitor(HuntsmanBase):
 
             # Make the master calibs
             br.make_master_calibs()
+
+            # Make the reference catalogue
+            br.make_reference_catalogue()
 
             # Make the calexps, also getting the dataIds to match with their raw frames
             br.make_calexps()
@@ -122,9 +134,9 @@ class CalexpQualityMonitor(HuntsmanBase):
                 metrics = get_quality_metrics(calexp)
 
                 # Make the document to insert into the DB
-                to_insert = {k: data_id[k] for k in required_keys}
-                to_insert.update({"quality": {"calexp": metrics}})  # Use nested dictionary
-                self._table.update(to_insert)
+                document = {k: data_id[k] for k in required_keys}
+                to_update = {"quality": {"calexp": metrics}}
+                self._exposure_table.update_one(document, to_update=to_update)
 
     def _requires_processing(self, file_info):
         """ Check if a file requires processing.
@@ -134,6 +146,6 @@ class CalexpQualityMonitor(HuntsmanBase):
             bool: True if processing required, else False.
         """
         try:
-            return "calexp" in file_info["quality"]
+            return "calexp" not in file_info["quality"]
         except KeyError:
-            return False
+            return True

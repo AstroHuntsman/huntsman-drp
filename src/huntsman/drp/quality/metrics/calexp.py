@@ -1,6 +1,8 @@
 import numpy as np
 from astropy import units as u
 
+METRICS = ("mag_zeropoint", "psf_fwhm")
+
 
 def mag_zeropoint(calexp):
     """ Get the magnitude zero point of the raw data.

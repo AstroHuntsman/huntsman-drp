@@ -60,11 +60,6 @@ mongodb:
   port: 27017
   db_name: "huntsman"
   date_key: "date"
-  tables:
-    raw_data: "raw_data"
-    master_calib: "master_calib"
-    raw_quality: "raw_quality"
-    refcat: "refcat"
 
 calibs:
   types:
