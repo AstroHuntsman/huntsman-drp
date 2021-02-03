@@ -153,7 +153,7 @@ class Screener(HuntsmanBase):
         for index, row in dtq.iterrows():
             # if the file represented by this entry hasn't been
             # screened add it to queue
-            if not screen_success(row):
+            if not self._screen_file(row):
                 # extract fname from entry and append that instead
                 files_to_screen.append(row['filename'])
         self._files_to_screen = files_to_screen
