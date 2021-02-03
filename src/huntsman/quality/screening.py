@@ -13,7 +13,7 @@ from panoptes.utils.time import current_time
 from panoptes.pocs.base import PanBase
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.datatable import RawDataTable
+from huntsman.drp.datatable import ExposureTable
 
 
 class Screener(HuntsmanBase):
@@ -23,7 +23,6 @@ class Screener(HuntsmanBase):
     def __init__(self, sleep_interval=None, status_interval=60, *args, **kwargs):
         """
         Args:
-            images_directory (str): The raw data directory
             sleep_interval (u.Quantity): The amout of time to sleep in between checking for new
                 files to screen.
             status_interval (float, optional): Sleep for this long between status reports. Default
@@ -32,7 +31,7 @@ class Screener(HuntsmanBase):
         """
         super().__init__(*args, **kwargs)
 
-        self._table = RawDataTable(config=self.config, logger=self.logger)
+        self._table = ExposureTable(config=self.config, logger=self.logger)
 
         if sleep_interval is None:
             sleep_interval = 0
@@ -72,18 +71,18 @@ class Screener(HuntsmanBase):
         return status
 
     def start(self):
-        """ Start archiving. """
-        self.logger.info("Starting archiving.")
+        """ Start screening. """
+        self.logger.info("Starting screening.")
         self._stop = False
         for thread in self._threads:
             thread.start()
 
     def stop(self, blocking=True):
-        """ Stop archiving.
+        """ Stop screening.
         Args:
             blocking (bool, optional): If True (default), blocks until all threads have joined.
         """
-        self.logger.info("Stopping archiving.")
+        self.logger.info("Stopping screening.")
         self._stop = True
         if blocking:
             for thread in self._threads:
@@ -113,13 +112,14 @@ class Screener(HuntsmanBase):
             if self._stop:
                 self.logger.debug("Stopping watch thread.")
                 break
+            # update list of filenames to screen
+            self._get_filenames_to_screen()
             # Loop over filenames and add them to the queue
             # Duplicates are taken care of later on
             for filename in self._entries_to_screen['filename']:
                 self._screen_queue.put([current_time(), filename])
             # Sleep before checking again
             time.sleep(self.sleep_interval.to_value(u.second))
-            self._get_filenames_to_screen()
 
     def _async_screen_files(self, sleep=10):
         """ screen files that have been in the queue longer than self.delay_interval.
