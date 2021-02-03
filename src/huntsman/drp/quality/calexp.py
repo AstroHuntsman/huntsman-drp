@@ -2,13 +2,26 @@ import time
 from threading import Thread
 
 from huntsman.drp.base import HuntsmanBase
+from huntsman.drp.utils.library import load_module
 from huntsman.drp.datatable import ExposureTable
 from huntsman.drp.butler import TemporaryButlerRepository
+from huntsman.drp.quality.metrics.calexp import METRICS
 
-CALEXP_SCREEN_FLAG = "screened_calexp"
+
+def get_quality_metrics(calexp):
+    """ Evaluate metrics for a single calexp. This could probably be improved in future.
+    TODO: Implement version control here.
+    """
+    result = {}
+    for metric in METRICS:
+        func = load_module(f"huntsman.drp.quality.metrics.calexp.{metric}")
+        result[metric] = func(calexp)
+    return result
 
 
 class CalexpQualityMonitor(HuntsmanBase):
+
+    _rerun = "default"
 
     def __init__(self, sleep=600, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -22,7 +35,9 @@ class CalexpQualityMonitor(HuntsmanBase):
 
     @property
     def status(self):
-        """
+        """ Return the status of the quality monitor.
+        Returns:
+            dict: The status dict.
         """
         status = {"processed": self._n_processed,
                   "queued": len(self._filenames),
@@ -47,17 +62,17 @@ class CalexpQualityMonitor(HuntsmanBase):
         """
         """
         filenames = []
-        for file_info in self._table.query(self._query, criteria={"dataType": "science"},
-                                           screen=True):
+        # TODO: Screen raw data before ingesting it here
+        for file_info in self._table.query(self._query, criteria={"dataType": "science"}):
             if self._requires_processing(file_info):
                 filenames.append(file_info["filename"])
         self.logger.info(f"Found {len(filenames)} files that require processing.")
         self._filenames = filenames
 
     def _async_process_files(self):
-        """
-        """
+        """ Continually check for and process files that require processing. """
         self.logger.debug("Starting processing thread.")
+
         while True:
             self.logger.info(f"Status: {self.status}")
 
@@ -79,9 +94,9 @@ class CalexpQualityMonitor(HuntsmanBase):
             self._n_processed += len(self._filenames)
 
     def _process_files(self):
-        """
-        """
-        # Get corresponding raw calibs
+        """ Get calexp quality metadata for each file and store in exposure data table. """
+
+        # Get filenames of corresponding raw calibs
         filenames_calib = set()
         for filename in self._filenames:
             filenames_calib.update(self._table.find_matching_raw_calibs(filename), key="filename")
@@ -95,17 +110,30 @@ class CalexpQualityMonitor(HuntsmanBase):
             # Make the master calibs
             br.make_master_calibs()
 
-            # Make the calexps
+            # Make the calexps, also getting the dataIds to match with their raw frames
             br.make_calexps()
+            required_keys = br.get_keys("raw")
+            calexps, data_ids = br.get_calexps(extra_keys=required_keys)
 
-            # Update the datatable with the metadata
-            quality_metadata = br.get_calexp_metadata()
-            self._insert_metadata(quality_metadata)
+            # Evaluate metrics and insert into the database
+            # TODO: Use multiprocessing?
+            for calexp, data_id in zip(calexps, data_ids):
+
+                metrics = get_quality_metrics(calexp)
+
+                # Make the document to insert into the DB
+                to_insert = {k: data_id[k] for k in required_keys}
+                to_insert.update({"quality": {"calexp": metrics}})  # Use nested dictionary
+                self._table.update(to_insert)
 
     def _requires_processing(self, file_info):
+        """ Check if a file requires processing.
+        Args:
+            file_info (dict): The file document from the exposure data table.
+        Returns:
+            bool: True if processing required, else False.
         """
-        """
-        return CALEXP_SCREEN_FLAG not in file_info.keys()
-
-    def _insert_metadata(self):
-        pass
+        try:
+            return "calexp" in file_info["quality"]
+        except KeyError:
+            return False

@@ -95,6 +95,16 @@ class ButlerRepository(HuntsmanBase):
         butler = self.get_butler(rerun=rerun)
         return butler.get(datasetType, dataId=dataId, **kwargs)
 
+    def get_keys(self, datasetType, **kwargs):
+        """ Get set of keys required to uniquely identify ingested data.
+        Args:
+            datasetType (str): The dataset type (raw, flat, bias etc.).
+        Returns:
+            list of str: A list of keys.
+        """
+        butler = self.get_butler(**kwargs)
+        return list(butler.getKeys(datasetType))
+
     def get_filename(self, datasetType, dataId, **kwargs):
         """ Get the filename for a data ID of data type.
         Args:
@@ -118,15 +128,20 @@ class ButlerRepository(HuntsmanBase):
         return utils.get_data_ids(butler=butler, datasetType=datasetType, dataId=dataId,
                                   extra_keys=extra_keys)
 
-    def get_calexps(self, rerun="default", dataType="science", **kwargs):
+    def get_calexps(self, rerun="default", dataType="science", extra_keys=None, **kwargs):
         """ Convenience function to get the calexps produced in a given rerun.
         Args:
 
         Returns:
-            list of calexp: The list of calexp objects.
+            list of lsst.afw.image.exposure: The list of calexp objects.
         """
-        data_ids = self.get_data_ids("calexp", dataId={"dataType": dataType}, rerun=rerun)
-        return [self.get("calexp", dataId=d, rerun=rerun, **kwargs) for d in data_ids]
+        data_ids = self.get_data_ids("calexp", dataId={"dataType": dataType}, rerun=rerun,
+                                     extra_keys=extra_keys)
+        calexps = [self.get("calexp", dataId=d, rerun=rerun, **kwargs) for d in data_ids]
+        if len(calexps) != len(data_ids):
+            raise RuntimeError("Number of dataIds does not match the number of calexps.")
+
+        return calexps, data_ids
 
     def ingest_raw_data(self, filenames, **kwargs):
         """ Ingest raw data into the repository.
@@ -250,7 +265,15 @@ class ButlerRepository(HuntsmanBase):
         if ingest:
             self.ingest_reference_catalogue(filenames=(self._refcat_filename,))
 
-    def make_calexps(self, rerun="default", procs=1, **kwargs):
+    def ingest_reference_catalogue(self, filenames):
+        """ Ingest the reference catalogue into the repository.
+        Args:
+            filenames (iterable of str): The list of filenames containing reference data.
+        """
+        self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} files.")
+        tasks.ingest_reference_catalogue(self.butler_directory, filenames)
+
+    def make_calexps(self, rerun="default", **kwargs):
         """ Make calibrated exposures (calexps) using the LSST stack.
         Args:
             rerun (str, optional): The name of the rerun. Default is "default".
@@ -262,9 +285,22 @@ class ButlerRepository(HuntsmanBase):
 
         # Process the science frames
         tasks.make_calexps(data_ids, rerun=rerun, butler_directory=self.butler_directory,
-                           calib_directory=self.calib_directory, procs=procs, **kwargs)
+                           calib_directory=self.calib_directory, **kwargs)
 
-        # TODO: Check if we have the right number of calexps
+        # Check if we have the right number of calexps
+        if not len(self.get_calexps(rerun=rerun)[0]) == len(data_ids):
+            raise RuntimeError("Number of calexps does not match the number of dataIds.")
+
+    def _initialise(self):
+        """Initialise a new butler repository."""
+        # Add the mapper file to each subdirectory, making directory if necessary
+        for subdir in ["", "CALIB"]:
+            dir = os.path.join(self.butler_directory, subdir)
+            with suppress(FileExistsError):
+                os.mkdir(dir)
+            filename_mapper = os.path.join(dir, "_mapper")
+            with open(filename_mapper, "w") as f:
+                f.write(self._mapper)
 
     def _check_master_calibs(self, datasetType, raise_error=True):
         """ Check that the correct number of master calibs have been created following a call
@@ -308,19 +344,7 @@ class ButlerRepository(HuntsmanBase):
         else:
             self.logger.debug(f"No missing {datasetType} calibs detected.")
 
-    def _initialise(self):
-        """Initialise a new butler repository."""
-        # Add the mapper file to each subdirectory, making directory if necessary
-        for subdir in ["", "CALIB"]:
-            dir = os.path.join(self.butler_directory, subdir)
-            with suppress(FileExistsError):
-                os.mkdir(dir)
-            filename_mapper = os.path.join(dir, "_mapper")
-            with open(filename_mapper, "w") as f:
-                f.write(self._mapper)
-
-    def _make_master_calibs(self, calib_type, calib_date, rerun, ingest=True, clean=False,
-                            **kwargs):
+    def _make_master_calibs(self, calib_type, calib_date, rerun, ingest=True, **kwargs):
         """ Use the LSST stack to create master calibs.
         Args:
             calib_type (str): The dataset type, e.g. bias, flat.
@@ -340,21 +364,11 @@ class ButlerRepository(HuntsmanBase):
         calib_date = date_to_ymd(calib_date)
 
         # Get dataIds for the raw calib frames
-        keys = list(butler.getKeys("raw").keys())
+        keys = self.get_keys("raw")
         metalist = butler.queryMetadata("raw", format=keys, dataId={'dataType': calib_type})
         data_ids = [{k: v for k, v in zip(keys, m)} for m in metalist]
 
         self.logger.info(f"Found {len(data_ids)} dataIds to make master {calib_type} frames with.")
-
-        # Clean the dataIds
-        if clean:
-            raise NotImplementedError  # TODO: implement this!
-            if calib_type == "flat":
-                # Check there is a bias for each raw flat exposure
-                bias_md = self.query_calib_metadata("bias")
-                bias_ids = utils.data_id_to_calib_id("bias", data_ids)
-                for data_id in data_ids:
-                    pass
 
         # Construct the master calibs
         self.logger.debug(f"Creating master {calib_type} frames for calibDate={calib_date} with"
@@ -373,14 +387,6 @@ class ButlerRepository(HuntsmanBase):
             self.ingest_master_calibs(calib_type, filenames)
 
         return filenames
-
-    def ingest_reference_catalogue(self, filenames):
-        """ Ingest the reference catalogue into the repository.
-        Args:
-            filenames (iterable of str): The list of filenames containing reference data.
-        """
-        self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} files.")
-        tasks.ingest_reference_catalogue(self.butler_directory, filenames)
 
 
 class TemporaryButlerRepository(ButlerRepository):

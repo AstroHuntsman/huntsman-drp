@@ -157,8 +157,8 @@ class DataTable(HuntsmanBase):
     def update(self, metadata, upsert=False):
         """ Update a single document in the table.
         Args:
-            data_id (dict): The data ID of the document to update.
-            metadata (dict): The new metadata to be inserted.
+            metadata (dict): The new metadata to be inserted. Must match with a single existing
+                document unless upsert=True.
             upsert (bool): If True, will create a new document if there is no matching entry.
         """
         fn = partial(self._update_one, upsert=upsert)

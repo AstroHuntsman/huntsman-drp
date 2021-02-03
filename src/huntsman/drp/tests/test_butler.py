@@ -12,20 +12,22 @@ def test_initialise(butler_repos):
             for dir in [butler_repo.butler_directory, butler_repo.calib_directory]:
                 assert os.path.isdir(dir)
                 assert "_mapper" in os.listdir(dir)
-            assert butler_repo.butler is not None
+            assert butler_repo.get_butler() is not None
 
 
 def test_temp_repo(temp_butler_repo):
     """Test the temp butler repo behaves as expected"""
-    attrs = ["butler", "butler_directory", "calib_directory"]
+    attrs = ["butler_directory", "calib_directory"]
     for a in attrs:
         assert getattr(temp_butler_repo, a) is None
     with temp_butler_repo:
         for a in attrs:
             assert getattr(temp_butler_repo, a) is not None
+        assert temp_butler_repo.get_butler() is not None
     # Now check things have been cleaned up properly
     for a in attrs:
         assert getattr(temp_butler_repo, a) is None
+        assert len(temp_butler_repo._butlers) == 0
 
 
 def test_ingest(exposure_table, butler_repos, config):
@@ -37,25 +39,27 @@ def test_ingest(exposure_table, butler_repos, config):
     for butler_repo in butler_repos:
         with butler_repo as br:
 
+            butler = br.get_butler()
+
             # Count the number of ingested files
-            data_ids = br.butler.queryMetadata('raw', ['visit', 'ccd'])
+            data_ids = butler.queryMetadata('raw', ['visit', 'ccd'])
             assert len(data_ids) == 0
             br.ingest_raw_data(filenames)
-            data_ids = br.butler.queryMetadata('raw', ['visit', 'ccd'])
+            data_ids = butler.queryMetadata('raw', ['visit', 'ccd'])
             assert len(data_ids) == len(filenames)
 
             # Check we have the right number of each datatype
             n_flat = config["n_cameras"] * config["n_days"] * config["n_flat"] * n_filters
-            data_ids = br.butler.queryMetadata('raw', ['visit', 'ccd'],
-                                               dataId={"dataType": "flat"})
+            data_ids = butler.queryMetadata('raw', ['visit', 'ccd'],
+                                            dataId={"dataType": "flat"})
             assert len(data_ids) == n_flat
             n_sci = config["n_cameras"] * config["n_days"] * config["n_science"] * n_filters
-            data_ids = br.butler.queryMetadata('raw', ['visit', 'ccd'],
-                                               dataId={"dataType": "science"})
+            data_ids = butler.queryMetadata('raw', ['visit', 'ccd'],
+                                            dataId={"dataType": "science"})
             assert len(data_ids) == n_sci
             n_bias = config["n_cameras"] * config["n_days"] * config["n_bias"] * 2  # 2 exp times
-            data_ids = br.butler.queryMetadata('raw', ['visit', 'ccd'],
-                                               dataId={"dataType": "bias"})
+            data_ids = butler.queryMetadata('raw', ['visit', 'ccd'],
+                                            dataId={"dataType": "bias"})
             assert len(data_ids) == n_bias
 
 
@@ -116,5 +120,6 @@ def test_make_calexp(tmpdir):
     br = create_test_bulter_repository(str(tmpdir))
     br.make_master_calibs()
     br.make_calexps()
-    md = br.butler.queryMetadata("calexp", ["filter"], dataId={"dataType": "science"})
-    assert len(md) == 1
+    calexps, data_ids = br.get_calexps()
+    assert len(calexps) == 1
+    assert len(data_ids) == 1
