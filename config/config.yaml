@@ -52,8 +52,8 @@ cameras:
       width: 100
       height: 100
     - camera_name: "TESTCAM03"
-      width: 500
-      height: 500
+      width: 1000
+      height: 1000
 
 mongodb:
   hostname: "localhost"

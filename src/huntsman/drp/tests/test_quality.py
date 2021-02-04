@@ -1,5 +1,6 @@
 import time
 import pytest
+import numpy as np
 
 from huntsman.drp import quality
 from huntsman.drp.quality.calexp import CalexpQualityMonitor
@@ -35,6 +36,8 @@ def test_calexp_quality_monitor(exposure_table_real_data):
             raise RuntimeError("Calexp monitor has stopped running.")
         for md in exposure_table_real_data.find({"dataType": "science"}):
             assert "calexp" in md["quality"].keys()
+        for metric_value in md["quality"]["calexp"].values():
+            assert np.isfinite(metric_value)
     finally:
         m.stop()
         assert not m.is_running
