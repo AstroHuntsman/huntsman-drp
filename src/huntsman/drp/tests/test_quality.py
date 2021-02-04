@@ -26,11 +26,12 @@ def test_calexp_quality_monitor(exposure_table_real_data):
     m = CalexpQualityMonitor(exposure_table=exposure_table_real_data, sleep=1)
     m.start()
     i = 0
+    timeout = 180
     try:
-        while (i < 120) and (m.status["processed"] != n_to_process) and m.is_running:
+        while (i < timeout) and (m.status["processed"] != n_to_process) and m.is_running:
             i += 1
             time.sleep(1)
-        if i == 60:
+        if i == timeout:
             raise RuntimeError(f"Timeout while waiting for processing of {n_to_process} images.")
         if not m.is_running:
             raise RuntimeError("Calexp monitor has stopped running.")
