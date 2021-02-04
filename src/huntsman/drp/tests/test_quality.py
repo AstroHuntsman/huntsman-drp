@@ -1,3 +1,4 @@
+import os
 import time
 import pytest
 import numpy as np
@@ -20,10 +21,13 @@ def test_metadata_from_fits(metadata_dataframe, config):
         mds.append(quality.metadata_from_fits(metadata_dataframe.iloc[i], config=config))
 
 
-def test_calexp_quality_monitor(exposure_table_real_data):
+def test_calexp_quality_monitor(exposure_table_real_data, config):
     """ Test that the quality monitor is able to calculate and archive calexp metrics. """
+    refcat_filename = os.path.join(config["directories"]["testdata"], "refcat.csv")
+
     n_to_process = exposure_table_real_data.count_documents({"dataType": "science"})
-    m = CalexpQualityMonitor(exposure_table=exposure_table_real_data, sleep=1)
+    m = CalexpQualityMonitor(exposure_table=exposure_table_real_data,
+                             refcat_filename=refcat_filename, sleep=1)
     m.start()
     i = 0
     timeout = 180

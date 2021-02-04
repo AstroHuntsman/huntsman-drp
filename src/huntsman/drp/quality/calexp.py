@@ -24,9 +24,19 @@ class CalexpQualityMonitor(HuntsmanBase):
     have not already been processed. Intended to run as a docker service.
     """
 
-    def __init__(self, sleep=600, exposure_table=None, *args, **kwargs):
+    def __init__(self, sleep=600, exposure_table=None, refcat_filename=None, *args, **kwargs):
+        """
+        Args:
+            sleep (float): Time to sleep if there are no new files that require processing. Default
+                600s.
+            exposure_table (DataTable, optional): The exposure table. If not given, will create
+                a new ExposureTable instance.
+            refcat_filename (str, optional): The reference catalogue filename. If not provided,
+                will create a new refcat.
+        """
         super().__init__(*args, **kwargs)
         self._sleep = sleep
+        self._refcat_filename = refcat_filename
 
         self._stop = False
         self._filenames = []
@@ -121,8 +131,11 @@ class CalexpQualityMonitor(HuntsmanBase):
             # Make the master calibs
             br.make_master_calibs()
 
-            # Make and ingest the bespoke reference catalogue
-            br.make_reference_catalogue()
+            # Make and ingest the reference catalogue
+            if self._refcat_filename is None:
+                br.make_reference_catalogue()
+            else:
+                br.ingest_reference_catalogue([self._refcat_filename])
 
             # Make the calexps, also getting the dataIds to match with their raw frames
             br.make_calexps()
