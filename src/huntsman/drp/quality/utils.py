@@ -18,6 +18,22 @@ def screen_success(file_info):
         return False
 
 
+def list_fits_files_in_directory(directory):
+    """Returns list of files contained within a directory.
+
+    Args:
+        directory (str): Directory to examine.
+    """
+    # create a list of fits files within the directory of interest
+    files_in_directory = []
+    for dirpath, dirnames, filenames in os.walk(args.path):
+        for file in filenames:
+            # append the filepath to fpaths if file is a fits or fits.fz file
+            if file.endswith('.fits') or file.endswith('.fits.fz'):
+                fpaths.append(os.path.join(dirpath, file))
+    return files_in_directory
+
+
 def metadata_from_fits(file_info, config=None, logger=None, dtype="float32"):
     """ Return a dictionary of data quality metrics for the file. A flag is added to indicate if
     all metics were calculated successfully.

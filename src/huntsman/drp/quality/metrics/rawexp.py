@@ -1,5 +1,7 @@
 from astropy import stats
 
+METRICS = ("clipped_stats", "flipped_asymmetry")
+
 
 def clipped_stats(data, file_info, logger, **kwargs):
     """ Return sigma-clipped image statistics. """
