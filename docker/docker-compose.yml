@@ -80,19 +80,3 @@ services:
       - HUNTSMAN_DRP=/opt/lsst/software/stack/huntsman-drp
       - HUNTSMAN_MOUNT=${HUNTSMAN_MOUNT}
     command: python /opt/lsst/software/stack/huntsman-drp/scripts/quality/data-quality-monitor.py
-
-  data-quality-monitor:
-    image: huntsmanarray/drp-lsst:develop
-    network_mode: "host"
-    stdin_open: true
-    tty: true
-    volumes:
-      - obs_huntsman:/opt/lsst/software/stack/obs_huntsman
-      - huntsman_drp:/opt/lsst/software/stack/huntsman-drp
-      - huntsman_mount:${HUNTSMAN_MOUNT}
-      - huntsman_datadir:/data/nifi/huntsman_priv
-    environment:
-      - OBS_HUNTSMAN=/opt/lsst/software/stack/obs_huntsman
-      - HUNTSMAN_DRP=/opt/lsst/software/stack/huntsman-drp
-      - HUNTSMAN_MOUNT=${HUNTSMAN_MOUNT}
-    command: python /opt/lsst/software/stack/huntsman-drp/scripts/quality/data-quality-monitor.py
