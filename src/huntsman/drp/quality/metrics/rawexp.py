@@ -3,7 +3,7 @@ from astropy import stats
 METRICS = ("clipped_stats", "flipped_asymmetry")
 
 
-def clipped_stats(data, file_info, logger, **kwargs):
+def clipped_stats(data, file_info, **kwargs):
     """ Return sigma-clipped image statistics. """
     mean, median, stdev = stats.sigma_clipped_stats(data)
 
