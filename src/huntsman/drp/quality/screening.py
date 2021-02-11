@@ -5,87 +5,66 @@ import atexit
 from contextlib import suppress
 from threading import Thread
 from astropy import units as u
-
-from panoptes.utils import get_quantity_value
-from panoptes.utils.time import current_time
+from astropy.time import Time
+from astropy.io import fits
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.datatable import ExposureTable
-from huntsman.drp.fitsutil import read_fits_header
-from huntsman.drp.quality import metadata_from_fits
-from huntsman.drp.quality.utils import get_quality_metrics, list_fits_files_in_directory
-from huntsman.drp.quality.metrics.calexp import METRICS
-from huntsman.drp.quality.utils import QUALITY_FLAG_NAME
-
-
-def get_raw_metrics(filename):
-    """Evaluate metrics for a raw/unprocessed file.
-
-    Args:
-        filename: filename of image to be characterised.
-
-    Returns:
-        dict: Dictionary containing the metric values.
-    """
-    result = {}
-    # read the header
-    try:
-        hdr = read_fits_header(filename)
-    except Exception as e:
-        logger.error(f"Unable to read file header for {filename}: {e}")
-        result[QUALITY_FLAG_NAME] = False
-        return result
-    # get the image data
-    try:
-        data = fits.getdata(filename).astype(dtype)
-    except Exception as e:
-        logger.error(f"Unable to read file {filename}: {err}")
-        result[QUALITY_FLAG_NAME] = False
-        return result
-
-    for metric in METRICS:
-        func = load_module(
-            f"huntsman.drp.quality.metrics.rawexp.{metric}")
-        result[metric] = func(data, hdr)
-    return result
+from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header
+from huntsman.drp.utils.library import load_module
+from huntsman.drp.quality.utils import metadata_from_fits, list_fits_files_in_directory
+from huntsman.drp.quality.metrics.rawexp import METRICS
+from huntsman.drp.quality.utils import screen_success, QUALITY_FLAG_NAME
 
 
 class Screener(HuntsmanBase):
     """ Class to watch for new file entries in database and process their metadata
     """
 
-    def __init__(self, sleep_interval=None, status_interval=60, *args, **kwargs):
+    def __init__(self, exposure_table=None, sleep_interval=None, status_interval=60,
+                 monitored_directory='/data/nifi/huntsman_priv/images', *args, **kwargs):
         """
         Args:
-            sleep_interval (u.Quantity): The amout of time to sleep in between checking for new
+            sleep_interval (float/int): The amout of time to sleep in between checking for new
                 files to screen.
             status_interval (float, optional): Sleep for this long between status reports. Default
                 60s.
+            monitored_directory (str): The top level directory to watch for new files, so they can
+                be added to the relevant datatable.
             *args, **kwargs: Parsed to HuntsmanBase initialiser.
         """
         super().__init__(*args, **kwargs)
 
-        self._table = ExposureTable(config=self.config, logger=self.logger)
+        if exposure_table is None:
+            self._table = ExposureTable(config=self.config, logger=self.logger)
+        self._table = exposure_table
 
-        if sleep_interval is None:
-            sleep_interval = 0
-        self.sleep_interval = get_quantity_value(
-            sleep_interval, u.minute) * u.minute
+        self._sleep_interval = sleep_interval
+        if self._sleep_interval is None:
+            self._sleep_interval = 0
 
-        self._status_interval = get_quantity_value(status_interval, u.second)
+        self._status_interval = status_interval
+
+        self._monitored_directory = monitored_directory
 
         self._n_screened = 0
         self._n_ingested = 0
         self._stop = False
         self._screen_queue = queue.Queue()
         self._ingest_queue = queue.Queue()
+        # This might be dumb but need to prevent files being readded to queue
+        # before they're been processed
+        # TODO figure
+        self._files_queued_for_ingest = set()
+        self._files_queued_for_screening = set()
 
-        self._status_thread = Thread(target=self._async_monitor_status)
-        self._watch_thread = Thread(target=self._async_watch_table)
+        self._ingest_queuer_thread = Thread(target=self._async_ingest_queue_update)
+        self._screen_queuer_thread = Thread(target=self._async_screen_queue_update)
         self._ingest_thread = Thread(target=self._async_ingest_files)
         self._screen_thread = Thread(target=self._async_screen_files)
-        self._threads = [self._status_thread, self._watch_thread, self._ingest_thread,
-                         self._screen_thread]
+        self._status_thread = Thread(target=self._async_monitor_status)
+        self._threads = [self._ingest_queuer_thread, self._screen_queuer_thread,
+                         self._ingest_thread, self._screen_thread, self._status_thread]
 
         atexit.register(self.stop)  # This gets called when python is quit
 
@@ -101,8 +80,9 @@ class Screener(HuntsmanBase):
         """
         status = {"is_running": all([t.is_alive() for t in self._threads]),
                   "status_thread": self._status_thread.is_alive(),
-                  "watch_thread": self._watch_thread.is_alive(),
-                  "ingest_thread": self._ingest_thread.is_alive()
+                  "ingest_queuer_thread": self._ingest_queuer_thread.is_alive(),
+                  "screen_queuer_thread": self._screen_queuer_thread.is_alive(),
+                  "ingest_thread": self._ingest_thread.is_alive(),
                   "screen_thread": self._status_thread.is_alive(),
                   "ingest_queued": self._ingest_queue.qsize(),
                   "screen_queued": self._screen_queue.qsize(),
@@ -138,34 +118,46 @@ class Screener(HuntsmanBase):
                 break
             # Get the current status
             status = self.status
-            self.logger.trace(f"screener status: {status}")
+            self.logger.info(f"screener status: {status}")
             if not self.is_running:
                 self.logger.warning(f"screener is not running.")
             # Sleep before reporting status again
             time.sleep(self._status_interval)
 
-    def _async_watch_table(self):
+    def _async_ingest_queue_update(self):
         """ Watch the data table for unscreened files
         and add all valid files to the screening queue. """
-        self.logger.debug("Starting watch thread.")
+        self.logger.debug("Starting ingest queue updater thread.")
         while True:
             if self._stop:
-                self.logger.debug("Stopping watch thread.")
+                self.logger.debug("Stopping ingest queue updater thread.")
                 break
-            # update list of new files that have not been ingested
-            self._get_filenames_to_ingest()
             # add files to ingest queue
-            for filename in self._entries_to_ingest:
-                self._screen_queue.put([current_time(), filename])
+            for filename in self._get_filenames_to_ingest():
+                if filename not in self._files_queued_for_ingest:
+                    self._ingest_queue.put([Time.now(), filename])
+                    self._files_queued_for_ingest.add(filename)
+            # Sleep before checking again
+            time.sleep(self._sleep_interval)
 
+    def _async_screen_queue_update(self):
+        """ Watch the data table for unscreened files
+        and add all valid files to the screening queue. """
+        self.logger.debug("Starting screen queue updater thread.")
+        while True:
+            if self._stop:
+                self.logger.debug("Stopping screen queue updater thread.")
+                break
             # update list of filenames to screen
             self._get_filenames_to_screen()
             # Loop over filenames and add them to the queue
             # Duplicates are taken care of later on
-            for filename in self._entries_to_screen['filename']:
-                self._screen_queue.put([current_time(), filename])
+            for filename in self._get_filenames_to_screen():
+                if filename not in self._files_queued_for_screening:
+                    self._screen_queue.put([Time.now(), filename])
+                    self._files_queued_for_screening.add(filename)
             # Sleep before checking again
-            time.sleep(self.sleep_interval.to_value(u.second))
+            time.sleep(self._sleep_interval)
 
     def _async_ingest_files(self, sleep=10):
         """ screen files that have been in the queue longer than self.delay_interval.
@@ -183,9 +175,14 @@ class Screener(HuntsmanBase):
                     block=True, timeout=sleep)
             except queue.Empty:
                 continue
-            with suppress(FileNotFoundError):
+            try:
                 self._ingest_file(filename)
-                self._n_ingest += 1
+            except Exception as e:
+                self.logger.error(f"Something went wrong when trying to ingest {filename}: {e}")
+                # remove the file from queue
+                self._ingest_queue.task_done()
+                continue
+            self._n_ingested += 1
             # Tell the queue we are done with this file
             self._ingest_queue.task_done()
 
@@ -205,56 +202,104 @@ class Screener(HuntsmanBase):
                     block=True, timeout=sleep)
             except queue.Empty:
                 continue
-            with suppress(FileNotFoundError):
+            try:
                 self._screen_file(filename)
-                self._n_screened += 1
+            except Exception as e:
+                self.logger.error(f"Something went wrong when trying to screen {filename}: {e}")
+                # remove the file from queue
+                self._screen_queue.task_done()
+                continue
+            self._n_screened += 1
             # Tell the queue we are done with this file
             self._screen_queue.task_done()
 
     def _get_filenames_to_ingest(self, monitored_directory='/data/nifi/huntsman_priv/images'):
         """ Watch top level directory for new files to process/ingest into database.
+
         TODO: monitored_directory should be loaded from a config or somthing
+
         Returns:
             list: The list of filenames to process.
         """
         # create a list of fits files within the directory of interest
-        files_in_directory = list_fits_files_in_directory(monitored_directory)
+        files_in_directory = list_fits_files_in_directory(self._monitored_directory)
         # list of all entries in data base
-        files_in_table = [item['filename'] for item in self._table.query()]
-        files_to_ingest = set(files_in_directory) - set(files_in_table)
-        self._files_to_ingest = files_to_ingest
+        files_in_table = [item['filename'] for item in self._table.find()]
+        # determine which files don't have entries in the database and haven't been added to queue
+        files_to_ingest = list(
+            set(files_in_directory) - set(files_in_table) - self._files_queued_for_ingest)
+        return files_to_ingest
 
     def _get_filenames_to_screen(self):
         """ Get valid filenames in the data table to screen.
         Returns:
             list: The list of filenames to screen.
         """
+        files_to_screen = []
         # Find any entries in database that haven't been screened
-        for index, row in self._table.query().iterrows():
+        for document in self._table.find():
+            # If file has already been queued ignore it
+            if document['filename'] in self._files_queued_for_screening:
+                continue
             # if the file represented by this entry hasn't been
-            # screened add it to queue
-            if not self._screen_file(row):
+            # screened and isn't in the queue, add it to queue
+            if not screen_success(document, logger=self.logger):
                 # extract fname from entry and append that instead
-                files_to_screen.append(row['filename'])
-        self._files_to_screen = files_to_screen
+                files_to_screen.append(document['filename'])
+
+        return files_to_screen
 
     def _ingest_file(self, filename):
         """Private method that calls the various screening metrics and collates the results
         """
-        # extract metadata from file
-        metadata = metadata_from_fits(filename, logger=self.logger)
-        # Update metadata in table
-        logger.info(f"Adding quality metadata to database.")
-        self._table.update(metadata, upsert=True)
+        # Parse the header before adding to table
+        hdr = read_fits_header(filename)
+        parsed_header = FitsHeaderTranslator().parse_header(hdr)
+        parsed_header["filename"] = filename
+        # Create new document in table using parsed header
+        self.logger.info(f"Adding quality metadata to database.")
+        self._table.insert_one(parsed_header)
 
     def _screen_file(self, filename):
         """Private method that calls the various screening metrics and collates the results
         """
-        metrics = get_raw_metrics(filename)
+        metrics = self._get_raw_metrics(filename)
 
         # Make the document and update the DB
         # TODO: safe to assume there won't be duplicate entries in the datatable?
+        # self.logger.info(f'Looking for filename: {filename}')
+        # self.logger.info(f'files in table are:\n\n { self._table.find() } \n\n')
         metadata = self._table.find_one({'filename': filename})
-        document = {k: metadata[k] for k in required_keys}
-        to_update = {"quality": {"rawexp": metrics}}
-        self._exposure_table.update_one(document, to_update=to_update)
+        to_update = {"quality": {"rawexp": metrics, "screen_success": True}}
+        self._table.update_one(metadata, to_update=to_update)
+
+    def _get_raw_metrics(self, filename):
+        """Evaluate metrics for a raw/unprocessed file.
+
+        Args:
+            filename: filename of image to be characterised.
+
+        Returns:
+            dict: Dictionary containing the metric values.
+        """
+        result = {}
+        # read the header
+        try:
+            hdr = read_fits_header(filename)
+        except Exception as e:
+            self.logger.error(f"Unable to read file header for {filename}: {e}")
+            result[QUALITY_FLAG_NAME] = False
+            return result
+        # get the image data
+        try:
+            data = fits.getdata(filename)
+        except Exception as e:
+            self.logger.error(f"Unable to read file {filename}: {e}")
+            result[QUALITY_FLAG_NAME] = False
+            return result
+
+        for metric in METRICS:
+            func = load_module(
+                f"huntsman.drp.quality.metrics.rawexp.{metric}")
+            result[metric] = func(data, hdr)
+        return result
