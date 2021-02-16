@@ -18,15 +18,16 @@ def screen_success(file_info, logger=None):
         logger = get_logger()
     try:
         return bool(file_info["quality"]["screen_success"])
-        logger.info(
+        logger.debug(
             f'Screen success for file [{file_info["filename"]}] is: \
                 {bool(file_info["quality"]["screen_success"])}')
     except KeyError:
         return False
 
 
-def list_fits_files_in_directory(directory):
-    """Returns list of files contained within a directory.
+def recursively_list_fits_files_in_directory(directory):
+    """Returns list of all files contained within a top level directory, including files
+    within subdirectories.
 
     Args:
         directory (str): Directory to examine.
@@ -63,7 +64,6 @@ def metadata_from_fits(file_info, config=None, logger=None, dtype="float32"):
     except Exception as err:  # Data may be missing or corrupt, so catch all errors here
         logger.error(f"Unable to read file {filename}: {err}")
         result[QUALITY_FLAG_NAME] = False
-        return result
 
     # Calculate metrics
     for metric_name in METRICS:
@@ -73,6 +73,3 @@ def metadata_from_fits(file_info, config=None, logger=None, dtype="float32"):
         except Exception as err:
             logger.error(f"Problem getting '{metric_name}' metric for {filename}: {err}")
             result[QUALITY_FLAG_NAME] = False
-            return result
-
-    return result

@@ -44,3 +44,7 @@ def test_screener_ingest(tempdir_and_exposure_table_with_uningested_files, confi
         assert m.status['ingested'] == n_to_ingest
         # check that the expected number of files were screened
         assert m.status['screened'] == n_to_screen
+        # check that exposure_table entries have been screen successfully
+        for md in exposure_table.find():
+            assert md['quality']['screen_success']
+        # TODO: implement a check that all the expected metric keys are present in table

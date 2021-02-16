@@ -12,7 +12,7 @@ from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.datatable import ExposureTable
 from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header
 from huntsman.drp.utils.library import load_module
-from huntsman.drp.quality.utils import metadata_from_fits, list_fits_files_in_directory
+from huntsman.drp.quality.utils import recursively_list_fits_files_in_directory
 from huntsman.drp.quality.metrics.rawexp import METRICS
 from huntsman.drp.quality.utils import screen_success, QUALITY_FLAG_NAME
 
@@ -222,7 +222,7 @@ class Screener(HuntsmanBase):
             list: The list of filenames to process.
         """
         # create a list of fits files within the directory of interest
-        files_in_directory = list_fits_files_in_directory(self._monitored_directory)
+        files_in_directory = recursively_list_fits_files_in_directory(self._monitored_directory)
         # list of all entries in data base
         files_in_table = [item['filename'] for item in self._table.find()]
         # determine which files don't have entries in the database and haven't been added to queue
