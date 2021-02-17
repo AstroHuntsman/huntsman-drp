@@ -15,7 +15,17 @@ from huntsman.drp.lsst.ingest_refcat_task import HuntsmanIngestIndexedReferenceT
 
 
 def run_command(cmd, logger=None):
-    """
+    """Run an LSST commandline task.
+
+    Parameters
+    ----------
+    cmd : str
+        The LSST commandline task to run in a subprocess.
+
+    Returns
+    -------
+    [subprocess.CompletedProcess]
+        Returns a CompletedProcess instance which has returncode, stdout and stderr attributes
     """
     if logger is None:
         logger = get_logger()
@@ -24,8 +34,19 @@ def run_command(cmd, logger=None):
 
 
 def ingest_raw_data(filename_list, butler_directory, mode="link", ignore_ingested=True):
-    """ Ingest raw files into a butler repository.
+    """Ingest raw files into a butler repository.
 
+    Parameters
+    ----------
+    filename_list : list
+        List of filenames to ingest into a butler repo.
+    butler_directory : str
+        Directory that contains the butler repo.
+    mode : str, optional
+        The mode by which files are ingested/added to butler repo,
+        options are "move"/"copy"/"link"/"skip". By default "link"
+    ignore_ingested : bool, optional
+        Don't ingest files that have already been ingested, by default True.
     """
     # Create the ingest task
     task = IngestTask()
@@ -36,8 +57,16 @@ def ingest_raw_data(filename_list, butler_directory, mode="link", ignore_ingeste
 
 
 def ingest_reference_catalogue(butler_directory, filenames, output_directory=None):
-    """
+    """Ingest a photometric reference catalogue (currently skymapper).
 
+    Parameters
+    ----------
+    butler_directory : str
+        Directory that contains the butler repo.
+    filenames : list
+        List of reference catalogue files to ingest.
+    output_directory : str, optional
+        Directory that contains the output data reposity, by default None.
     """
     if output_directory is None:
         output_directory = butler_directory
@@ -58,8 +87,21 @@ def ingest_reference_catalogue(butler_directory, filenames, output_directory=Non
 
 
 def ingest_master_calibs(datasetType, filenames, butler_directory, calib_directory, validity):
-    """
-    Ingest the master bias of a given date.
+    """Ingest the master calib of a given date.
+
+    Parameters
+    ----------
+    datasetType : str
+        Can be set to "bias" or "flat".
+    filenames : list
+        List of reference catalogue files to ingest.
+    butler_directory : str
+        Directory that contains the butler repo.
+    calib_directory : str
+        Directory that contains the calib repo.
+    validity : int
+        validity period in days for calib files.
+
     """
     cmd = f"ingestCalibs.py {butler_directory}"
     cmd += " " + " ".join(filenames)
@@ -83,18 +125,31 @@ def ingest_master_calibs(datasetType, filenames, butler_directory, calib_directo
 
 def make_master_calibs(datasetType, data_ids, calib_date, butler, butler_directory, calib_directory,
                        rerun, nodes=1, procs=1):
-    """
-    Use constructBias.py to construct master bias frames for the data_ids. The master calibs are
+    """Use constructBias.py to construct master bias frames for the data_ids. The master calibs are
     produced for each unique calibId obtainable from the list of dataIds.
 
-    Args:
-        datasetType (str): The calib datasetType (e.g. bias, flat).
-        data_ids (list of dict): The list of dataIds used to produce the master calibs.
-        calib_date (date): The date to associate with the master calibs.
-        butler_repository (huntsman.drp.butler.ButlerRepository): The butler repository object.
-        rerun (str): The rerun name.
-        nodes (int): The number of nodes to run on.
-        procs (int): The number of processes to use per node.
+    Parameters
+    ----------
+    datasetType : str
+        The calib datasetType (e.g. bias, flat).
+    data_ids : list of dict
+        The list of dataIds used to produce the master calibs.
+    calib_date : date
+        The date to associate with the master calibs, needs to be parsable
+        by huntsman.drp.utils.date.date_parser.
+    butler : huntsman.drp.butler.ButlerRepository
+        The butler repository object.
+    butler_directory : str
+        Directory that contains the butler repo.
+    calib_directory : str
+        Directory that contains the calib repo.
+    rerun : str
+        The name of the rerun to use.
+    nodes : int, optional
+        The number of nodes to run on, by default 1.
+    procs : int, optional
+        The number of processes to use per node, by default 1.
+
     """
     calib_date = date_to_ymd(calib_date)
 
@@ -141,14 +196,23 @@ def make_calexps(data_ids, rerun, butler_directory, calib_directory, no_exit=Tru
     and photometrically calibrated as well as background subtracted. There are several byproducts
     of making calexps including sky background maps and preliminary source catalogues and metadata,
     inclding photometric zeropoints.
-    Args:
-        data_ids (list of abc.Mapping): The data IDs of the science frames to process.
-        rerun (str): The name of the rerun.
-        butler_directory (str): The butler repository directory name.
-        calib_directory (str): The calib directory used by the butler repository.
-        no_exit (bool, optional): If True (default), the program will not exit if an error is
-            raised by the stack.
-        procs (int, optional): The number of processes to use per node.  Default 1.
+
+    Parameters
+    ----------
+    data_ids : list of abc.Mapping
+        The data IDs of the science frames to process.
+    rerun : str
+        The name of the rerun.
+    butler_directory : str
+        The butler repository directory name.
+    calib_directory : str
+        The calib directory used by the butler repository.
+    no_exit : bool, optional
+        If True (default), the program will not exit if an error is raised by the stack.
+    procs : int, optional
+        The number of processes to use per node, by default 1.
+    clobber_config : bool, optional
+        Override config values, by default False.
     """
     cmd = f"processCcd.py {butler_directory}"
     if no_exit:
@@ -166,7 +230,15 @@ def make_calexps(data_ids, rerun, butler_directory, calib_directory, no_exit=Tru
 
 
 def makeDiscreteSkyMap(butler_directory='DATA', rerun='processCcdOutputs:coadd'):
-    """Create a sky map that covers processed exposures."""
+    """Create a sky map that covers processed exposures.
+
+    Parameters
+    ----------
+    butler_directory : str, optional
+        The butler repository directory name, by default 'DATA'.
+    rerun : str, optional
+        The name of the rerun, by default 'processCcdOutputs:coadd'.
+    """
     cmd = f"makeDiscreteSkyMap.py {butler_directory} --id --rerun {rerun} "
     cmd += f"--config skyMap.projection='TAN'"
     subprocess.check_output(cmd, shell=True)
@@ -174,7 +246,19 @@ def makeDiscreteSkyMap(butler_directory='DATA', rerun='processCcdOutputs:coadd')
 
 def makeCoaddTempExp(filter, butler_directory='DATA', calib_directory='DATA/CALIB',
                      rerun='coadd'):
-    """Warp exposures onto sky map."""
+    """Warp exposures onto sky map.
+
+    Parameters
+    ----------
+    filter : str
+        Name of filter to use for task.
+    butler_directory : str, optional
+        The butler repository directory name, by default 'DATA'.
+    calib_directory : str, optional
+        The calib directory used by the butler repository, by default 'DATA/CALIB'.
+    rerun : str, optional
+        The name of the rerun, by default 'coadd'.
+    """
     cmd = f"makeCoaddTempExp.py {butler_directory} --rerun {rerun} "
     cmd += f"--selectId filter={filter} --id filter={filter} tract=0 "
     cmd += f"patch=0,0^0,1^0,2^1,0^1,1^1,2^2,0^2,1^2,2 "
@@ -185,7 +269,19 @@ def makeCoaddTempExp(filter, butler_directory='DATA', calib_directory='DATA/CALI
 
 def assembleCoadd(filter, butler_directory='DATA', calib_directory='DATA/CALIB',
                   rerun='coadd'):
-    """Assemble the warped exposures into a coadd"""
+    """Assemble the warped exposures into a coadd.
+
+    Parameters
+    ----------
+    filter : str
+        Name of filter to use for task.
+    butler_directory : str, optional
+        The butler repository directory name, by default 'DATA'.
+    calib_directory : str, optional
+        The calib directory used by the butler repository, by default 'DATA/CALIB'.
+    rerun : str, optional
+        The name of the rerun, by default 'coadd'.
+    """
     cmd = f"assembleCoadd.py {butler_directory} --rerun {rerun} "
     cmd += f"--selectId filter={filter} --id filter={filter} tract=0 "
     cmd += f"patch=0,0^0,1^0,2^1,0^1,1^1,2^2,0^2,1^2,2"
