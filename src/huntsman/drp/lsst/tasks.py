@@ -30,16 +30,22 @@ def run_command(cmd, logger=None):
     return subprocess.run(cmd, shell=True, check=True)
 
 
-def ingest_raw_data(filename_list, butler_directory, mode="link", ignore_ingested=True):
+def ingest_raw_data(filenames, butler_directory, mode="link", ignore_ingested=True):
     """ Ingest raw files into a butler repository.
-
+    Args:
+        filenames (list of str): The list of filenames to ingest.
+        bulter_directory (str): The path to the butler directory.
+        mode (str): The mode with which to store files. Can be "copy", "move" or "link".
+            Default is "link".
+        ignore_ingested (bool): If True (default), no error is raised if the same dataId is
+            attempted to be ingested twice. In this case, the duplicate file is ignored.
     """
     # Create the ingest task
     task = IngestTask()
     task = task.prepareTask(root=butler_directory, mode=mode, ignoreIngested=ignore_ingested)
 
     # Ingest the files
-    task.ingestFiles(filename_list)
+    task.ingestFiles(filenames)
 
 
 def ingest_reference_catalogue(butler_directory, filenames, output_directory=None):
