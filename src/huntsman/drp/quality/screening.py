@@ -13,7 +13,7 @@ from huntsman.drp.datatable import ExposureTable
 from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header
 from huntsman.drp.utils.library import load_module
 from huntsman.drp.quality.utils import recursively_list_fits_files_in_directory
-from huntsman.drp.quality.metrics.rawexp import METRICS
+from huntsman.drp.quality.metrics.rawexp import RAW_METRICS
 from huntsman.drp.quality.utils import screen_success, QUALITY_FLAG_NAME
 
 
@@ -34,6 +34,9 @@ class Screener(HuntsmanBase):
             *args, **kwargs: Parsed to HuntsmanBase initialiser.
         """
         super().__init__(*args, **kwargs)
+
+        # work around so that tests can run without running the has_wcs metric
+        self.RAW_METRICS = RAW_METRICS
 
         if exposure_table is None:
             self._table = ExposureTable(config=self.config, logger=self.logger)
@@ -180,7 +183,7 @@ class Screener(HuntsmanBase):
                 track_time, filename = self._ingest_queue.get(
                     block=True, timeout=sleep)
             except queue.Empty:
-                self.logger.info(f"No new files to process. Sleeping for {self._sleep}s.")
+                self.logger.info(f"No new files to process. Sleeping for {self._sleep_interval}s.")
                 time.sleep(sleep)
                 continue
             try:
@@ -209,7 +212,7 @@ class Screener(HuntsmanBase):
                 track_time, filename = self._screen_queue.get(
                     block=True, timeout=sleep)
             except queue.Empty:
-                self.logger.info(f"No new files to process. Sleeping for {self._sleep}s.")
+                self.logger.info(f"No new files to process. Sleeping for {self._sleep_interval}s.")
                 time.sleep(sleep)
                 continue
             try:
@@ -333,7 +336,7 @@ class Screener(HuntsmanBase):
             result[QUALITY_FLAG_NAME] = False
             return result
 
-        for metric in METRICS:
+        for metric in self.RAW_METRICS:
             func = load_module(
                 f"huntsman.drp.quality.metrics.rawexp.{metric}")
             result[metric] = func(filename, data, hdr)
