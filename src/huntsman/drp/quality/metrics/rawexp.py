@@ -6,12 +6,18 @@ from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header
 RAW_METRICS = ("has_wcs", "clipped_stats", "flipped_asymmetry")
 
 
-def get_wcs(filename, timeout=60, downsample=4, *args):
+def get_wcs(filename, timeout=60, downsample=4, radius=5, *args):
     """Function to call get_solve_field on a file and verify
     if a WCS solution could be found.
 
     Args:
-        filename (str): The filename.
+         filename (str): The filename.
+        timeout (int, optional): How long to try and solve in seconds. Defaults to 60.
+        downsample (int, optional): Downsample image by this factor. Defaults to 4.
+        radius (int, optional): Search radius around mount Ra and Dec coords. Defaults to 5.
+
+    Returns:
+        dict: dictionary containing metadata.
     """
     has_wcs = False
     # first try and get the Mount RA/DEC info to speed up the solve
@@ -35,7 +41,7 @@ def get_wcs(filename, timeout=60, downsample=4, *args):
                     '--radius': radius}
     # now solve for wcs
     try:
-        wcs_info = get_solve_field(fname, *args, **kwargs, **solve_kwargs)
+        wcs_info = get_solve_field(fname, *args, **solve_kwargs)
     except Exception as e:
         pass
 
