@@ -30,7 +30,7 @@ def get_wcs(filename, timeout=60, downsample=4, radius=5, *args):
         pass
 
     # if file is not a science exposure, skip
-    if parsed_hdr['dataType'] is not "science":
+    if parsed_hdr['dataType'] != "science":
         return {"has_wcs": has_wcs}
 
     # Create list of args to pass to solve_field
@@ -41,8 +41,8 @@ def get_wcs(filename, timeout=60, downsample=4, radius=5, *args):
                     '--radius': radius}
     # now solve for wcs
     try:
-        wcs_info = get_solve_field(fname, *args, **solve_kwargs)
-    except Exception as e:
+        get_solve_field(filename, *args, **solve_kwargs)
+    except Exception:
         pass
 
     # finally check if the header now contians a wcs solution
@@ -95,8 +95,8 @@ def flipped_asymmetry(filename, data, file_info):
     """
     # Horizontal flip
     data_flip = data[:, ::-1]
-    std_horizontal = (data-data_flip).std()
+    std_horizontal = (data - data_flip).std()
     # Vertical flip
     data_flip = data[::-1, :]
-    std_vertical = (data-data_flip).std()
+    std_vertical = (data - data_flip).std()
     return {"flip_asymm_h": std_horizontal, "flip_asymm_v": std_vertical}

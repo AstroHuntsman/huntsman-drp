@@ -1,7 +1,6 @@
 import os
 import time
 
-from huntsman.drp import quality
 from huntsman.drp.quality.screening import Screener
 
 

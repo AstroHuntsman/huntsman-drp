@@ -4,7 +4,6 @@ import queue
 import atexit
 from contextlib import suppress
 from threading import Thread
-from astropy import units as u
 from astropy.time import Time
 from astropy.io import fits
 
@@ -127,7 +126,7 @@ class Screener(HuntsmanBase):
             status = self.status
             self.logger.info(f"screener status: {status}")
             if not self.is_running:
-                self.logger.warning(f"screener is not running.")
+                self.logger.warning("screener is not running.")
             # Sleep before reporting status again
             time.sleep(self._status_interval)
 
@@ -286,7 +285,7 @@ class Screener(HuntsmanBase):
         parsed_header = FitsHeaderTranslator().parse_header(hdr)
         parsed_header["filename"] = filename
         # Create new document in table using parsed header
-        self.logger.info(f"Adding quality metadata to database.")
+        self.logger.info("Adding quality metadata to database.")
         self._table.insert_one(parsed_header)
 
     def _screen_file(self, filename):
