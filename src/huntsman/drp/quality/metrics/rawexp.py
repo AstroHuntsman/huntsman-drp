@@ -1,9 +1,52 @@
 from astropy import stats
+from astropy.wcs import WCS
+from panoptes.utils.images.fits import get_solve_field
+from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header
 
-METRICS = ("clipped_stats", "flipped_asymmetry")
+RAW_METRICS = ("has_wcs", "clipped_stats", "flipped_asymmetry")
 
 
-def clipped_stats(data, file_info, **kwargs):
+def get_wcs(filename, timeout=60, downsample=4, *args):
+    """Function to call get_solve_field on a file and verify
+    if a WCS solution could be found.
+
+    Args:
+        filename (str): The filename.
+    """
+    has_wcs = False
+    # first try and get the Mount RA/DEC info to speed up the solve
+    try:
+        hdr = read_fits_header(filename)
+        parsed_hdr = FitsHeaderTranslator().parse_header(hdr)
+        ra = hdr.get('RA-MNT')
+        dec = hdr.get('DEC-MNT')
+    except KeyError:
+        pass
+
+    # if file is not a science exposure, skip
+    if parsed_hdr['dataType'] is not "science":
+        return {"has_wcs": has_wcs}
+
+    # Create list of args to pass to solve_field
+    solve_kwargs = {'--cpulimit': str(timeout),
+                    '--downsample': downsample,
+                    '--ra': ra,
+                    '--dec': dec,
+                    '--radius': radius}
+    # now solve for wcs
+    try:
+        wcs_info = get_solve_field(fname, *args, **kwargs, **solve_kwargs)
+    except Exception as e:
+        pass
+
+    # finally check if the header now contians a wcs solution
+    wcs = WCS(read_fits_header(filename))
+    if wcs.has_celestial:
+        has_wcs = True
+    return {"has_wcs": has_wcs}
+
+
+def clipped_stats(filename, data, file_info):
     """Return sigma-clipped image statistics.
 
     Parameters
@@ -29,7 +72,7 @@ def clipped_stats(data, file_info, **kwargs):
             "well_fullfrac": well_fullfrac}
 
 
-def flipped_asymmetry(data, file_info, **kwargs):
+def flipped_asymmetry(filename, data, file_info):
     """Calculate the asymmetry statistics by flipping data in x and y directions.
 
     Parameters
