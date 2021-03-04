@@ -20,9 +20,7 @@ def test_screener_ingest(tempdir_and_exposure_table_with_uningested_files, confi
                         monitored_directory=tempdir)
     # don't want to run astrometry tasks as tests running in drp-lsst container
     # not the drp container
-    testable_raw_metrics = list(screener.RAW_METRICS)
-    testable_raw_metrics.remove('has_wcs')
-    screener.RAW_METRICS = tuple(testable_raw_metrics)
+    screener._raw_metrics = [_ for _ in screener._raw_metrics if _ != "has_wcs"]
 
     screener.start()
     i = 0

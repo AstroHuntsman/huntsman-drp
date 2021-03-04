@@ -2,6 +2,7 @@
 import time
 import queue
 import atexit
+from copy import deepcopy
 from contextlib import suppress
 from threading import Thread
 from astropy.time import Time
@@ -35,7 +36,7 @@ class Screener(HuntsmanBase):
         super().__init__(*args, **kwargs)
 
         # work around so that tests can run without running the has_wcs metric
-        self.RAW_METRICS = RAW_METRICS
+        self._raw_metrics = deepcopy(RAW_METRICS)
 
         if exposure_table is None:
             self._table = ExposureTable(config=self.config, logger=self.logger)
@@ -335,7 +336,7 @@ class Screener(HuntsmanBase):
             result[QUALITY_FLAG_NAME] = False
             return result
 
-        for metric in self.RAW_METRICS:
+        for metric in self._raw_metrics:
             func = load_module(
                 f"huntsman.drp.quality.metrics.rawexp.{metric}")
             result[metric] = func(filename, data, hdr)

@@ -11,7 +11,7 @@ def get_wcs(filename, timeout=60, downsample=4, radius=5, *args):
     if a WCS solution could be found.
 
     Args:
-         filename (str): The filename.
+        filename (str): The filename.
         timeout (int, optional): How long to try and solve in seconds. Defaults to 60.
         downsample (int, optional): Downsample image by this factor. Defaults to 4.
         radius (int, optional): Search radius around mount Ra and Dec coords. Defaults to 5.
@@ -20,7 +20,12 @@ def get_wcs(filename, timeout=60, downsample=4, radius=5, *args):
         dict: dictionary containing metadata.
     """
     has_wcs = False
-    # first try and get the Mount RA/DEC info to speed up the solve
+
+    # Create list of args to pass to solve_field
+    solve_kwargs = {'--cpulimit': str(timeout),
+                    '--downsample': downsample}
+
+    # try and get the Mount RA/DEC info to speed up the solve
     try:
         hdr = read_fits_header(filename)
         parsed_hdr = FitsHeaderTranslator().parse_header(hdr)
@@ -29,16 +34,15 @@ def get_wcs(filename, timeout=60, downsample=4, radius=5, *args):
     except KeyError:
         pass
 
+    if 'ra' and 'dec' in vars():
+        solve_kwargs['--ra'] = ra
+        solve_kwargs['--dec'] = dec
+        solve_kwargs['--radius'] = radius
+
     # if file is not a science exposure, skip
     if parsed_hdr['dataType'] != "science":
         return {"has_wcs": has_wcs}
 
-    # Create list of args to pass to solve_field
-    solve_kwargs = {'--cpulimit': str(timeout),
-                    '--downsample': downsample,
-                    '--ra': ra,
-                    '--dec': dec,
-                    '--radius': radius}
     # now solve for wcs
     try:
         get_solve_field(filename, *args, **solve_kwargs)
@@ -47,9 +51,7 @@ def get_wcs(filename, timeout=60, downsample=4, radius=5, *args):
 
     # finally check if the header now contians a wcs solution
     wcs = WCS(read_fits_header(filename))
-    if wcs.has_celestial:
-        has_wcs = True
-    return {"has_wcs": has_wcs}
+    return {"has_wcs": wcs.has_celestial}
 
 
 def clipped_stats(filename, data, file_info):
