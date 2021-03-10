@@ -34,7 +34,7 @@ RUN yum install -y wget vim sudo && \
   pip install ipython pymongo astroquery panoptes-utils && \
   # Copy obs_huntsman into the image (install handled by EUPS)
   cd "${LSST_HOME}" && \
-  git pull https://github.com/AstroHuntsman/obs_huntsman.git
+  git clone https://github.com/AstroHuntsman/obs_huntsman.git
 
 # Copy huntsman-drp into the image (install handled by EUPS)
 COPY --chown="${USER}:${USER}" . .

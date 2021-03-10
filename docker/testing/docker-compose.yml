@@ -15,7 +15,7 @@ services:
     depends_on:
       - mongo
     build:
-      context: "docker"
+      context: ..
     network_mode: "host"
     stdin_open: true
     tty: true
