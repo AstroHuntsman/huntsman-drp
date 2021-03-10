@@ -6,7 +6,6 @@ eups declare huntsman_drp v1 -r "${LSST_HOME}/huntsman-drp"
 setup obs_huntsman v1
 setup huntsman_drp v1
 setup display_firefly
-# ---- Below this line are temporary requirements for astrometry.net ----
-alias python=python3
-# need this so panoptes-utils knows where to find solve-field executable
-export SOLVE_FIELD=$(which solve-field)
+# Unfortunately we have to chown the mount point
+# NB: this might cause problems if the screener needs this mounted as well
+sudo chown -R ${USER} ${HUNTSMAN_MOUNT}

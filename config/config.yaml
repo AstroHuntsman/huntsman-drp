@@ -1,4 +1,8 @@
+directories:
+  archive: ${HUNTSMAN_MOUNT}/archive
+
 fits_header:
+  date_key: "DATE-OBS"
   mappings:
     expTime: "EXPTIME"
     ccdTemp: "CCD-TEMP"
@@ -18,33 +22,59 @@ fits_header:
     - "visit"
     - "ccd"
 
-camera_mappings:
-  "1815420013090900": 1
-  "371d420013090900": 2
-  "0e2c420013090900": 3
-  "0f1d420013090900": 4
-  "361d420013090900": 5
-  "3528420013090900": 6
-  "370d420013090900": 7
-  "1919420013090900": 8
-  "2d194b0013090900": 9
-  "2014420013090900": 10
-  "83F010774": 11
-  "83F011167": 12
-  "83F011791": 13
-  "83F010801": 14
-  "83F011758": 15
-  "83F011810": 16
-  "TESTCAM01": 17
-  "TESTCAM02": 18
+cameras:
+  plate_scale: 527.54167  # arcsec/mm
+  default_preset: "zwo"
+  presets:
+    zwo:
+      width: 5496
+      height: 3672
+      saturation: 4095
+      gain: 1.145
+      read_noise: 2.4
+      pixel_size: 0.0024  # mm (?)
+      overscan: 0
+  devices:
+    - camera_name: "1815420013090900"
+    - camera_name: "371d420013090900"
+    - camera_name: "0e2c420013090900"
+    - camera_name: "0f1d420013090900"
+    - camera_name: "361d420013090900"
+    - camera_name: "3528420013090900"
+    - camera_name: "370d420013090900"
+    - camera_name: "1919420013090900"
+    - camera_name: "2d194b0013090900"
+    - camera_name: "2014420013090900"
+    - camera_name: "TESTCAM01"
+      width: 100
+      height: 100
+    - camera_name: "TESTCAM02"
+      width: 100
+      height: 100
+    - camera_name: "TESTCAM03"
+      width: 800
+      height: 800
 
 mongodb:
   hostname: "localhost"
   port: 27017
   db_name: "huntsman"
-  date_key: "taiObs"
-  tables:
-    raw_data: "raw_data"
+  date_key: "date"
+
+calibs:
+  types:
+    - flat
+    - bias
+    - dark
+  validity: 1000
+  matching_columns:  # These columns are for matching raw calibs with raw science frames
+    flat:
+      - filter
+      - ccd
+    bias:
+      - ccd
+    dark:
+      - ccd
 
 refcat:
   tap_url: http://api.skymapper.nci.org.au/aus/tap/
@@ -57,35 +87,16 @@ refcat:
     class_star:
       lower: 0.9
     g_psf:
-      upper: 19
-
-testing:
-  exposure_sequence:
-    start_date: "2020-02-04"
-    n_cameras: 2
-    n_days: 2   # Simulate this number of nights
-    n_flat: 2   # Per (filter, camera) pair
-    n_bias: 2   # Per (exposure time, camera) pair
-    n_science: 1  # Per (camera, field, filter) combination
-    exptime_flat: 30
-    exptime_science: 60
-    filters:
-      - "g_band"
-      - "r_band"
-    size_x: 100
-    size_y: 100
-    dtype: uint16
-    saturate: 4096  # ADU
-    bias: 32  # ADU
-    pixel_size: 1.2  # Arcseconds per pixel
+      upper: 15
+    flags:
+      equal: 0
 
 screening:
   flat:
-    table: huntsman.drp.datatable.RawQualityTable
-    key: filename
-  bias:
-    table: huntsman.drp.datatable.RawQualityTable
-    key: filename
-  science:
-    table: huntsman.drp.datatable.RawQualityTable
-    key: filename
+    flip_asymm_h:
+      less_than: 100
+    flip_asymm_v:
+      less_than: 60
+    well_fullfrac:
+      greater_than: 0.13
+      less_than: 0.19

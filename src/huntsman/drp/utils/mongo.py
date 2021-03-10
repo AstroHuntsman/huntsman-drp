@@ -1,24 +1,44 @@
+from collections import abc
 import numpy as np
+from astropy import units as u
+
+# These are responsible for converting arbitary types into something mongo can store
+MONGO_ENCODINGS = {np.bool_: bool,
+                   np.float64: float,
+                   np.float32: float,
+                   np.int32: int,
+                   np.int64: int}
+
+# These are responsible for converting string keys into equivalent mongoDB operators
+MONGO_OPERATORS = {"equal": "$eq",
+                   "not_equal": "$ne",
+                   "greater_than": "$gt",
+                   "greater_than_equal": "$gte",
+                   "less_than": "$lt",
+                   "less_than_equal": "$lte",
+                   "in": "$in",
+                   "not_in": "$nin"}
 
 
-def encode_metadata(dictionary):
-    """Correct the encoding of python dictionaries so they can be encoded to mongodb.
+def encode_mongo_query(value):
+    """ Encode object for a pymongo query.
     Args:
-        dictionary : dictionary instance to add as document.
+        value (object): The data to encode.
     Returns:
-        dict : New dictionary with corrected encodings
+        object: The encoded data.
     """
-    new = {}
-    for key1, val1 in dictionary.items():
-        # Handle nested dictionaries
-        if isinstance(val1, dict):
-            val1 = encode_metadata(val1)
-        # Do type conversions
-        elif isinstance(val1, np.bool_):
-            val1 = bool(val1)
-        elif isinstance(val1, np.int64):
-            val1 = int(val1)
-        elif isinstance(val1, np.float64):
-            val1 = float(val1)
-        new[key1] = val1
-    return new
+    if isinstance(value, u.Quantity):
+        return encode_mongo_query(value.value)
+    if isinstance(value, abc.Mapping):
+        for k, v in value.items():
+            value[k] = encode_mongo_query(v)
+    elif isinstance(value, str):
+        pass  # Required because strings are also iterables
+    elif isinstance(value, abc.Iterable):
+        value = [encode_mongo_query(v) for v in value]
+    else:
+        for oldtype, newtype in MONGO_ENCODINGS.items():
+            if isinstance(value, oldtype):
+                value = newtype(value)
+                break
+    return value

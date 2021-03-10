@@ -1,36 +1,48 @@
+import os
+import time
 import pytest
+import numpy as np
 
 from huntsman.drp import quality
+from huntsman.drp.quality.calexp import CalexpQualityMonitor
 
 
-@pytest.fixture(scope="module")
-def filename_list(raw_data_table):
-    """
-    Load a small amount of data to run the tests on.
-    """
-    query_dict = dict(dataType="science")
-    return raw_data_table.query_column("filename", query_dict=query_dict)[:2]
+@pytest.fixture(scope="function")
+def metadata_dataframe(exposure_table):
+    """ Load a small amount of data to run the tests on. """
+    document_filter = dict(dataType="science")
+    return exposure_table.get_metrics(document_filter=document_filter)[:2]
 
 
-def test_metadata_from_fits(filename_list, config):
-    """
-    Placeholder for a more detailed test.
-    """
+def test_metadata_from_fits(metadata_dataframe, config):
+    """ Placeholder for a more detailed test. """
     mds = []
-    for filename in filename_list:
-        mds.append(quality.metadata_from_fits(filename, config=config))
+    for i in range(metadata_dataframe.shape[0]):
+        mds.append(quality.metadata_from_fits(metadata_dataframe.iloc[i], config=config))
 
 
-def test_raw_quality_table(filename_list, config, raw_quality_table):
-    """
-    """
-    metadata = {}
-    for filename in filename_list:
-        metadata[filename] = quality.metadata_from_fits(filename, config=config)
-        raw_quality_table.insert_one(metadata=metadata[filename])
-    query = raw_quality_table.query()
-    for _, md in query.iterrows():
-        filename = md["filename"]
-        assert len(metadata[filename]) == len(md) - 1  # No _id column
-        for key, value in metadata[filename].items():
-            assert md[key] == value
+def test_calexp_quality_monitor(exposure_table_real_data, config):
+    """ Test that the quality monitor is able to calculate and archive calexp metrics. """
+    refcat_filename = os.path.join(config["directories"]["testdata"], "refcat.csv")
+
+    n_to_process = exposure_table_real_data.count_documents({"dataType": "science"})
+    m = CalexpQualityMonitor(exposure_table=exposure_table_real_data,
+                             refcat_filename=refcat_filename, sleep=1)
+    m.start()
+    i = 0
+    timeout = 180
+    try:
+        while (i < timeout) and (m.status["processed"] != n_to_process) and m.is_running:
+            i += 1
+            time.sleep(1)
+        if i == timeout:
+            raise RuntimeError(f"Timeout while waiting for processing of {n_to_process} images.")
+        if not m.is_running:
+            raise RuntimeError("Calexp monitor has stopped running.")
+        for md in exposure_table_real_data.find({"dataType": "science"}):
+            assert "calexp" in md["quality"].keys()
+        for metric_value in md["quality"]["calexp"].values():
+            assert np.isfinite(metric_value)
+    finally:
+        m.stop()
+        assert not m.is_running
