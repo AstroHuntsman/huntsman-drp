@@ -23,7 +23,9 @@ services:
     volumes:
       - ${OBS_HUNTSMAN}:/opt/lsst/software/stack/obs_huntsman
       - ${HUNTSMAN_DRP}:/opt/lsst/software/stack/huntsman-drp
+      - ${HUNTSMAN_DRP_LOGS}:/opt/lsst/software/stack/huntsman-logs
     environment:
       - OBS_HUNTSMAN=/opt/lsst/software/stack/obs_huntsman
       - HUNTSMAN_DRP=/opt/lsst/software/stack/huntsman-drp
+      - HUNTSMAN_DRP_LOGS=/opt/lsst/software/stack/huntsman-logs
     command: /opt/lsst/software/stack/huntsman-drp/scripts/testing/run-docker-tests.sh
