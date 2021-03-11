@@ -93,7 +93,7 @@ def get_logger(backupCount=5, maxBytes=256000000):
         logger.setLevel(logging.DEBUG)
 
         # Create log formatter
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
         # Create an info-level handler that will be printed in the terminal
         handler = logging.StreamHandler(sys.stdout)
