@@ -39,10 +39,10 @@ RUN yum install -y wget vim sudo && \
   mkdir "${LSST_HOME}"/huntsman-drp
 
 # Copy huntsman-drp into the image (install handled by EUPS)
-COPY --chown="${USER}:${USER}" .. "${LSST_HOME}"/huntsman-drp
+COPY --chown="${USER}:${USER}" . "${LSST_HOME}"/huntsman-drp
 
 USER ${user}
 WORKDIR ${LSST_HOME}
-ADD bash-config.sh .
+ADD docker/bash-config.sh .
 RUN cat bash-config.sh >> ~/.bashrc
 CMD ["/bin/bash"]
