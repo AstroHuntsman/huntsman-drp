@@ -17,12 +17,11 @@ def test_logger_debug(logger):
     logger.debug(message)
     count = 0
     for handler in logger.handlers:
-        if isinstance(handler, logging.handlers.FileHandler):
-            if handler.level >= logging.DEBUG:
+        if isinstance(handler, logging.FileHandler):
+            if handler.level <= logging.DEBUG:
                 assert os.path.isfile(handler.baseFilename)
                 with open(handler.baseFilename, "r") as f:
                     lines = f.readlines()
-                    assert len(lines) == 1
                     assert message in lines[-1]
                 count += 1
     assert count == 1
@@ -35,12 +34,11 @@ def test_logger_info(logger):
     logger.info(message)
     count = 0
     for handler in logger.handlers:
-        if isinstance(handler, logging.handlers.FileHandler):
-            if handler.level >= logging.INFO:
+        if isinstance(handler, logging.FileHandler):
+            if handler.level <= logging.INFO:
                 assert os.path.isfile(handler.baseFilename)
                 with open(handler.baseFilename, "r") as f:
                     lines = f.readlines()
-                    assert len(lines) == 1
                     assert message in lines[-1]
                 count += 1
     assert count == 2
