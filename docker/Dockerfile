@@ -39,7 +39,7 @@ RUN yum install -y wget vim sudo && \
   # Make directory for huntsman-drp repository
   mkdir "${LSST_HOME}"/huntsman-drp && \
   # Make directories for logs and set permissions
-  mkdir "${HUNTSMAN_LOG_DIR}" && chown -R "${user}:${user}" "${HUNTSMAN_LOG_DIR}"
+  mkdir -p "${HUNTSMAN_LOG_DIR}" && chown -R "${user}:${user}" "${HUNTSMAN_LOG_DIR}"
 
 # Copy huntsman-drp into the image (install handled by EUPS)
 COPY --chown="${USER}:${USER}" . "${LSST_HOME}"/huntsman-drp
