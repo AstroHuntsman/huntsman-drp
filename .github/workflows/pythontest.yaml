@@ -55,5 +55,5 @@ jobs:
         if: success()
         with:
           name: codecov-upload
-          file: ${{ env.HUNTSMAN_DRP/logs }}/coverage.xml
+          file: ${{ env.HUNTSMAN_DRP }}/logs/coverage.xml
           fail_ci_if_error: true
