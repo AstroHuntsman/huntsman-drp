@@ -252,7 +252,7 @@ def make_coadd_temp_exp(butler_dir, calib_dir, rerun, tract_id, patch_ids, filte
 
 
 def assemble_coadd(butler_dir, calib_dir, rerun, tract_id, patch_ids, filter_name):
-    """ Warp exposures onto the skymap.
+    """ Assemble the coadd from warped exposures.
     Args:
         butler_dir (str): The butler directory.
         rerun (str): The rerun name.

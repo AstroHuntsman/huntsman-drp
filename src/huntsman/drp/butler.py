@@ -125,7 +125,7 @@ class ButlerRepository(HuntsmanBase):
         Args:
             dataset_type (str): The dataset type (e.g. raw, flat, calexp).
             keys (list of str): The keys contained in the metadata.
-            data_id (optional)
+            data_id (optional): A list of dataIds to query on.
         """
         butler = self.get_butler(**kwargs)
         md = butler.queryMetadata(dataset_type, format=keys, dataId=data_id)
@@ -311,7 +311,7 @@ class ButlerRepository(HuntsmanBase):
         data_ids = self.get_data_ids(dataset_type="raw", data_id={'dataType': "science"},
                                      extra_keys=["filter"])
 
-        self.logger.info(f"Making calexp(s) from {len(data_ids)} data_ids.")
+        self.logger.info(f"Making calexp(s) from {len(data_ids)} data_id(s).")
 
         # Process the science frames
         tasks.make_calexps(data_ids, rerun=rerun, butler_dir=self.butler_dir,
@@ -362,7 +362,7 @@ class ButlerRepository(HuntsmanBase):
                 tasks.assemble_coadd(**task_kwargs)
 
         # Check all tracts and patches exist in each filter
-        self._verify_coadd(rerun_out)
+        self._verify_coadd(rerun=rerun_out, filter_names=filter_names)
 
         self.logger.info("Successfully created coadd.")
 
@@ -376,11 +376,13 @@ class ButlerRepository(HuntsmanBase):
         calib_datatable = MasterCalibTable(config=self.config, logger=self.logger)
 
         for calib_type in self.config["calibs"]["types"]:
+
             # Retrieve filenames and data_ids for all files of this type
             data_ids, filenames = utils.get_files_of_type(f"calibrations.{calib_type}",
                                                           directory=self.calib_dir,
                                                           policy=self._policy)
             for metadata, filename in zip(data_ids, filenames):
+
                 # Create the filename for the archived copy
                 archived_filename = os.path.join(archive_dir,
                                                  os.path.relpath(filename, self.calib_dir))
@@ -496,7 +498,7 @@ class ButlerRepository(HuntsmanBase):
         skymap = self.get("deepCoadd_skyMap", rerun=rerun)
         return get_skymap_ids(skymap)
 
-    def _verify_coadd(self, rerun, filter_names):
+    def _verify_coadd(self, filter_names, rerun):
         """ Verify all the coadd patches exist and can be found by the Butler.
         Args:
             rerun (str): The rerun name.
@@ -507,7 +509,7 @@ class ButlerRepository(HuntsmanBase):
         self.logger.info("Verifying coadd.")
 
         butler = self.get_butler(rerun=rerun)
-        skymap_ids = self.skymap_ids(rerun=rerun)
+        skymap_ids = self._get_skymap_ids(rerun=rerun)
 
         for filter_name in filter_names:
             for tract_id, patch_ids in skymap_ids.items():
