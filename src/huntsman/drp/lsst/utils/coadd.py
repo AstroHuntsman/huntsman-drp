@@ -4,8 +4,13 @@ See: https://github.com/lsst/pipe_tasks/blob/master/python/lsst/pipe/tasks/makeD
 from collections import defaultdict
 
 
-def get_patch_ids(skymap):
-    """
+def get_skymap_ids(skymap):
+    """ Get the full set of skymap patch IDs from a given skymap.
+    Args:
+        skymap (lsst.skymap.discreteSkyMap.DiscreteSkyMap): The skymap object.
+    Returns:
+        dict: A dictionary of tractID: List of patch IDs. Each patch IDs is specified by two
+            indices (x and y), in this case they are returned as a single string, `x,y`.
     """
     indices = defaultdict(list)
     for tract_info in skymap:

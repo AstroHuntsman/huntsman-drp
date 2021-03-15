@@ -14,7 +14,7 @@ from huntsman.drp.refcat import TapReferenceCatalogue
 from huntsman.drp.utils.date import date_to_ymd, current_date_ymd
 import huntsman.drp.lsst.utils.butler as utils
 from huntsman.drp.fitsutil import read_fits_header
-from huntsman.drp.lsst.utils.coadd import get_patch_ids
+from huntsman.drp.lsst.utils.coadd import get_skymap_ids
 
 
 class ButlerRepository(HuntsmanBase):
@@ -218,7 +218,7 @@ class ButlerRepository(HuntsmanBase):
         Args:
             filenames (iterable of str): The list of raw data filenames.
         """
-        self.logger.debug(f"Ingesting {len(filenames)} files.")
+        self.logger.debug(f"Ingesting {len(filenames)} file(s).")
         tasks.ingest_raw_data(filenames, butler_dir=self.butler_dir, **kwargs)
 
     def ingest_reference_catalogue(self, filenames):
@@ -226,7 +226,7 @@ class ButlerRepository(HuntsmanBase):
         Args:
             filenames (iterable of str): The list of filenames containing reference data.
         """
-        self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} files.")
+        self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} file(s).")
         tasks.ingest_reference_catalogue(self.butler_dir, filenames)
 
     def ingest_master_calibs(self, calib_type, filenames, validity=None):
@@ -238,7 +238,7 @@ class ButlerRepository(HuntsmanBase):
         """
         if validity is None:
             validity = self._calib_validity
-        self.logger.info(f"Ingesting {len(filenames)} master {calib_type} calibs with validity="
+        self.logger.info(f"Ingesting {len(filenames)} master {calib_type} calib(s) with validity="
                          f"{validity}.")
         tasks.ingest_master_calibs(calib_type, filenames, self.butler_dir,
                                    self.calib_dir, validity=validity)
@@ -311,7 +311,7 @@ class ButlerRepository(HuntsmanBase):
         data_ids = self.get_data_ids(dataset_type="raw", data_id={'dataType': "science"},
                                      extra_keys=["filter"])
 
-        self.logger.info(f"Making calexps from {len(data_ids)} data_ids.")
+        self.logger.info(f"Making calexp(s) from {len(data_ids)} data_ids.")
 
         # Process the science frames
         tasks.make_calexps(data_ids, rerun=rerun, butler_dir=self.butler_dir,
@@ -330,7 +330,7 @@ class ButlerRepository(HuntsmanBase):
             rerun (str, optional): The rerun name. Default is "default:coadd".
         """
         # Make the skymap in a chained rerun
-        self.logger.info("Creating sky map for coadd.")
+        self.logger.info(f"Creating sky map with rerun: {rerun}.")
         tasks.make_discrete_sky_map(self.butler_dir, calib_dir=self.calib_dir, rerun=rerun)
 
         # Get the output rerun
@@ -351,7 +351,7 @@ class ButlerRepository(HuntsmanBase):
 
                 self.logger.debug(f"Warping calexps for tract {tract_id} in {filter_name} filter.")
 
-                task_kwargs = dict(self.butler_dir, calib_dir=self.calib_dir,
+                task_kwargs = dict(butler_dir=self.butler_dir, calib_dir=self.calib_dir,
                                    rerun=rerun_out, tract_id=tract_id,
                                    patch_ids=patch_ids, filter_name=filter_name)
 
@@ -465,7 +465,8 @@ class ButlerRepository(HuntsmanBase):
 
         # Get data_ids for the raw calib frames
         data_ids = self.get_data_ids("raw", data_id={'dataType': calib_type})
-        self.logger.info(f"Found {len(data_ids)} data_ids to make master {calib_type} frames with.")
+        self.logger.info(f"Found {len(data_ids)} data_id(s) to make master {calib_type}"
+                         " frames with.")
 
         # Construct the master calibs
         self.logger.debug(f"Creating master {calib_type} frames for calibDate={calib_date} with"
@@ -493,7 +494,7 @@ class ButlerRepository(HuntsmanBase):
             dict: A dict of tract_id: [patch_ids].
         """
         skymap = self.get("deepCoadd_skyMap", rerun=rerun)
-        return get_patch_ids(skymap)
+        return get_skymap_ids(skymap)
 
     def _verify_coadd(self, rerun, filter_names):
         """ Verify all the coadd patches exist and can be found by the Butler.
