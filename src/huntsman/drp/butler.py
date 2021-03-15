@@ -181,11 +181,12 @@ class ButlerRepository(HuntsmanBase):
 
         return self.get_metadata(dataset_type, keys=keys, data_id=data_id)
 
-    def get_calexp_data_ids(self, rerun="default", filter_name=None):
+    def get_calexp_data_ids(self, rerun="default", filter_name=None, **kwargs):
         """ Convenience function to get data_ids for calexps.
         Args:
             rerun (str, optional): The rerun name. Default: "default".
-            filter_name (str, optional): If given, only return dataIds for this filter.
+            filter_name (str, optional): If given, only return data Ids for this filter.
+            **kwargs: Parsed to self.get_data_ids.
         Returns:
             list of dict: The list of dataIds.
         """
@@ -193,7 +194,7 @@ class ButlerRepository(HuntsmanBase):
         if filter_name is not None:
             data_id["filter"] = filter_name
 
-        return self.get_data_ids("calexp", data_id=data_id, rerun=rerun)
+        return self.get_data_ids("calexp", data_id=data_id, rerun=rerun, **kwargs)
 
     def get_calexps(self, rerun="default", **kwargs):
         """ Convenience function to get the calexps produced in a given rerun.
