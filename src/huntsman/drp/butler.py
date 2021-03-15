@@ -40,8 +40,7 @@ class ButlerRepository(HuntsmanBase):
         if self.butler_dir is None:
             self._refcat_filename = None
         else:
-            self._refcat_filename = os.path.join(self.butler_dir, "refcat_raw",
-                                                 "refcat_raw.csv")
+            self._refcat_filename = os.path.join(self.butler_dir, "refcat_raw", "refcat_raw.csv")
 
         # Load the policy file
         self._policy = Policy(self._policy_filename)
@@ -76,16 +75,20 @@ class ButlerRepository(HuntsmanBase):
         Returns:
             butler: The butler object.
         """
+        # Rerun
+        with suppress(AttributeError):
+            rerun = rerun.split(":")[1]
+
         try:
             return self._butlers[rerun]
         except KeyError:
             self.logger.debug(f"Creating new butler object for rerun={rerun}.")
             if rerun is None:
-                butlerdir = self.butler_dir
+                butler_dir = self.butler_dir
             else:
-                butlerdir = os.path.join(self.butler_dir, "rerun", rerun)
-            os.makedirs(butlerdir, exist_ok=True)
-            self._butlers[rerun] = dafPersist.Butler(inputs=butlerdir)
+                butler_dir = os.path.join(self.butler_dir, "rerun", rerun)
+            os.makedirs(butler_dir, exist_ok=True)
+            self._butlers[rerun] = dafPersist.Butler(inputs=butler_dir)
         return self._butlers[rerun]
 
     def get(self, datasetType, dataId=None, rerun=None, **kwargs):
@@ -334,12 +337,15 @@ class ButlerRepository(HuntsmanBase):
                 all filters will be processed.
             rerun (str, optional): The rerun name. Default is "default:coadd".
         """
-        # Make the skymap
+        # Make the skymap in a chained rerun
         self.logger.info("Creating skymap.")
-        tasks.make_discrete_sky_map(self.butler_dir, rerun=rerun)
+        tasks.make_discrete_sky_map(self.butler_dir, calib_dir=self.calib_dir, rerun=rerun)
+
+        # Get the output rerun
+        rerun_out = rerun.split(":")[-1]
 
         # Get the tract / patch indices from the skymap
-        skymap = self.get("deepCoadd_skyMap", rerun=rerun)
+        skymap = self.get("deepCoadd_skyMap", rerun=rerun_out)
         patch_indices = get_skymap_patch_indices(skymap)
 
         # Process all filters if filter_names is not provided
@@ -350,17 +356,18 @@ class ButlerRepository(HuntsmanBase):
         for filter_name in filter_names:  # TODO: Use multiprocessing here
 
             # Get the calexp data ids for this band
-            data_ids = self.get_calexp_data_ids(filter_name=filter_name, rerun=rerun)
+            data_ids = self.get_calexp_data_ids(filter_name=filter_name, rerun=rerun_out)
 
             for tract_id, patch_idxs in patch_indices.items():  # TODO: Use multiprocessing here
 
                 # Warp the calexps onto skymap
-                tasks.make_coadd_temp_exp(self.butler_dir, calib_dir=self.calib_dir, rerun=rerun,
-                                          tract_id=tract_id, patch_indices=patch_idxs,
-                                          filter_name=filter_name, data_ids=data_ids)
+                tasks.make_coadd_temp_exp(self.butler_dir, calib_dir=self.calib_dir,
+                                          rerun=rerun_out, tract_id=tract_id,
+                                          patch_indices=patch_idxs, filter_name=filter_name,
+                                          data_ids=data_ids)
 
                 # Combine the warped calexps
-                tasks.assemble_coadd(self.butler_dir, calib_dir=self.calib_dir, rerun=rerun,
+                tasks.assemble_coadd(self.butler_dir, calib_dir=self.calib_dir, rerun=rerun_out,
                                      tract_id=tract_id, patch_indices=patch_idxs,
                                      filter_name=filter_name, data_ids=data_ids)
 
