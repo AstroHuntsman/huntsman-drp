@@ -191,22 +191,21 @@ def make_calexps(data_ids, rerun, butler_directory, calib_directory, no_exit=Tru
     of making calexps including sky background maps and preliminary source catalogues and metadata,
     inclding photometric zeropoints.
 
-    Parameters
-    ----------
-    data_ids : list of abc.Mapping
-        The data IDs of the science frames to process.
-    rerun : str
-        The name of the rerun.
-    butler_directory : str
-        The butler repository directory name.
-    calib_directory : str
-        The calib directory used by the butler repository.
-    no_exit : bool, optional
-        If True (default), the program will not exit if an error is raised by the stack.
-    procs : int, optional
-        The number of processes to use per node, by default 1.
-    clobber_config : bool, optional
-        Override config values, by default False.
+    Args:
+        data_ids : list of abc.Mapping
+            The data IDs of the science frames to process.
+        rerun : str
+            The name of the rerun.
+        butler_directory : str
+            The butler repository directory name.
+        calib_directory : str
+            The calib directory used by the butler repository.
+        no_exit : bool, optional
+            If True (default), the program will not exit if an error is raised by the stack.
+        procs : int, optional
+            The number of processes to use per node, by default 1.
+        clobber_config : bool, optional
+            Override config values, by default False.
     """
     cmd = f"processCcd.py {butler_directory}"
     if no_exit:
@@ -223,61 +222,45 @@ def make_calexps(data_ids, rerun, butler_directory, calib_directory, no_exit=Tru
     run_command(cmd)
 
 
-def makeDiscreteSkyMap(butler_directory='DATA', rerun='processCcdOutputs:coadd'):
+def make_discrete_sky_map(butler_directory, rerun):
     """Create a sky map that covers processed exposures.
-
-    Parameters
-    ----------
-    butler_directory : str, optional
-        The butler repository directory name, by default 'DATA'.
-    rerun : str, optional
-        The name of the rerun, by default 'processCcdOutputs:coadd'.
+    Args:
+        butler_directory (str): The butler directory.
+        rerun (str): The rerun name.
     """
-    cmd = f"makeDiscreteSkyMap.py {butler_directory} --id --rerun {rerun} "
-    cmd += "--config skyMap.projection='TAN'"
-    subprocess.check_output(cmd, shell=True)
+    cmd = f"makeDiscreteSkyMap.py {butler_directory} --id --rerun {rerun}"
+    run_command(cmd)
 
 
-def makeCoaddTempExp(filter, butler_directory='DATA', calib_directory='DATA/CALIB',
-                     rerun='coadd'):
-    """Warp exposures onto sky map.
-
-    Parameters
-    ----------
-    filter : str
-        Name of filter to use for task.
-    butler_directory : str, optional
-        The butler repository directory name, by default 'DATA'.
-    calib_directory : str, optional
-        The calib directory used by the butler repository, by default 'DATA/CALIB'.
-    rerun : str, optional
-        The name of the rerun, by default 'coadd'.
+def make_coadd_temp_exp(butler_directory, rerun, tract_id, patch_indices, filter_name):
+    """ Warp exposures onto the skymap.
+    Args:
+        butler_directory (str): The butler directory.
+        rerun (str): The rerun name.
+        tract_id (int): The tract ID.
+        patch_indices (list): A list of patch indices (x, y indices).
+        filter_name (str): The filter name.
     """
-    cmd = f"makeCoaddTempExp.py {butler_directory} --rerun {rerun} "
-    cmd += f"--selectId filter={filter} --id filter={filter} tract=0 "
-    cmd += "patch=0,0^0,1^0,2^1,0^1,1^1,2^2,0^2,1^2,2"
-    cmd += "--config doApplyUberCal=False"
-    print(f'The command is: {cmd}')
-    subprocess.check_output(cmd, shell=True)
+    cmd = f"makeCoaddTempExp.py {butler_directory} --rerun {rerun}"
+    cmd += f" --selectId filter={filter}"
+    cmd += f" --id filter={filter_name}"
+    cmd += f" tract={tract_id}"
+    cmd += " patch=" + ",".join(["^".join(_) for _ in patch_indices])
+    run_command(cmd)
 
 
-def assembleCoadd(filter, butler_directory='DATA', calib_directory='DATA/CALIB',
-                  rerun='coadd'):
-    """Assemble the warped exposures into a coadd.
-
-    Parameters
-    ----------
-    filter : str
-        Name of filter to use for task.
-    butler_directory : str, optional
-        The butler repository directory name, by default 'DATA'.
-    calib_directory : str, optional
-        The calib directory used by the butler repository, by default 'DATA/CALIB'.
-    rerun : str, optional
-        The name of the rerun, by default 'coadd'.
+def assemble_coadd(butler_directory, rerun, tract_id, patch_indices, filter_name):
+    """ Warp exposures onto the skymap.
+    Args:
+        butler_directory (str): The butler directory.
+        rerun (str): The rerun name.
+        tract_id (int): The tract ID.
+        patch_indices (list): A list of patch indices (x, y indices).
+        filter_name (str): The filter name.
     """
-    cmd = f"assembleCoadd.py {butler_directory} --rerun {rerun} "
-    cmd += f"--selectId filter={filter} --id filter={filter} tract=0 "
-    cmd += "patch=0,0^0,1^0,2^1,0^1,1^1,2^2,0^2,1^2,2"
-    print(f'The command is: {cmd}')
-    subprocess.check_output(cmd, shell=True)
+    cmd = f"assembleCoadd.py {butler_directory} --rerun {rerun}"
+    cmd += f" --selectId filter={filter}"
+    cmd += f" --id filter={filter_name}"
+    cmd += f" tract={tract_id}"
+    cmd += " patch=" + ",".join(["^".join(_) for _ in patch_indices])
+    run_command(cmd)

@@ -14,6 +14,7 @@ from huntsman.drp.refcat import TapReferenceCatalogue
 from huntsman.drp.utils.date import date_to_ymd, current_date_ymd
 import huntsman.drp.lsst.utils.butler as utils
 from huntsman.drp.fitsutil import read_fits_header
+from huntsman.drp.utils.coadd import get_skymap_patch_indices
 
 
 class ButlerRepository(HuntsmanBase):
@@ -61,6 +62,8 @@ class ButlerRepository(HuntsmanBase):
     def status(self):
         # TODO: Information here about number of ingested files etc
         raise NotImplementedError
+
+    # Getters
 
     def get_butler(self, rerun=None):
         """ Get a butler object for a given rerun.
@@ -115,7 +118,14 @@ class ButlerRepository(HuntsmanBase):
         """
         return self.get(datasetType + "_filename", dataId=dataId, **kwargs)
 
-    def get_data_ids(self, datasetType, dataId=None, extra_keys=None, rerun=None):
+    def get_metadata(self, datasetType, keys, dataId=None, **kwargs):
+        """
+        """
+        butler = self.get_butler(**kwargs)
+        md = butler.queryMetadata(datasetType, format=keys, dataId=dataId)
+        return [{k: v for k, v in zip(keys, _)} for _ in md]
+
+    def get_data_ids(self, datasetType, dataId=None, extra_keys=None, **kwargs):
         """ Get ingested dataIds for a given datasetType.
         Args:
             datasetType (str): The datasetType (raw, bias, flat etc.).
@@ -124,24 +134,40 @@ class ButlerRepository(HuntsmanBase):
         Returns:
             list of dict: A list of dataIds.
         """
-        butler = self.get_butler(rerun=rerun)
-        return utils.get_data_ids(butler=butler, datasetType=datasetType, dataId=dataId,
-                                  extra_keys=extra_keys)
+        butler = self.get_butler(**kwargs)
 
-    def get_calexps(self, rerun="default", dataType="science", extra_keys=None, **kwargs):
+        keys = list(butler.getKeys(datasetType).keys())
+        if extra_keys is not None:
+            keys.extend(extra_keys)
+
+        return self.get_metadata(datasetType, format=keys, dataId=dataId)
+
+    def get_calexp_data_ids(self, rerun="default", filter_name=None):
+        """ Convenience function to get dataIds for calexps.
+
+        """
+        data_id = {"dataType": "science"}
+        if filter_name is not None:
+            data_id["filter"] = filter_name
+
+        return self.get_data_ids("calexp", dataId=data_id, rerun=rerun)
+
+    def get_calexps(self, rerun="default", dataType="science", **kwargs):
         """ Convenience function to get the calexps produced in a given rerun.
         Args:
 
         Returns:
             list of lsst.afw.image.exposure: The list of calexp objects.
         """
-        data_ids = self.get_data_ids("calexp", dataId={"dataType": dataType}, rerun=rerun,
-                                     extra_keys=extra_keys)
-        calexps = [self.get("calexp", dataId=d, rerun=rerun, **kwargs) for d in data_ids]
+        data_ids = self.get_calexp_data_ids(rerun=rerun, **kwargs)
+
+        calexps = [self.get("calexp", dataId=d, rerun=rerun) for d in data_ids]
         if len(calexps) != len(data_ids):
             raise RuntimeError("Number of dataIds does not match the number of calexps.")
 
         return calexps, data_ids
+
+    # Tasks
 
     def ingest_raw_data(self, filenames, **kwargs):
         """ Ingest raw data into the repository.
@@ -296,6 +322,47 @@ class ButlerRepository(HuntsmanBase):
         # Check if we have the right number of calexps
         if not len(self.get_calexps(rerun=rerun)[0]) == len(data_ids):
             raise RuntimeError("Number of calexps does not match the number of dataIds.")
+
+    def make_coadds(self, filter_names=None, rerun="default", **kwargs):
+        """ Make a coadd from all the calexps in this repository.
+        See: https://pipelines.lsst.io/getting-started/coaddition.html
+        Args:
+            filter_names (list, optional): The list of filter names to process. If not given,
+                all filters will be processed.
+            rerun (str, optional): The rerun name. Default is "default".
+        """
+        # Make the skymap
+        self.logger.info("Creating skymap.")
+        tasks.make_discrete_sky_map(self.bulter_directory, rerun=rerun)
+
+        # Get the tract / patch indices from the skymap
+        skymap = self.get_butler().get("skymap")
+        patch_indices = get_skymap_patch_indices(skymap)
+
+        # Process all filters if filter_names is not provided
+        if filter_names is None:
+            md = self.get_metadata("calexp", keys=["filter"], dataId={"dataType": "science"})
+            filter_names = list(set([_["filter"] for _ in md]))
+
+        for filter_name in filter_names:  # TODO: Use multiprocessing here
+
+            # Get the calexp data ids for this band
+            data_ids = self.get_calexp_data_ids(filter_name=filter_name, rerun=rerun)
+
+            for tract_id, patch_idxs in patch_indices.items():  # TODO: Use multiprocessing here
+
+                # Warp the calexps onto skymap
+                tasks.make_coadd_temp_exp(self.bulter_directory, rerun=rerun, tract_id=tract_id,
+                                          patch_indices=patch_idxs, filter_name=filter_name,
+                                          data_ids=data_ids)
+
+                # Combine the warped calexps
+                tasks.assemble_coadd(self.bulter_directory, rerun=rerun, tract_id=tract_id,
+                                     patch_indices=patch_idxs, filter_name=filter_name,
+                                     data_ids=data_ids)
+
+        # TODO: Check coadds actually exist
+        return
 
     def _initialise(self):
         """Initialise a new butler repository."""
