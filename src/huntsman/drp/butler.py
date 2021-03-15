@@ -14,7 +14,7 @@ from huntsman.drp.refcat import TapReferenceCatalogue
 from huntsman.drp.utils.date import date_to_ymd, current_date_ymd
 import huntsman.drp.lsst.utils.butler as utils
 from huntsman.drp.fitsutil import read_fits_header
-from huntsman.drp.utils.coadd import get_skymap_patch_indices
+from huntsman.drp.lsst.utils.coadd import get_skymap_patch_indices
 
 
 class ButlerRepository(HuntsmanBase):
@@ -24,26 +24,29 @@ class ButlerRepository(HuntsmanBase):
     _ra_key = "RA-MNT"
     _dec_key = "DEC-MNT"  # TODO: Move to config
 
-    def __init__(self, directory, calib_directory=None, initialise=True, **kwargs):
+    def __init__(self, directory, calib_dir=None, initialise=True, **kwargs):
         super().__init__(**kwargs)
 
-        self.butler_directory = directory
+        if directory is not None:
+            directory = os.path.abspath(directory)
+        self.butler_dir = directory
 
-        if (calib_directory is None) and (directory is not None):
-            calib_directory = os.path.join(directory, "CALIB")
-        self._calib_directory = calib_directory
+        if (calib_dir is None) and (directory is not None):
+            calib_dir = os.path.join(self.butler_dir, "CALIB")
+        self._calib_dir = calib_dir
+
         self._calib_validity = self.config["calibs"]["validity"]
 
-        if self.butler_directory is None:
+        if self.butler_dir is None:
             self._refcat_filename = None
         else:
-            self._refcat_filename = os.path.join(self.butler_directory, "refcat_raw",
+            self._refcat_filename = os.path.join(self.butler_dir, "refcat_raw",
                                                  "refcat_raw.csv")
 
         # Load the policy file
         self._policy = Policy(self._policy_filename)
 
-        # Initialise the bulter repository
+        # Initialise the butler repository
         self._butlers = {}  # One butler for each rerun
         if initialise:
             self._initialise()
@@ -55,8 +58,8 @@ class ButlerRepository(HuntsmanBase):
         pass
 
     @property
-    def calib_directory(self):
-        return self._calib_directory
+    def calib_dir(self):
+        return self._calib_dir
 
     @property
     def status(self):
@@ -76,16 +79,16 @@ class ButlerRepository(HuntsmanBase):
         try:
             return self._butlers[rerun]
         except KeyError:
-            self.logger.debug(f"Creating new bulter object for rerun={rerun}.")
+            self.logger.debug(f"Creating new butler object for rerun={rerun}.")
             if rerun is None:
-                butlerdir = self.butler_directory
+                butlerdir = self.butler_dir
             else:
-                butlerdir = os.path.join(self.butler_directory, "rerun", rerun)
+                butlerdir = os.path.join(self.butler_dir, "rerun", rerun)
             os.makedirs(butlerdir, exist_ok=True)
             self._butlers[rerun] = dafPersist.Butler(inputs=butlerdir)
         return self._butlers[rerun]
 
-    def get(self, datasetType, dataId, rerun=None, **kwargs):
+    def get(self, datasetType, dataId=None, rerun=None, **kwargs):
         """ Get a dataset from the butler repository.
         Args:
             datasetType (str): The dataset type (raw, flat, bias etc.).
@@ -140,7 +143,7 @@ class ButlerRepository(HuntsmanBase):
         if extra_keys is not None:
             keys.extend(extra_keys)
 
-        return self.get_metadata(datasetType, format=keys, dataId=dataId)
+        return self.get_metadata(datasetType, keys=keys, dataId=dataId)
 
     def get_calexp_data_ids(self, rerun="default", filter_name=None):
         """ Convenience function to get dataIds for calexps.
@@ -175,7 +178,7 @@ class ButlerRepository(HuntsmanBase):
             filenames (iterable of str): The list of raw data filenames.
         """
         self.logger.debug(f"Ingesting {len(filenames)} files.")
-        tasks.ingest_raw_data(filenames, butler_directory=self.butler_directory, **kwargs)
+        tasks.ingest_raw_data(filenames, butler_dir=self.butler_dir, **kwargs)
 
     def make_master_calibs(self, calib_date=None, rerun="default", skip_bias=False,
                            skip_dark=False, **kwargs):
@@ -212,8 +215,8 @@ class ButlerRepository(HuntsmanBase):
             validity = self._calib_validity
         self.logger.info(f"Ingesting {len(filenames)} master {calib_type} calibs with validity="
                          f"{validity}.")
-        tasks.ingest_master_calibs(calib_type, filenames, self.butler_directory,
-                                   self.calib_directory, validity=validity)
+        tasks.ingest_master_calibs(calib_type, filenames, self.butler_dir,
+                                   self.calib_dir, validity=validity)
 
     def archive_master_calibs(self):
         """ Copy the master calibs from this Butler repository into the calib archive directory
@@ -225,12 +228,12 @@ class ButlerRepository(HuntsmanBase):
         for calib_type in self.config["calibs"]["types"]:
             # Retrieve filenames and dataIds for all files of this type
             data_ids, filenames = utils.get_files_of_type(f"calibrations.{calib_type}",
-                                                          directory=self.calib_directory,
+                                                          directory=self.calib_dir,
                                                           policy=self._policy)
             for metadata, filename in zip(data_ids, filenames):
                 # Create the filename for the archived copy
                 archived_filename = os.path.join(archive_dir,
-                                                 os.path.relpath(filename, self.calib_directory))
+                                                 os.path.relpath(filename, self.calib_dir))
                 # Copy the file into the calib archive
                 self.logger.debug(f"Copying {filename} to {archived_filename}.")
                 os.makedirs(os.path.dirname(archived_filename), exist_ok=True)
@@ -250,7 +253,7 @@ class ButlerRepository(HuntsmanBase):
             list of dict: The query result in column: value.
         """
         # Access the sqlite DB
-        conn = sqlite3.connect(os.path.join(self.calib_directory, "calibRegistry.sqlite3"))
+        conn = sqlite3.connect(os.path.join(self.calib_dir, "calibRegistry.sqlite3"))
         c = conn.cursor()
         # Query the calibs
         result = c.execute(f"SELECT * from {datasetType}")
@@ -274,7 +277,7 @@ class ButlerRepository(HuntsmanBase):
         butler = self.get_butler(**kwargs)
 
         # Get the filenames of ingested images
-        data_ids, filenames = utils.get_files_of_type("exposures.raw", self.butler_directory,
+        data_ids, filenames = utils.get_files_of_type("exposures.raw", self.butler_dir,
                                                       policy=self._policy)
         # Use the FITS header sto retrieve the RA/Dec info
         ra_list = []
@@ -301,7 +304,7 @@ class ButlerRepository(HuntsmanBase):
             filenames (iterable of str): The list of filenames containing reference data.
         """
         self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} files.")
-        tasks.ingest_reference_catalogue(self.butler_directory, filenames)
+        tasks.ingest_reference_catalogue(self.butler_dir, filenames)
 
     def make_calexps(self, rerun="default", **kwargs):
         """ Make calibrated exposures (calexps) using the LSST stack.
@@ -316,27 +319,27 @@ class ButlerRepository(HuntsmanBase):
         self.logger.info(f"Making calexps from {len(data_ids)} dataIds.")
 
         # Process the science frames
-        tasks.make_calexps(data_ids, rerun=rerun, butler_directory=self.butler_directory,
-                           calib_directory=self.calib_directory, **kwargs)
+        tasks.make_calexps(data_ids, rerun=rerun, butler_dir=self.butler_dir,
+                           calib_dir=self.calib_dir, **kwargs)
 
         # Check if we have the right number of calexps
         if not len(self.get_calexps(rerun=rerun)[0]) == len(data_ids):
             raise RuntimeError("Number of calexps does not match the number of dataIds.")
 
-    def make_coadds(self, filter_names=None, rerun="default", **kwargs):
+    def make_coadds(self, filter_names=None, rerun="default:coadd", **kwargs):
         """ Make a coadd from all the calexps in this repository.
         See: https://pipelines.lsst.io/getting-started/coaddition.html
         Args:
             filter_names (list, optional): The list of filter names to process. If not given,
                 all filters will be processed.
-            rerun (str, optional): The rerun name. Default is "default".
+            rerun (str, optional): The rerun name. Default is "default:coadd".
         """
         # Make the skymap
         self.logger.info("Creating skymap.")
-        tasks.make_discrete_sky_map(self.bulter_directory, rerun=rerun)
+        tasks.make_discrete_sky_map(self.butler_dir, rerun=rerun)
 
         # Get the tract / patch indices from the skymap
-        skymap = self.get_butler().get("skymap")
+        skymap = self.get("deepCoadd_skyMap", rerun=rerun)
         patch_indices = get_skymap_patch_indices(skymap)
 
         # Process all filters if filter_names is not provided
@@ -352,23 +355,25 @@ class ButlerRepository(HuntsmanBase):
             for tract_id, patch_idxs in patch_indices.items():  # TODO: Use multiprocessing here
 
                 # Warp the calexps onto skymap
-                tasks.make_coadd_temp_exp(self.bulter_directory, rerun=rerun, tract_id=tract_id,
-                                          patch_indices=patch_idxs, filter_name=filter_name,
-                                          data_ids=data_ids)
+                tasks.make_coadd_temp_exp(self.butler_dir, calib_dir=self.calib_dir, rerun=rerun,
+                                          tract_id=tract_id, patch_indices=patch_idxs,
+                                          filter_name=filter_name, data_ids=data_ids)
 
                 # Combine the warped calexps
-                tasks.assemble_coadd(self.bulter_directory, rerun=rerun, tract_id=tract_id,
-                                     patch_indices=patch_idxs, filter_name=filter_name,
-                                     data_ids=data_ids)
+                tasks.assemble_coadd(self.butler_dir, calib_dir=self.calib_dir, rerun=rerun,
+                                     tract_id=tract_id, patch_indices=patch_idxs,
+                                     filter_name=filter_name, data_ids=data_ids)
 
         # TODO: Check coadds actually exist
         return
+
+    # Private methods
 
     def _initialise(self):
         """Initialise a new butler repository."""
         # Add the mapper file to each subdirectory, making directory if necessary
         for subdir in ["", "CALIB"]:
-            dir = os.path.join(self.butler_directory, subdir)
+            dir = os.path.join(self.butler_dir, subdir)
             with suppress(FileExistsError):
                 os.mkdir(dir)
             filename_mapper = os.path.join(dir, "_mapper")
@@ -432,21 +437,18 @@ class ButlerRepository(HuntsmanBase):
         calib_date = date_to_ymd(calib_date)
 
         # Get dataIds for the raw calib frames
-        keys = self.get_keys("raw")
-        metalist = butler.queryMetadata("raw", format=keys, dataId={'dataType': calib_type})
-        data_ids = [{k: v for k, v in zip(keys, m)} for m in metalist]
-
+        data_ids = self.get_data_ids("raw", dataId={'dataType': calib_type})
         self.logger.info(f"Found {len(data_ids)} dataIds to make master {calib_type} frames with.")
 
         # Construct the master calibs
         self.logger.debug(f"Creating master {calib_type} frames for calibDate={calib_date} with"
                           f" dataIds: {data_ids}.")
         tasks.make_master_calibs(calib_type, data_ids, butler=butler, rerun=rerun,
-                                 calib_date=calib_date, butler_directory=self.butler_directory,
-                                 calib_directory=self.calib_directory, **kwargs)
+                                 calib_date=calib_date, butler_dir=self.butler_dir,
+                                 calib_dir=self.calib_dir, **kwargs)
 
         # Get filenames of the master calibs
-        calib_dir = os.path.join(self.butler_directory, "rerun", rerun)
+        calib_dir = os.path.join(self.butler_dir, "rerun", rerun)
         _, filenames = utils.get_files_of_type(f"calibrations.{calib_type}", directory=calib_dir,
                                                policy=self._policy)
 
@@ -464,10 +466,10 @@ class TemporaryButlerRepository(ButlerRepository):
         super().__init__(directory=None, initialise=False, **kwargs)
 
     def __enter__(self):
-        """Create temporary directory and initialise as a Bulter repository."""
+        """Create temporary directory and initialise as a butler repository."""
         self._tempdir = TemporaryDirectory()
-        self.butler_directory = self._tempdir.name
-        self._refcat_filename = os.path.join(self.butler_directory, "refcat_raw", "refcat_raw.csv")
+        self.butler_dir = self._tempdir.name
+        self._refcat_filename = os.path.join(self.butler_dir, "refcat_raw", "refcat_raw.csv")
         self._initialise()
         return self
 
@@ -475,11 +477,11 @@ class TemporaryButlerRepository(ButlerRepository):
         """Close temporary directory."""
         self._butlers = {}
         self._tempdir.cleanup()
-        self.butler_directory = None
+        self.butler_dir = None
         self._refcat_filename = None
 
     @property
-    def calib_directory(self):
-        if self.butler_directory is None:
+    def calib_dir(self):
+        if self.butler_dir is None:
             return None
-        return os.path.join(self.butler_directory, "CALIB")
+        return os.path.join(self.butler_dir, "CALIB")
