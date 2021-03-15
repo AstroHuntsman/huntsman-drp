@@ -4,7 +4,7 @@ See: https://github.com/lsst/pipe_tasks/blob/master/python/lsst/pipe/tasks/makeD
 from collections import defaultdict
 
 
-def get_skymap_patch_indices(skymap):
+def get_patch_ids(skymap):
     """
     """
     indices = defaultdict(list)
@@ -18,6 +18,6 @@ def get_skymap_patch_indices(skymap):
         ny = tract_info.getNumPatches()[1]
         for x in range(nx):
             for y in range(ny):
-                indices[tract_id].append((x, y))
+                indices[tract_id].append(f"{x},{y}")
 
     return indices

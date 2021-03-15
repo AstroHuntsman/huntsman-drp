@@ -233,36 +233,36 @@ def make_discrete_sky_map(butler_dir, calib_dir, rerun):
     run_command(cmd)
 
 
-def make_coadd_temp_exp(butler_dir, calib_dir, rerun, tract_id, patch_indices, filter_name):
+def make_coadd_temp_exp(butler_dir, calib_dir, rerun, tract_id, patch_ids, filter_name):
     """ Warp exposures onto the skymap.
     Args:
         butler_dir (str): The butler directory.
         calib_dir (str): The calib directory.
         rerun (str): The rerun name.
         tract_id (int): The tract ID.
-        patch_indices (list): A list of patch indices (x, y indices).
+        patch_ids (list): A list of patch indices (x, y indices).
         filter_name (str): The filter name.
     """
     cmd = f"makeCoaddTempExp.py {butler_dir} --calib {calib_dir} --rerun {rerun}"
-    cmd += f" --selectId filter={filter}"
+    cmd += f" --selectId filter={filter_name}"
     cmd += f" --id filter={filter_name}"
     cmd += f" tract={tract_id}"
-    cmd += " patch=" + ",".join(["^".join(_) for _ in patch_indices])
+    cmd += " patch=" + "^".join(patch_ids)
     run_command(cmd)
 
 
-def assemble_coadd(butler_dir, rerun, tract_id, patch_indices, filter_name):
+def assemble_coadd(butler_dir, calib_dir, rerun, tract_id, patch_ids, filter_name):
     """ Warp exposures onto the skymap.
     Args:
         butler_dir (str): The butler directory.
         rerun (str): The rerun name.
         tract_id (int): The tract ID.
-        patch_indices (list): A list of patch indices (x, y indices).
+        patch_ids (list): A list of patch indices (x, y indices).
         filter_name (str): The filter name.
     """
-    cmd = f"assembleCoadd.py {butler_dir} --rerun {rerun}"
-    cmd += f" --selectId filter={filter}"
+    cmd = f"assembleCoadd.py {butler_dir} --calib {calib_dir} --rerun {rerun}"
+    cmd += f" --selectId filter={filter_name}"
     cmd += f" --id filter={filter_name}"
     cmd += f" tract={tract_id}"
-    cmd += " patch=" + ",".join(["^".join(_) for _ in patch_indices])
+    cmd += " patch=" + "^".join(patch_ids)
     run_command(cmd)

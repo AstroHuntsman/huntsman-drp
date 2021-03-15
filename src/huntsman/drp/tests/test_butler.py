@@ -131,11 +131,16 @@ def test_make_master_calibs(exposure_table, temp_butler_repo, config):
             assert os.path.isfile(filename)
 
 
-def test_make_calexp(tmpdir):
-    """ Test that we can make calibrated exposures. """
+def test_make_coadd(tmpdir):
+    """ Test that we can make coadds. """
     br = create_test_bulter_repository(str(tmpdir))
+
     br.make_master_calibs()
+
     br.make_calexps()
+
+    br.make_coadd()  # Implicit verification
+
     calexps, data_ids = br.get_calexps()
     assert len(calexps) == 1
     assert len(data_ids) == 1
