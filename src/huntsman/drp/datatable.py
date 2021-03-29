@@ -58,17 +58,11 @@ class DataTable(HuntsmanBase):
 
     def count_documents(self, document_filter=None):
         """ Count the number of documents (matching document_filter criteria) in table.
-
-        Parameters
-        ----------
-        document_filter : dict, optional
-            A dictionary containing key, value pairs to be matched against other documents,
-            by default None
-
-        Returns
-        -------
-        int
-            The number of matching documents in the table.
+        Args:
+        document_filter (dict, optional): A dictionary containing key, value pairs to be matched
+            against other documents, by default None
+        Returns:
+            int: The number of matching documents in the table.
         """
         if document_filter is None:
             document_filter = {}
@@ -273,6 +267,7 @@ class ExposureTable(DataTable):
         super().__init__(table_name=table_name, **kwargs)
         self._required_columns = self.config["fits_header"]["required_columns"]
 
+    # TODO: Remove
     def find_matching_raw_calibs(self, filename, days=None, **kwargs):
         """ Get matching calibs for a given file.
         """
@@ -319,7 +314,10 @@ class ExposureTable(DataTable):
 
 class MasterCalibTable(DataTable):
     """ Table to store metadata for master calibs. """
-    _required_columns = ("filename", "calibDate")  # TODO: Move to config
+
+    # TODO: Move to config
+    # TODO: Implement per-datasetType column requirements (e.g. filter for flats)
+    _required_columns = ("filename", "calibDate", "datasetType")
 
     def __init__(self, table_name="master_calib", **kwargs):
         super().__init__(table_name=table_name, **kwargs)
