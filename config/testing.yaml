@@ -8,7 +8,7 @@ exposure_sequence:
   n_flat: 2   # Per (filter, camera) pair
   n_bias: 2   # Per camera
   n_dark: 2   # Per (exposure time, camera) pair
-  n_science: 2  # Per (camera, field, filter) combination
+  n_science: 1  # Per (camera, field, filter) combination
   exptime_flat: 30
   exptime_science: 60
   filters:

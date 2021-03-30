@@ -152,6 +152,7 @@ class DataTable(HuntsmanBase):
         document = encode_mongo_query(document)
 
         # Check the required columns exist in the new document
+        # TODO: Use DataID object
         if self._required_columns is not None:
             for column_name in self._required_columns:
                 if column_name not in document.keys():
@@ -334,14 +335,17 @@ class MasterCalibTable(DataTable):
     def __init__(self, table_name="master_calib", **kwargs):
         super().__init__(table_name=table_name, **kwargs)
 
+        # matching keys
+        # validity
+
     def get_calib_ids(self, **kwargs):
         """
         """
         documents = self.find(**kwargs)
         return [CalibId(d) for d in documents]
 
-    def get_calib_filenames(self, data_id, calib_date):
-        """ Return matching set of calib filenames for a given data_id and calib_date.
+    def get_matching_calib_id(self, data_id, calib_date):
+        """ Return matching set of calib IDs for a given data_id and calib_date.
         Args:
             data_id (object): An object that can be interpreted as a data ID.
             calib_date (object): An object that can be interpreted as a date.
@@ -366,4 +370,6 @@ class MasterCalibTable(DataTable):
                 raise FileNotFoundError(f"No matching master {calib_type} for dataId={data_id},"
                                         f" calibDate={calib_date}.")
 
-            result[calib_type] = calib_ids[np.argmin(timediffs)]["filename"]
+            result[calib_type] = calib_ids[np.argmin(timediffs)]
+
+        return result
