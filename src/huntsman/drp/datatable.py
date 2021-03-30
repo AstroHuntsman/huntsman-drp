@@ -11,6 +11,7 @@ from pymongo.errors import ServerSelectionTimeoutError
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date, parse_date
 from huntsman.drp.utils.query import Query
+from huntsman.drp.dataid import CalibId
 from huntsman.drp.utils.mongo import encode_mongo_query
 
 
@@ -59,7 +60,7 @@ class DataTable(HuntsmanBase):
     def count_documents(self, document_filter=None):
         """ Count the number of documents (matching document_filter criteria) in table.
         Args:
-        document_filter (dict, optional): A dictionary containing key, value pairs to be matched
+            document_filter (dict, optional): A dictionary containing key, value pairs to be matched
             against other documents, by default None
         Returns:
             int: The number of matching documents in the table.
@@ -69,30 +70,28 @@ class DataTable(HuntsmanBase):
         return self._table.count_documents(document_filter)
 
     def find(self, document_filter=None, constraints=None, date_start=None, date_end=None,
-             date=None, key=None):
+             date=None, key=None, screen=False):
         """Get data for one or more matches in the table.
-
-        Parameters
-        ----------
-        document_filter : dict, optional
-            A dictionary containing key, value pairs to be matched against other documents,
-            by default None
-        constraints : dict, optional
-            A dictionary containing other search criteria which can include the mongo operators
-            defined in the `huntsman.drp.utils.mongo.MONGO_OPERATORS`, by default None.
-        date_start : object, optional
-            Constrain query to a timeframe starting at date_start, by default None.
-        date_end : object, optional
-            Constrain query to a timeframe ending at date_end, by default None.
-        date : object, optional
-            Constrain query to specific date, by default None.
-        key : str, optional
-            Specify a specific key to be returned from the query (e.g. filename), by default None.
-
-        Returns
-        -------
-        result: list or np.array
-            Result of the query. If key is specified result will be a np.array(?)
+        Args:
+            document_filter (dict, optional): A dictionary containing key, value pairs to be
+                matched against other documents, by default None
+            constraints (dict, optional): A dictionary containing other search criteria which can
+                include the operators defined in the `huntsman.drp.utils.mongo.MONGO_OPERATORS`,
+                by default None.
+            date_start (object, optional): Constrain query to a timeframe starting at date_start,
+                by default None.
+            date_end (object, optional): Constrain query to a timeframe ending at date_end, by
+                default None.
+            date (object, optional):
+                Constrain query to specific date, by default None.
+            key (str, optional):
+                Specify a specific key to be returned from the query (e.g. filename), by default
+                None.
+            screen: (bool, optional): If True, only results that satisfy screening will be returned.
+                Default False.
+        Returns:
+            result (list or np.array): Result of the query. If key is specified result will be a
+                np.array(?)
         """
         if constraints is None:
             constraints = {}
@@ -107,6 +106,10 @@ class DataTable(HuntsmanBase):
         if date is not None:
             constraint.update({"equal": parse_date(date)})
         constraints[self._date_key] = constraint
+
+        # TODO: Apply screening
+        if screen:
+            pass
 
         # Get the mongodb query
         query = Query(document=document_filter, constraints=constraints).to_mongo()
@@ -141,6 +144,11 @@ class DataTable(HuntsmanBase):
             If True override any existing document, by default False.
 
         """
+        # Add date records
+        document = document.copy()
+        document["date_created"] = current_date()
+        document["date_modified"] = current_date()
+
         document = encode_mongo_query(document)
 
         # Check the required columns exist in the new document
@@ -180,6 +188,10 @@ class DataTable(HuntsmanBase):
 
         https://docs.mongodb.com/manual/reference/operator/update/set/#up._S_set
         """
+        # Add date record
+        to_update = to_update.copy()
+        to_update["date_modified"] = current_date()
+
         document = encode_mongo_query(document_filter)
         to_update = encode_mongo_query(to_update)
 
@@ -321,3 +333,37 @@ class MasterCalibTable(DataTable):
 
     def __init__(self, table_name="master_calib", **kwargs):
         super().__init__(table_name=table_name, **kwargs)
+
+    def get_calib_ids(self, **kwargs):
+        """
+        """
+        documents = self.find(**kwargs)
+        return [CalibId(d) for d in documents]
+
+    def get_calib_filenames(self, data_id, calib_date):
+        """ Return matching set of calib filenames for a given data_id and calib_date.
+        Args:
+            data_id (object): An object that can be interpreted as a data ID.
+            calib_date (object): An object that can be interpreted as a date.
+        Returns:
+            dict: A dict of datasetType: filename.
+        Raises:
+            FileNotFoundError: If there is no matching calib.
+        """
+        calib_date = parse_date(calib_date)
+
+        result = {}
+        for calib_type in self._calib_types:
+
+            doc_filter = {k: data_id[k] for k in self._matching_keys[calib_type]}
+            doc_filter["datasetType"] = calib_type
+
+            calib_ids = self.find(doc_filter)
+            dates = [parse_date(_["calibDate"]) for _ in calib_ids]
+
+            timediffs = [abs(calib_date - d) for d in dates]
+            if min(timediffs) > self._validity:
+                raise FileNotFoundError(f"No matching master {calib_type} for dataId={data_id},"
+                                        f" calibDate={calib_date}.")
+
+            result[calib_type] = calib_ids[np.argmin(timediffs)]["filename"]

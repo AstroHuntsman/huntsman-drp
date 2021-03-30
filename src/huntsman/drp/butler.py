@@ -15,6 +15,7 @@ from huntsman.drp.utils.date import date_to_ymd, current_date_ymd
 import huntsman.drp.lsst.utils.butler as utils
 from huntsman.drp.fitsutil import read_fits_header
 from huntsman.drp.lsst.utils.coadd import get_skymap_ids
+from huntsman.drp.utils.calib import get_calib_filename
 
 
 class ButlerRepository(HuntsmanBase):
@@ -373,7 +374,6 @@ class ButlerRepository(HuntsmanBase):
         """ Copy the master calibs from this Butler repository into the calib archive directory
         and insert the metadata into the master calib metadatabase.
         """
-        archive_dir = self.config["directories"]["archive"]
         calib_datatable = MasterCalibTable(config=self.config, logger=self.logger)
 
         for calib_type in self.config["calibs"]["types"]:
@@ -384,17 +384,18 @@ class ButlerRepository(HuntsmanBase):
                                                           policy=self._policy)
             for metadata, filename in zip(data_ids, filenames):
 
+                metadata["datasetType"] = calib_type
+
                 # Create the filename for the archived copy
-                archived_filename = os.path.join(archive_dir,
-                                                 os.path.relpath(filename, self.calib_dir))
+                archived_filename = get_calib_filename(config=self.config, **metadata)
+                metadata["filename"] = archived_filename
+
                 # Copy the file into the calib archive
                 self.logger.debug(f"Copying {filename} to {archived_filename}.")
                 os.makedirs(os.path.dirname(archived_filename), exist_ok=True)
                 shutil.copy(filename, archived_filename)
 
                 # Insert the metadata into the calib database
-                metadata["filename"] = archived_filename
-                metadata["datasetType"] = calib_type
                 calib_datatable.insert_one(metadata, overwrite=True)
 
     # Private methods
