@@ -1,4 +1,4 @@
-from huntsman.drp.calibs import MasterCalibMaker
+from huntsman.drp.calib import MasterCalibMaker
 
 if __name__ == "__main__":
 

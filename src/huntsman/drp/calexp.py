@@ -105,7 +105,6 @@ class CalexpQualityMonitor(HuntsmanBase):
         self.logger.debug("Starting processing thread.")
 
         while True:
-
             if self._stop:
                 self.logger.debug("Stopping calexp thread.")
                 break
@@ -122,6 +121,8 @@ class CalexpQualityMonitor(HuntsmanBase):
             data_id = self._data_ids.pop()
             self.logger.info(f"Processing data ID: {data_id}")
             self._process_file(data_id)
+
+            time.sleep(1)
 
     def _process_file(self, data_id):
         """ Create a calibrated exposure (calexp) for the given data ID and store the metadata.

@@ -91,7 +91,7 @@ refcat:
     flags:
       equal: 0
 
-screening:
+quality:
   raw:
     flat:
       flip_asymm_h:
