@@ -62,6 +62,10 @@ class DataTable(HuntsmanBase):
             key (str, optional):
                 Specify a specific key to be returned from the query (e.g. filename), by default
                 None.
+            screen (bool, optional): If True, only return documents that passed screening.
+                Default False.
+            quality_filter (bool, optional): If True, only return documents that satisfy quality
+                cuts. Default False.
         Returns:
             result (list): Result of the query.
         """
