@@ -168,7 +168,8 @@ class MasterCalibMaker(HuntsmanBase):
         date_start = parsed_date - self._validity
         date_end = parsed_date + self._validity
 
-        result = self._exposure_table.find(date_start=date_start, date_end=date_end, screen=True)
+        result = self._exposure_table.find(date_start=date_start, date_end=date_end, screen=True,
+                                           quality_filter=True)
         self.logger.info(f"Found {len(result)} raw calibs for calib_date={calib_date}.")
 
         return result
@@ -207,5 +208,7 @@ class MasterCalibMaker(HuntsmanBase):
         Returns:
             list of datetime: The list of dates.
         """
-        dates = set([date_to_ymd(d) for d in self._exposure_table.find(key="date")])
+        dates = set(
+            [date_to_ymd(d) for d in self._exposure_table.find(key="date", screen=True,
+             quality_filter=True)])
         return list(dates)
