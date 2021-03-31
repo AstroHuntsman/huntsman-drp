@@ -38,7 +38,7 @@ def test_datatable_query_by_date(exposure_table, fits_header_translator):
             assert date >= parse_date(date_start)
             assert date < parse_date(date_end)
 
-@pytest.mark.skip()
+
 def test_query_latest(exposure_table, config, tol=1):
     """Test query_latest finds the correct number of DB entries."""
     date_start = config["exposure_sequence"]["start_date"]
