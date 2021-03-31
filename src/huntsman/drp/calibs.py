@@ -15,7 +15,7 @@ class MasterCalibMaker(HuntsmanBase):
 
     _date_key = "dateObs"
 
-    def __init__(self, exposure_table=None, **kwargs):
+    def __init__(self, exposure_table=None, calib_table=None, **kwargs):
         super().__init__(**kwargs)
 
         self._calib_types = self.config["calibs"]["types"]
@@ -27,7 +27,10 @@ class MasterCalibMaker(HuntsmanBase):
         if exposure_table is None:
             exposure_table = ExposureTable(config=self.config, logger=self.logger)
         self._exposure_table = exposure_table
-        self._calib_table = MasterCalibTable(config=self.config, logger=self.logger)
+
+        if calib_table is None:
+            calib_table = MasterCalibTable(config=self.config, logger=self.logger)
+        self._calib_table = calib_table
 
         # Create threads
         self._stop_threads = False
@@ -37,16 +40,24 @@ class MasterCalibMaker(HuntsmanBase):
 
     @property
     def is_running(self):
+        """ Check if the asynchronous calib processing loop is running.
+        Returns:
+            bool: True if running, else False.
+        """
         return self._calib_thread.is_alive()
 
     # Public methods
 
     def start(self):
+        """ Start the asynchronous calib processing loop. """
         self.logger.info("Starting master calib maker.")
         self._stop_threads = False
         self._calib_thread.start()
 
     def stop(self):
+        """ Stop the asynchronous calib processing loop.
+        Note that this will block until any ongoing processing has finished.
+        """
         self.logger.info("Stopping master calib maker.")
         self._stop_threads = True
         try:
@@ -55,41 +66,27 @@ class MasterCalibMaker(HuntsmanBase):
         except RuntimeError:
             pass
 
-    # Private methods
-
-    def _run(self):
-        """
-        """
-        calib_dates = self._get_unique_dates()
-        self.logger.info(f"Found {len(calib_dates)} unique calib dates.")
-
-        for calib_date in calib_dates:
-            self.logger.info(f"Processing calibs for calib_date={calib_date}.")
-
-            if self._stop_threads:
-                return
-
-            self._process_date(calib_date)
-
-    def _process_date(self, calib_date):
-        """
+    def process_date(self, calib_date):
+        """ Update all master calibs for a given calib date.
+        Args:
+            calib_date (object): The calib date.
         """
         # Get metadata for all raw calibs that are valid for this date
-        raw_docs = self._find_raw_calibs(calib_date=calib_date)
+        raw_data_ids = self._find_raw_calibs(calib_date=calib_date)
 
         # Get a list of all unique calib IDs from the raw calibs
-        calib_ids = self._get_unique_calib_ids(calib_date=calib_date, documents=raw_docs)
+        calib_ids = self._get_unique_calib_ids(calib_date=calib_date, documents=raw_data_ids)
 
         self.logger.info(f"Found {len(calib_ids)} unique calib IDs for calib_date={calib_date}.")
 
         # Figure out which calib IDs need processing
         calib_ids_to_process = []
         for calib_id in calib_ids:
-            if self._should_process(calib_id, raw_docs):
+            if self._should_process(calib_id, raw_data_ids):
                 calib_ids_to_process.append(calib_id)
 
         self.logger.info(f"{len(calib_ids_to_process)} calib IDs require processing for"
-                         f"calib_date={calib_date}.")
+                         f" calib_date={calib_date}.")
 
         if len(calib_ids_to_process) == 0:
             return
@@ -105,12 +102,14 @@ class MasterCalibMaker(HuntsmanBase):
         with TemporaryButlerRepository() as br:
 
             # Ingest raw exposures
-            br.ingest_raw_data([_["filename"] for _ in raw_docs])
+            br.ingest_raw_data([_["filename"] for _ in raw_data_ids])
 
             # Ingest existing master calibs
             for calib_type in self._calib_types:
                 filenames = [c["filename"] for c in calibs_ingest if c["calibType"] == calib_type]
-                br.ingest_master_calibs(calib_type, filenames=filenames, validity=self._validity)
+                if filenames:
+                    br.ingest_master_calibs(calib_type, filenames=filenames,
+                                            validity=self._validity)
 
             # Make and archive the master calibs
             try:
@@ -123,8 +122,29 @@ class MasterCalibMaker(HuntsmanBase):
                 self.logger.warning(f"Unable to create master calib for calib_date={calib_date}:"
                                     f" {err!r}")
 
-    def _should_process(self, calib_id, raw_docs):
-        """
+    # Private methods
+
+    def _run(self):
+        """ Call self.process_date for each unique calib date in the raw exposure table. """
+
+        calib_dates = self._get_unique_dates()
+        self.logger.info(f"Found {len(calib_dates)} unique calib dates.")
+
+        for calib_date in calib_dates:
+            self.logger.info(f"Processing calibs for calib_date={calib_date}.")
+
+            if self._stop_threads:
+                return
+
+            self.process_date(calib_date)
+
+    def _should_process(self, calib_id, raw_data_ids):
+        """ Check if the given calib_id should be processed based on existing raw data.
+        Args:
+            calib_id (CalibId): The calib ID.
+            raw_data_ids (list of DataId): The raw exposure dataIDs.
+        Returns:
+            bool: True if the calib ID requires processing, else False.
         """
         query_result = self._calib_table.find(document_filter=calib_id)
 
@@ -136,7 +156,7 @@ class MasterCalibMaker(HuntsmanBase):
             raise RuntimeError(f"calib_id {calib_id} matched with multiple documents.")
 
         # If there are new files for this calib, return True
-        if any([r["date_modified"] >= query_result["date_modified"] for r in raw_docs]):
+        if any([r["date_modified"] >= query_result["date_modified"] for r in raw_data_ids]):
             return True
 
         return False

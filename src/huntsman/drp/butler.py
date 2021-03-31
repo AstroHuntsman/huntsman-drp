@@ -242,8 +242,8 @@ class ButlerRepository(HuntsmanBase):
             validity = self._calib_validity
         self.logger.info(f"Ingesting {len(filenames)} master {calib_type} calib(s) with validity="
                          f"{validity}.")
-        tasks.ingest_master_calibs(calib_type, filenames, self.butler_dir,
-                                   self.calib_dir, validity=validity)
+        tasks.ingest_master_calibs(calib_type, filenames, self.butler_dir, self.calib_dir,
+                                   validity=validity)
 
     # Making
 
@@ -453,7 +453,8 @@ class ButlerRepository(HuntsmanBase):
         else:
             self.logger.debug(f"No missing {dataset_type} calibs detected.")
 
-    def _make_master_calibs(self, calib_type, calib_date, rerun, ingest=True, **kwargs):
+    def _make_master_calibs(self, calib_type, calib_date, rerun, ingest=True, validity=None,
+                            **kwargs):
         """ Use the LSST stack to create master calibs.
         Args:
             calib_type (str): The dataset type, e.g. bias, flat.
@@ -473,7 +474,7 @@ class ButlerRepository(HuntsmanBase):
                          " frames with.")
 
         # Construct the master calibs
-        self.logger.debug(f"Creating master {calib_type} frames for calibDate={calib_date} with"
+        self.logger.debug(f"Creating master {calib_type} frames for calib_date={calib_date} with"
                           f" data_ids: {data_ids}.")
         tasks.make_master_calibs(calib_type, data_ids, butler=butler, rerun=rerun,
                                  calib_date=calib_date, butler_dir=self.butler_dir,
@@ -486,7 +487,7 @@ class ButlerRepository(HuntsmanBase):
 
         # Ingest the masters into the butler repo
         if ingest:
-            self.ingest_master_calibs(calib_type, filenames)
+            self.ingest_master_calibs(calib_type, filenames, validity=validity)
 
         return filenames
 
