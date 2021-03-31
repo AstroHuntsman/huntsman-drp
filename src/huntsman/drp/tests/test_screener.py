@@ -42,9 +42,6 @@ def test_screener_ingest(tempdir_and_exposure_table_with_uningested_files, confi
             raise RuntimeError("Screener has stopped running.")
 
         for md in exposure_table.find():
-
-            screener.logger.info(f"HELLO {'quality' in md}, {screener.status}")
-
             assert "rawexp" in md["quality"].keys()
 
         for metric_value in md["quality"]["rawexp"].values():
