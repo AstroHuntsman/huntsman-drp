@@ -61,9 +61,6 @@ class DataId(abc.Mapping):
     def update(self, d):
         self._document.update(d)
 
-    def to_dict(self):
-        return self._document.copy()
-
     # Private methods
 
     def _validate_document(self, document):

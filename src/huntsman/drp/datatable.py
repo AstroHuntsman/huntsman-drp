@@ -127,7 +127,7 @@ class DataTable(HuntsmanBase):
             overwrite (bool, optional): If True override any existing document, by default False.
         """
         # Check the required columns exist in the new document
-        document = self._data_id_type(document).to_dict()
+        document = self._data_id_type(document)
 
         # Add date records
         document["date_created"] = current_date()
