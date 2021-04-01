@@ -96,7 +96,7 @@ class CalexpQualityMonitor(HuntsmanBase):
 
     def _refresh_data_ids(self):
         """ Update the set of data IDs that require processing. """
-        data_ids = self._exposure_table.get_data_ids({"dataType": "science"}, screen=True,
+        data_ids = self._exposure_table.find({"dataType": "science"}, screen=True,
                                                      quality_filter=True)
         self._data_ids.update([d for d in data_ids if self._requires_processing(d)])
 

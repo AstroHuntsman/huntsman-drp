@@ -3,6 +3,7 @@ from collections import abc
 from contextlib import suppress
 
 from huntsman.drp.core import get_config
+from huntsman.drp.utils.mongo import encode_mongo_filter
 
 
 class DataId(abc.Mapping):
@@ -13,6 +14,12 @@ class DataId(abc.Mapping):
 
     def __init__(self, document, **kwargs):
         super().__init__()
+
+        if document is None:
+            document = {}
+
+        elif isinstance(document, DataId):
+            document = document._document
 
         # Check all the required information is present
         self._validate_document(document)
@@ -60,6 +67,9 @@ class DataId(abc.Mapping):
 
     def update(self, d):
         self._document.update(d)
+
+    def to_mongo(self):
+        return encode_mongo_filter(self._document)
 
     # Private methods
 

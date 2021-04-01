@@ -1,6 +1,5 @@
 """Code to interface with the Huntsman mongo database."""
 from contextlib import suppress
-from copy import deepcopy
 from datetime import timedelta
 from urllib.parse import quote_plus
 
@@ -11,9 +10,8 @@ from pymongo.errors import ServerSelectionTimeoutError
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date, parse_date
-from huntsman.drp.dataid import RawExposureId, CalibId
-from huntsman.drp.utils.mongo import (encode_mongo_filter, encode_mongo_document, mongo_logical_or,
-                                      mongo_logical_and)
+from huntsman.drp.dataid import DataId, RawExposureId, CalibId
+from huntsman.drp.utils.mongo import encode_mongo_filter, mongo_logical_or, mongo_logical_and
 from huntsman.drp.utils.screening import SCREEN_SUCCESS_FLAG
 
 
@@ -69,12 +67,9 @@ class DataTable(HuntsmanBase):
         Returns:
             result (list): Result of the query.
         """
-        if document_filter is None:
-            document_filter = {}
-        else:
-            document_filter = deepcopy(document_filter)
-            with suppress(KeyError):
-                del document_filter["date_modified"]  # This might change so don't match with it
+        document_filter = DataId(document_filter)
+        with suppress(KeyError):
+            del document_filter["date_modified"]  # This might change so don't match with it
 
         # Add date range to criteria if provided
         date_constraint = {}
@@ -92,7 +87,7 @@ class DataTable(HuntsmanBase):
         if screen:
             document_filter[SCREEN_SUCCESS_FLAG] = True
 
-        mongo_filter = encode_mongo_filter(document_filter)
+        mongo_filter = document_filter.to_mongo()
 
         # Apply quality cuts
         if quality_filter:
@@ -102,13 +97,13 @@ class DataTable(HuntsmanBase):
 
         self.logger.debug(f"Performing mongo find operation with filter: {mongo_filter}.")
 
-        result = list(self._table.find(mongo_filter, {"_id": False}))
-        self.logger.debug(f"Find operation returned {len(result)} results.")
+        documents = list(self._table.find(mongo_filter, {"_id": False}))
+        self.logger.debug(f"Find operation returned {len(documents)} results.")
 
         if key is not None:
-            result = [d[key] for d in result]
+            return [d[key] for d in documents]
 
-        return result
+        return [self._data_id_type(d, config=self.config) for d in documents]
 
     def find_one(self, *args, **kwargs):
         """ Find a single matching document, making sure only one document is matched.
@@ -134,22 +129,22 @@ class DataTable(HuntsmanBase):
         document["date_modified"] = current_date()
 
         # Prepare document for insertion
-        document = encode_mongo_filter(document)
+        mongo_doc = document.to_mongo()
 
         # Check there is at most one match in the table
-        count = self._table.count_documents(document)
+        count = self._table.count_documents(mongo_doc)
         if count == 1:
             if overwrite:
-                self.delete(document)
+                self.delete(mongo_doc)
             else:
-                raise RuntimeError(f"Found existing document for {document} in {self}."
+                raise RuntimeError(f"Found existing document for {mongo_doc} in {self}."
                                    " Pass overwrite=True to overwrite.")
         elif count != 0:
-            raise RuntimeError(f"Multiple matches found for document in {self}: {document}.")
+            raise RuntimeError(f"Multiple matches found for document in {self}: {mongo_doc}.")
 
         # Insert the document
         self.logger.debug(f"Inserting new document into {self}: {document}.")
-        self._table.insert_one(document)
+        self._table.insert_one(mongo_doc)
 
     def update_one(self, document_filter, to_update, upsert=False):
         """ Update a single document in the table.
@@ -161,21 +156,23 @@ class DataTable(HuntsmanBase):
             upsert (bool, optional): If True perform the insert even if no matching documents
                 are found, by default False.
         """
-        document_filter = encode_mongo_filter(document_filter)
+        document_filter = DataId(document_filter)
         with suppress(KeyError):
             del document_filter["date_modified"]  # This might change so don't match with it
 
-        to_update = to_update.copy()
+        to_update = DataId(to_update)
         to_update["date_modified"] = current_date()
-        to_update = encode_mongo_document(to_update)
 
-        count = self._table.count_documents(document_filter)
+        mongo_filter = document_filter.to_mongo()
+        mongo_update = to_update.to_mongo()
+
+        count = self._table.count_documents(mongo_filter)
         if count > 1:
             raise RuntimeError(f"Multiple matches found for document in {self}: {document_filter}.")
         elif (count == 0) and not upsert:
             raise RuntimeError(f"No matches found for document {document_filter} in {self}. Use"
                                " upsert=True to upsert.")
-        self._table.update_one(document_filter, {'$set': to_update}, upsert=upsert)
+        self._table.update_one(document_filter, {'$set': mongo_update}, upsert=upsert)
 
     def delete_one(self, document_filter):
         """Delete one document from the table.
@@ -183,15 +180,16 @@ class DataTable(HuntsmanBase):
             document_filter (dict, optional): A dictionary containing key, value pairs used to
                 identify the document to delete, by default None
         """
-        document_filter = encode_mongo_filter(document_filter)
+        document_filter = DataId(document_filter)
+        mongo_filter = document_filter.to_mongo()
 
-        count = self._table.count_documents(document_filter)
+        count = self._table.count_documents(mongo_filter)
         if count > 1:
             raise RuntimeError(f"Multiple matches found for document in {self}: {document_filter}.")
         elif (count == 0):
             raise RuntimeError(f"No matches found for document in {self}: {document_filter}.")
 
-        self._table.delete_one(document_filter)
+        self._table.delete_one(mongo_filter)
 
     def insert_many(self, documents, **kwargs):
         """Insert a new document into the table.
@@ -208,16 +206,6 @@ class DataTable(HuntsmanBase):
                 table.
         """
         return [self.delete_one(d, **kwargs) for d in documents]
-
-    def get_data_ids(self, *args, **kwargs):
-        """ Return a list of data IDs objects.
-        Args:
-            *args, **kwargs: Parsed to self.find.
-        Returns:
-            list of huntsman.drp.dataid.DataId: The matching data IDs.
-        """
-        documents = self.find(*args, **kwargs)
-        return [self._data_id_type(d, config=self.config) for d in documents]
 
     def find_latest(self, days=0, hours=0, seconds=0, **kwargs):
         """ Convenience function to query the latest files in the db.
