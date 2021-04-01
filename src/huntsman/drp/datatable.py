@@ -10,7 +10,7 @@ from pymongo.errors import ServerSelectionTimeoutError
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date, parse_date
-from huntsman.drp.dataid import DataId, RawExposureId, CalibId
+from huntsman.drp.document import Document, RawExposureDocument, CalibDocument
 from huntsman.drp.utils.mongo import encode_mongo_filter, mongo_logical_or, mongo_logical_and
 from huntsman.drp.utils.screening import SCREEN_SUCCESS_FLAG
 
@@ -65,9 +65,9 @@ class DataTable(HuntsmanBase):
             quality_filter (bool, optional): If True, only return documents that satisfy quality
                 cuts. Default False.
         Returns:
-            result (list): Result of the query.
+            result (list): List of DataIds or key values if key is specified.
         """
-        document_filter = DataId(document_filter)
+        document_filter = Document(document_filter)
         with suppress(KeyError):
             del document_filter["date_modified"]  # This might change so don't match with it
 
@@ -156,11 +156,11 @@ class DataTable(HuntsmanBase):
             upsert (bool, optional): If True perform the insert even if no matching documents
                 are found, by default False.
         """
-        document_filter = DataId(document_filter)
+        document_filter = Document(document_filter)
         with suppress(KeyError):
             del document_filter["date_modified"]  # This might change so don't match with it
 
-        to_update = DataId(to_update)
+        to_update = Document(to_update)
         to_update["date_modified"] = current_date()
 
         mongo_filter = document_filter.to_mongo()
@@ -180,7 +180,7 @@ class DataTable(HuntsmanBase):
             document_filter (dict, optional): A dictionary containing key, value pairs used to
                 identify the document to delete, by default None
         """
-        document_filter = DataId(document_filter)
+        document_filter = Document(document_filter)
         mongo_filter = document_filter.to_mongo()
 
         count = self._table.count_documents(mongo_filter)
@@ -255,7 +255,7 @@ class DataTable(HuntsmanBase):
 class ExposureTable(DataTable):
     """ Table to store metadata for Huntsman exposures. """
 
-    _data_id_type = RawExposureId
+    _data_id_type = RawExposureDocument
 
     def __init__(self, table_name="raw_data", **kwargs):
         super().__init__(table_name=table_name, **kwargs)
@@ -300,7 +300,7 @@ class ExposureTable(DataTable):
 class MasterCalibTable(DataTable):
     """ Table to store metadata for master calibs. """
 
-    _data_id_type = CalibId
+    _data_id_type = CalibDocument
 
     def __init__(self, table_name="master_calib", **kwargs):
         super().__init__(table_name=table_name, **kwargs)
@@ -308,8 +308,7 @@ class MasterCalibTable(DataTable):
         self._calib_types = self.config["calibs"]["types"]
         self._matching_keys = self.config["calibs"]["matching_columns"]
 
-        # Calib validity
-        # TODO: datasetType dependence?
+        # Calib validity TODO: datasetType dependence?
         self._validity = timedelta(days=self.config["calibs"]["validity"])
 
     def get_matching_calibs(self, data_id, calib_date):

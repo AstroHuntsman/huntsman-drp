@@ -7,7 +7,7 @@ from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import date_to_ymd, parse_date
 from huntsman.drp.datatable import ExposureTable, MasterCalibTable
 from huntsman.drp.butler import TemporaryButlerRepository
-from huntsman.drp.dataid import CalibId
+from huntsman.drp.document import CalibDocument
 from huntsman.drp.utils.calib import get_calib_filename
 
 
@@ -141,7 +141,7 @@ class MasterCalibMaker(HuntsmanBase):
     def _should_process(self, calib_id, raw_data_ids):
         """ Check if the given calib_id should be processed based on existing raw data.
         Args:
-            calib_id (CalibId): The calib ID.
+            calib_id (CalibDocument): The calib ID.
             raw_data_ids (list of DataId): The raw exposure dataIDs.
         Returns:
             bool: True if the calib ID requires processing, else False.
@@ -197,7 +197,7 @@ class MasterCalibMaker(HuntsmanBase):
             filename = get_calib_filename(config=self.config, **calib_dict)
             calib_dict["filename"] = filename
 
-            calib_id = CalibId(calib_dict)
+            calib_id = CalibDocument(calib_dict)
             if calib_id not in unique_calib_ids:
                 unique_calib_ids.append(calib_id)
 

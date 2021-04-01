@@ -6,7 +6,7 @@ from huntsman.drp.core import get_config
 from huntsman.drp.utils.mongo import encode_mongo_filter
 
 
-class DataId(abc.Mapping):
+class Document(abc.Mapping):
     """ A dataId behaves like a dictionary but makes it easier to compare between dataIds.
     DataId objects are hashable, whereas dictionaries are not. This allows them to be used in sets.
     """
@@ -18,7 +18,7 @@ class DataId(abc.Mapping):
         if document is None:
             document = {}
 
-        elif isinstance(document, DataId):
+        elif isinstance(document, Document):
             document = document._document
 
         # Check all the required information is present
@@ -46,7 +46,7 @@ class DataId(abc.Mapping):
         del self._document[item]
 
     def __iter__(self):
-        raise NotImplementedError
+        return self._document.__iter__()
 
     def __len__(self):
         return len(self._document)
@@ -63,7 +63,7 @@ class DataId(abc.Mapping):
         return self._document.items()
 
     def keys(self):
-        return self.document.keys()
+        return self._document.keys()
 
     def update(self, d):
         self._document.update(d)
@@ -80,7 +80,7 @@ class DataId(abc.Mapping):
             raise ValueError(f"Document does not contain all required keys: {self._required_keys}.")
 
 
-class RawExposureId(DataId):
+class RawExposureDocument(Document):
 
     _required_keys = ["filename"]
 
@@ -94,7 +94,7 @@ class RawExposureId(DataId):
         super().__init__(document=document, **kwargs)
 
 
-class CalibId(DataId):
+class CalibDocument(Document):
 
     _required_keys = ("calibDate", "datasetType", "filename", "ccd")
 
