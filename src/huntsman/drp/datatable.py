@@ -103,7 +103,8 @@ class DataTable(HuntsmanBase):
         if key is not None:
             return [d[key] for d in documents]
 
-        return [self._data_id_type(d, config=self.config) for d in documents]
+        # Skip validation to speed up - inserted documents should already be valid
+        return [self._data_id_type(d, validate=False, config=self.config) for d in documents]
 
     def find_one(self, *args, **kwargs):
         """ Find a single matching document, making sure only one document is matched.
@@ -294,8 +295,9 @@ class ExposureTable(DataTable):
                 document_filter["dataType"] = data_type
                 filters.append(encode_mongo_filter(document_filter))
 
-            else:
-                filters.append({"dataType": data_type})
+        # Allow data types that do not have any quality requirements in config
+        data_types = list(quality_config.keys())
+        filters.append({"dataType": {"$nin": data_types}})
 
         return mongo_logical_or(filters)
 

@@ -12,7 +12,7 @@ class Document(abc.Mapping):
     """
     _required_keys = tuple()
 
-    def __init__(self, document, **kwargs):
+    def __init__(self, document, validate=True, **kwargs):
         super().__init__()
 
         if document is None:
@@ -22,7 +22,8 @@ class Document(abc.Mapping):
             document = document._document
 
         # Check all the required information is present
-        self._validate_document(document)
+        if validate:
+            self._validate_document(document)
 
         self._document = document.copy()
 
