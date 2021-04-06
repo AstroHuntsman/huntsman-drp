@@ -94,14 +94,17 @@ refcat:
 quality:
   raw:
     science:
-       has_wcs: true
+      get_wcs:
+        has_wcs: true
     flat:
       quality:
         rawexp:
-          flip_asymm_h:
-            less_than: 100
-          flip_asymm_v:
-            less_than: 60
-          well_fullfrac:
-            greater_than: 0.13
-            less_than: 0.19
+          flipped_asymmetry:
+            flip_asymm_h:
+              less_than: 100
+            flip_asymm_v:
+              less_than: 60
+          clipped_stats:
+            well_fullfrac:
+              greater_than: 0.13
+              less_than: 0.19
