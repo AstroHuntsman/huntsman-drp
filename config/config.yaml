@@ -94,8 +94,10 @@ refcat:
 quality:
   raw:
     science:
-      get_wcs:
-        has_wcs: true
+      quality:
+        rawexp:
+          get_wcs:
+            has_wcs: true
     flat:
       quality:
         rawexp:
