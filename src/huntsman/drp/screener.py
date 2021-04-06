@@ -319,6 +319,6 @@ class Screener(HuntsmanBase):
 
         for metric in self._raw_metrics:
             func = load_module(f"huntsman.drp.quality.metrics.rawexp.{metric}")
-            result[metric] = func(filename, data=data, header=header)
+            result.update(func(filename, data=data, header=header))
 
         return result
