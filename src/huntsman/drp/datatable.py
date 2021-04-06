@@ -294,6 +294,9 @@ class ExposureTable(DataTable):
                 document_filter["dataType"] = data_type
                 filters.append(encode_mongo_filter(document_filter))
 
+            else:
+                filters.append({"dataType": data_type})
+
         return mongo_logical_or(filters)
 
 
