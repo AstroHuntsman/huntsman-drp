@@ -181,7 +181,7 @@ class DataTable(HuntsmanBase):
             document_filter (dict, optional): A dictionary containing key, value pairs used to
                 identify the document to delete, by default None
         """
-        document_filter = Document(document_filter)
+        document_filter = Document(document_filter, validate=False)
         mongo_filter = document_filter.to_mongo()
 
         count = self._table.count_documents(mongo_filter)
@@ -198,7 +198,8 @@ class DataTable(HuntsmanBase):
             documents (list): List of dictionaries that specify documents to be inserted in the
                 table.
         """
-        return [self.insert_one(d, **kwargs) for d in documents]
+        for d in documents:
+            self.insert_one(d, **kwargs)
 
     def delete_many(self, documents, **kwargs):
         """ Delete one document from the table.
@@ -206,7 +207,8 @@ class DataTable(HuntsmanBase):
             documents (list): List of dictionaries that specify documents to be deleted from the
                 table.
         """
-        return [self.delete_one(d, **kwargs) for d in documents]
+        for d in documents:
+            self.delete_one(d, **kwargs)
 
     def find_latest(self, days=0, hours=0, seconds=0, **kwargs):
         """ Convenience function to query the latest files in the db.

@@ -108,7 +108,7 @@ def exposure_table_real_data(config, fits_header_translator):
     exposure_table.delete_many(all_metadata)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def master_calib_table_real_data(exposure_table_real_data, config):
     """ Make a master calib table by reducing real calib data.
     TODO: Store created files so they can be copied in for quicker tests.
