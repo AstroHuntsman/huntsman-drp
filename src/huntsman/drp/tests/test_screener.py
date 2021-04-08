@@ -2,7 +2,7 @@ import os
 import time
 
 from huntsman.drp.screener import Screener
-from huntsman.drp.utils.screening import SCREEN_SUCCESS_FLAG
+from huntsman.drp.utils.screening import SCREEN_SUCCESS_FLAG, screen_success
 
 
 def test_screener_ingest(tempdir_and_exposure_table_with_uningested_files, config):
@@ -58,5 +58,5 @@ def test_screener_ingest(tempdir_and_exposure_table_with_uningested_files, confi
         assert screener.status['screened'] == n_to_screen
         # check that exposure_table entries have been screen successfully
         for md in exposure_table.find():
-            assert md['quality']['screen_success']
+            assert screen_success(md)
         # TODO: implement a check that all the expected metric keys are present in table

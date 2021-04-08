@@ -10,7 +10,7 @@ class Document(abc.Mapping):
     """ A dataId behaves like a dictionary but makes it easier to compare between dataIds.
     DataId objects are hashable, whereas dictionaries are not. This allows them to be used in sets.
     """
-    _required_keys = None
+    _required_keys = tuple()
 
     def __init__(self, document, validate=True, copy=False, **kwargs):
         super().__init__()

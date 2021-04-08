@@ -54,14 +54,14 @@ def get_wcs(filename, timeout=60, downsample=4, radius=5, *args):
     return {"has_wcs": wcs.has_celestial}
 
 
-def clipped_stats(filename, data, file_info):
+def clipped_stats(filename, data, header):
     """Return sigma-clipped image statistics.
 
     Parameters
     ----------
     data : array
         Image data as stored as an array.
-    file_info : dict
+    header : dict
         Dictionary containing image metadata
 
     Returns
@@ -72,7 +72,7 @@ def clipped_stats(filename, data, file_info):
     mean, median, stdev = stats.sigma_clipped_stats(data)
 
     # Calculate the well fullness fraction using clipped median
-    bit_depth = file_info["BITDEPTH"]
+    bit_depth = header["BITDEPTH"]
     saturate = 2**bit_depth - 1
     well_fullfrac = median / saturate
 
@@ -80,14 +80,14 @@ def clipped_stats(filename, data, file_info):
             "well_fullfrac": well_fullfrac}
 
 
-def flipped_asymmetry(filename, data, file_info):
+def flipped_asymmetry(filename, data, header):
     """Calculate the asymmetry statistics by flipping data in x and y directions.
 
     Parameters
     ----------
     data : array
         Image data as stored as an array.
-    file_info : dict
+    header : dict
         Dictionary containing image metadata
 
     Returns
