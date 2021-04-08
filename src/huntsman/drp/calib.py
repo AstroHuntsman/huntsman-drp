@@ -4,6 +4,8 @@ import time
 import datetime
 from threading import Thread
 
+from panoptes.utils.time import CountdownTimer
+
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import date_to_ymd, parse_date
 from huntsman.drp.datatable import ExposureTable, MasterCalibTable
@@ -144,7 +146,11 @@ class MasterCalibMaker(HuntsmanBase):
                 self.process_date(calib_date)
 
             self.logger.info(f"Finished processing calib dates. Sleeping for {sleep} seconds.")
-            time.sleep(sleep)
+            timer = CountdownTimer(duration=sleep)
+            while not timer.is_expired():
+                if self._stop_threads:
+                    return
+                time.sleep(1)
 
     def _should_process(self, calib_id, raw_data_ids):
         """ Check if the given calib_id should be processed based on existing raw data.

@@ -19,7 +19,8 @@ def config():
     # Hack around so files pass screening and quality cuts
     # TODO: Move to testing config
     for k in ("bias", "dark", "flat", "science"):
-        config["quality"]["raw"][k] = {}
+        if k in config["quality"]["raw"]:
+            del config["quality"]["raw"][k]
 
     return config
 
@@ -107,14 +108,11 @@ def exposure_table_real_data(config, fits_header_translator):
     exposure_table.delete_many(all_metadata)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def master_calib_table_real_data(exposure_table_real_data, config):
     """ Make a master calib table by reducing real calib data.
     TODO: Store created files so they can be copied in for quicker tests.
     """
-    for k in ("bias", "dark", "flat", "science"):
-        exposure_table_real_data.config["quality"]["raw"][k] = {}
-
     calib_maker = MasterCalibMaker(exposure_table=exposure_table_real_data, config=config)
     calib_maker.logger.info("Creating master calibs for tests.")
 

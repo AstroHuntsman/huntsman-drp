@@ -22,7 +22,7 @@ class DataTable(HuntsmanBase):
     _unique_columns = "filename",  # Required to identify a unique document
 
     def __init__(self, table_name, **kwargs):
-        HuntsmanBase.__init__(self, **kwargs)
+        super().__init__(**kwargs)
 
         self._date_key = self.config["mongodb"]["date_key"]
         self._table_name = table_name
@@ -290,7 +290,7 @@ class ExposureTable(DataTable):
         filters = []
         for data_type, document_filter in quality_config.items():
 
-            if document_filter:
+            if document_filter is not None:
                 # Create a new document filter for this data type
                 document_filter["dataType"] = data_type
                 filters.append(encode_mongo_filter(document_filter))

@@ -33,6 +33,7 @@ def exposure_table_lite(tmp_path_factory, config_lite, fits_header_translator):
 
     # Populate the database
     exposure_table = ExposureTable(config=config_lite, table_name="fake_data_lite")
+
     for filename, header in expseq.header_dict.items():
 
         # Parse the header
