@@ -119,10 +119,14 @@ class MasterCalibMaker(HuntsmanBase):
                 self.logger.info(f"Making master calibs for calib_date={calib_date}.")
                 br.make_master_calibs(skip_bias=skip_bias, skip_dark=skip_dark,
                                       calib_date=calib_date)
-                br.archive_master_calibs()
-
             except Exception as err:
-                self.logger.warning(f"Unable to create master calib for calib_date={calib_date}:"
+                self.logger.warning(f"Problem making master calib for calib_date={calib_date}:"
+                                    f" {err!r}")
+            try:
+                self.logger.info(f"Archiving master calibs for calib_date={calib_date}.")
+                br.archive_master_calibs()
+            except Exception as err:
+                self.logger.warning(f"Unable to archive master calibs for calib_date={calib_date}:"
                                     f" {err!r}")
 
     # Private methods
