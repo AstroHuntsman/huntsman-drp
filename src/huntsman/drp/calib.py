@@ -8,7 +8,7 @@ from panoptes.utils.time import CountdownTimer
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import date_to_ymd, parse_date
-from huntsman.drp.datatable import ExposureTable, MasterCalibTable
+from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
 from huntsman.drp.butler import TemporaryButlerRepository
 from huntsman.drp.document import CalibDocument
 from huntsman.drp.utils.calib import get_calib_filename
@@ -28,11 +28,11 @@ class MasterCalibMaker(HuntsmanBase):
 
         # Create datatable objects
         if exposure_table is None:
-            exposure_table = ExposureTable(config=self.config, logger=self.logger)
+            exposure_table = RawExposureCollection(config=self.config, logger=self.logger)
         self._exposure_table = exposure_table
 
         if calib_table is None:
-            calib_table = MasterCalibTable(config=self.config, logger=self.logger)
+            calib_table = MasterCalibCollection(config=self.config, logger=self.logger)
         self._calib_table = calib_table
 
         # Create threads
@@ -147,7 +147,7 @@ class MasterCalibMaker(HuntsmanBase):
 
             self.logger.info(f"Finished processing calib dates. Sleeping for {sleep} seconds.")
             timer = CountdownTimer(duration=sleep)
-            while not timer.is_expired():
+            while not timer.expired():
                 if self._stop_threads:
                     return
                 time.sleep(1)

@@ -8,10 +8,10 @@ from threading import Thread
 from astropy.time import Time
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.datatable import ExposureTable
+from huntsman.drp.collection import RawExposureCollection
 from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header, read_fits_data
 from huntsman.drp.utils.library import load_module
-from huntsman.drp.quality.metrics.rawexp import RAW_METRICS
+from huntsman.drp.quality.metrics.raw import RAW_METRICS
 from huntsman.drp.utils.screening import screen_success, SCREEN_SUCCESS_FLAG, list_fits_files_recursive
 
 
@@ -37,7 +37,7 @@ class Screener(HuntsmanBase):
         self._raw_metrics = deepcopy(RAW_METRICS)
 
         if exposure_table is None:
-            exposure_table = ExposureTable(config=self.config, logger=self.logger)
+            exposure_table = RawExposureCollection(config=self.config, logger=self.logger)
         self._table = exposure_table
 
         self._sleep_interval = sleep_interval
@@ -318,7 +318,7 @@ class Screener(HuntsmanBase):
         data = read_fits_data(filename)  # Returns float array
 
         for metric in self._raw_metrics:
-            func = load_module(f"huntsman.drp.quality.metrics.rawexp.{metric}")
+            func = load_module(f"huntsman.drp.quality.metrics.raw.{metric}")
             result.update(func(filename, data=data, header=header))
 
         return result

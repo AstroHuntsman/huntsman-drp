@@ -1,7 +1,7 @@
 import os
 
 from huntsman.drp.utils.date import current_date
-from huntsman.drp.datatable import MasterCalibTable
+from huntsman.drp.collection import MasterCalibCollection
 from huntsman.drp.utils.testing import create_test_bulter_repository
 
 
@@ -119,7 +119,7 @@ def test_make_master_calibs(exposure_table, temp_butler_repo, config):
         assert len(ccds) == test_config["n_cameras"]
 
         # Check the calibs in the archive
-        master_calib_table = MasterCalibTable(config=config)
+        master_calib_table = MasterCalibCollection(config=config)
         calib_metadata = master_calib_table.find()
         filenames = [c["filename"] for c in calib_metadata]
         datasettypes = [c["datasetType"] for c in calib_metadata]

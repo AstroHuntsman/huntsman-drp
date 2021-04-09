@@ -9,7 +9,7 @@ from lsst.daf.persistence.policy import Policy
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.lsst import tasks
-from huntsman.drp.datatable import MasterCalibTable
+from huntsman.drp.collection import MasterCalibCollection
 from huntsman.drp.refcat import TapReferenceCatalogue
 from huntsman.drp.utils.date import date_to_ymd, current_date_ymd
 import huntsman.drp.lsst.utils.butler as utils
@@ -374,7 +374,7 @@ class ButlerRepository(HuntsmanBase):
         """ Copy the master calibs from this Butler repository into the calib archive directory
         and insert the metadata into the master calib metadatabase.
         """
-        calib_datatable = MasterCalibTable(config=self.config, logger=self.logger)
+        calib_datatable = MasterCalibCollection(config=self.config, logger=self.logger)
 
         for calib_type in self.config["calibs"]["types"]:
 

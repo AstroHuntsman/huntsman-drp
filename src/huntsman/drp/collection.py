@@ -15,7 +15,7 @@ from huntsman.drp.utils.mongo import encode_mongo_filter, mongo_logical_or, mong
 from huntsman.drp.utils.screening import SCREEN_SUCCESS_FLAG
 
 
-class DataTable(HuntsmanBase):
+class Collection(HuntsmanBase):
     """ This class is used to interface with the mongodb. It is responsible for performing queries
     and inserting/updating/deleting documents, as well as validating new documents.
     """
@@ -255,7 +255,7 @@ class DataTable(HuntsmanBase):
         raise NotImplementedError
 
 
-class ExposureTable(DataTable):
+class RawExposureCollection(Collection):
     """ Table to store metadata for Huntsman exposures. """
 
     _data_id_type = RawExposureDocument
@@ -304,7 +304,7 @@ class ExposureTable(DataTable):
         return mongo_logical_or(filters)
 
 
-class MasterCalibTable(DataTable):
+class MasterCalibCollection(Collection):
     """ Table to store metadata for master calibs. """
 
     _data_id_type = CalibDocument
