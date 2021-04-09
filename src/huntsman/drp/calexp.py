@@ -4,7 +4,7 @@ from threading import Thread
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.library import load_module
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
-from huntsman.drp.butler import TemporaryButlerRepository
+from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.quality.metrics.calexp import METRICS
 
 

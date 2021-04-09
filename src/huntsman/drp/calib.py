@@ -9,7 +9,7 @@ from panoptes.utils.time import CountdownTimer
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import date_to_ymd, parse_date
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
-from huntsman.drp.butler import TemporaryButlerRepository
+from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.document import CalibDocument
 from huntsman.drp.utils.calib import get_calib_filename
 

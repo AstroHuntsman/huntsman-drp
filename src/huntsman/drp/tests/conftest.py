@@ -4,7 +4,7 @@ from huntsman.drp.core import get_config
 from huntsman.drp.fitsutil import FitsHeaderTranslator
 from huntsman.drp.collection import RawExposureCollection
 from huntsman.drp.refcat import TapReferenceCatalogue
-from huntsman.drp.butler import ButlerRepository, TemporaryButlerRepository
+from huntsman.drp.lsst.butler import ButlerRepository, TemporaryButlerRepository
 from huntsman.drp.utils import testing
 from huntsman.drp.calib import MasterCalibMaker
 

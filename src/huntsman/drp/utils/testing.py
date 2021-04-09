@@ -6,7 +6,7 @@ from astropy.io import fits
 from astropy import units as u
 
 from huntsman.drp.core import get_config
-from huntsman.drp.butler import ButlerRepository
+from huntsman.drp.lsst.butler import ButlerRepository
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import parse_date
 from huntsman.drp.collection import RawExposureCollection
