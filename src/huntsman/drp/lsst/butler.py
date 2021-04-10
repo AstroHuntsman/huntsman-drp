@@ -25,7 +25,7 @@ class ButlerRepository(HuntsmanBase):
     _ra_key = "RA-MNT"
     _dec_key = "DEC-MNT"  # TODO: Move to config
 
-    def __init__(self, directory, calib_dir=None, initialise=True, **kwargs):
+    def __init__(self, directory, calib_dir=None, initialise=True, calib_table=None, **kwargs):
         super().__init__(**kwargs)
 
         if directory is not None:
@@ -42,6 +42,10 @@ class ButlerRepository(HuntsmanBase):
             self._refcat_filename = None
         else:
             self._refcat_filename = os.path.join(self.butler_dir, "refcat_raw", "refcat_raw.csv")
+
+        if calib_table is None:
+            calib_table = MasterCalibCollection(config=self.config, logger=self.logger)
+        self._calib_table = calib_table
 
         # Load the policy file
         self._policy = Policy(self._policy_filename)
@@ -238,8 +242,13 @@ class ButlerRepository(HuntsmanBase):
             filenames (list of str): The files to ingest.
             validity (int, optional): How many days the calibs remain valid for. Default 1000.
         """
+        if len(filenames) == 0:
+            self.logger.debug(f"No master {calib_type} files to ingest.")
+            return
+
         if validity is None:
             validity = self._calib_validity
+
         self.logger.info(f"Ingesting {len(filenames)} master {calib_type} calib(s) with validity="
                          f"{validity}.")
         tasks.ingest_master_calibs(calib_type, filenames, self.butler_dir, self.calib_dir,
@@ -374,8 +383,6 @@ class ButlerRepository(HuntsmanBase):
         """ Copy the master calibs from this Butler repository into the calib archive directory
         and insert the metadata into the master calib metadatabase.
         """
-        calib_datatable = MasterCalibCollection(config=self.config, logger=self.logger)
-
         for calib_type in self.config["calibs"]["types"]:
 
             # Retrieve filenames and data_ids for all files of this type
@@ -396,7 +403,7 @@ class ButlerRepository(HuntsmanBase):
                 shutil.copy(filename, archived_filename)
 
                 # Insert the metadata into the calib database
-                calib_datatable.insert_one(metadata, overwrite=True)
+                self._calib_table.insert_one(metadata, overwrite=True)
 
     # Private methods
 
