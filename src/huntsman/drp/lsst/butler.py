@@ -389,6 +389,8 @@ class ButlerRepository(HuntsmanBase):
             data_ids, filenames = utils.get_files_of_type(f"calibrations.{calib_type}",
                                                           directory=self.calib_dir,
                                                           policy=self._policy)
+            self.logger.info(f"Archiving {len(filenames)} master {calib_type} files.")
+
             for metadata, filename in zip(data_ids, filenames):
 
                 metadata["datasetType"] = calib_type
