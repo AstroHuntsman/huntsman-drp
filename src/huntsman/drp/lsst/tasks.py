@@ -122,7 +122,7 @@ def ingest_master_calibs(datasetType, filenames, butler_dir, calib_dir, validity
 
 
 def make_master_calibs(datasetType, data_ids, calib_date, butler, butler_dir, calib_dir,
-                       rerun, nodes=1, procs=1):
+                       rerun, nodes=1, procs=1, logger=None):
     """Use constructBias.py to construct master bias frames for the data_ids. The master calibs are
     produced for each unique calibId obtainable from the list of dataIds.
 
@@ -149,6 +149,9 @@ def make_master_calibs(datasetType, data_ids, calib_date, butler, butler_dir, ca
         The number of processes to use per node, by default 1.
 
     """
+    if logger is None:
+        logger = get_logger()
+
     calib_date = date_to_ymd(calib_date)
 
     # We currently have to provide the config explicitly
@@ -181,7 +184,10 @@ def make_master_calibs(datasetType, data_ids, calib_date, butler, butler_dir, ca
         cmd += " --calibId " + " ".join([f"{k}={v}" for k, v in calib_id.items()])
 
         # Run the LSST command
-        run_command(cmd)
+        try:
+            run_command(cmd)
+        except Exception as err:
+            logger.error(f"Problem creating master {datasetType} for {calib_id}: {err!r}")
 
 
 def make_calexps(data_ids, rerun, butler_dir, calib_dir, no_exit=True, procs=1,

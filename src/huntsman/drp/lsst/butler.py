@@ -478,7 +478,7 @@ class ButlerRepository(HuntsmanBase):
                           f" data_ids: {data_ids}.")
         tasks.make_master_calibs(calib_type, data_ids, butler=butler, rerun=rerun,
                                  calib_date=calib_date, butler_dir=self.butler_dir,
-                                 calib_dir=self.calib_dir, **kwargs)
+                                 calib_dir=self.calib_dir, logger=self.logger, **kwargs)
 
         # Get filenames of the master calibs
         calib_dir = os.path.join(self.butler_dir, "rerun", rerun)
