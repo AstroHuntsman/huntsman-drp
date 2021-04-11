@@ -107,13 +107,17 @@ class Collection(HuntsmanBase):
         return [self._data_id_type(d, validate=False, config=self.config) for d in documents]
 
     def find_one(self, *args, **kwargs):
-        """ Find a single matching document, making sure only one document is matched.
+        """ Find a single matching document. If multiple matches, raise a RuntimeError.
+        Args:
+            *args, **kwargs: Parsed to self.find.
+        Returns:
+            Document or None: If there is a match return the document, else None.
         """
         documents = self.find(*args, **kwargs)
+        if not documents:
+            return None
         if len(documents) > 1:
             raise RuntimeError("Matched with more than one document.")
-        elif len(documents) == 0:
-            raise RuntimeError("No matching documents.")
         return documents[0]
 
     def insert_one(self, document, overwrite=False):

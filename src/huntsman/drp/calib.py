@@ -164,7 +164,7 @@ class MasterCalibMaker(HuntsmanBase):
         Returns:
             bool: True if the calib ID requires processing, else False.
         """
-        query_result = self._calib_table.find(document_filter=calib_id)
+        query_result = self._calib_table.find_one(document_filter=calib_id)
 
         # If the calib does not already exist, return True
         if not query_result:
@@ -186,11 +186,19 @@ class MasterCalibMaker(HuntsmanBase):
         date_start = parsed_date - self._validity
         date_end = parsed_date + self._validity
 
-        result = self._exposure_table.find(date_start=date_start, date_end=date_end, screen=True,
-                                           quality_filter=True)
-        self.logger.info(f"Found {len(result)} raw calibs for calib_date={calib_date}.")
+        docs = []
+        for calib_type in self._calib_types:
 
-        return result
+            docs_of_type = self._exposure_table.find(
+                {"dataType": calib_type}, date_start=date_start, date_end=date_end, screen=True,
+                quality_filter=True)
+
+            self.logger.info(f"Found {len(docs_of_type)} raw {calib_type} calibs for"
+                             f" calib_date={calib_date}.")
+
+            docs.extend(docs_of_type)
+
+        return docs
 
     def _get_unique_calib_ids(self, calib_date, documents):
         """
