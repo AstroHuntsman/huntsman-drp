@@ -1,4 +1,7 @@
-""" Continually produce, update and archive master calibs. """
+""" Continually produce, update and archive master calibs.
+
+TODO: Think about having separate threads for bias, darks and flats.
+"""
 import os
 import time
 import datetime
@@ -107,21 +110,31 @@ class MasterCalibMaker(HuntsmanBase):
             # Ingest raw exposures
             br.ingest_raw_data([_["filename"] for _ in raw_data_ids])
 
-            # Ingest existing master calibs
+            # Ingest any existing master calibs
             for calib_type in self._calib_types:
+
                 filenames = [c["filename"] for c in calibs_ingest if c["calibType"] == calib_type]
+
                 if filenames:
                     br.ingest_master_calibs(calib_type, filenames=filenames,
                                             validity=self._validity)
 
-            # Make and archive the master calibs
-            try:
-                self.logger.info(f"Making master calibs for calib_date={calib_date}.")
-                br.make_master_calibs(skip_bias=skip_bias, skip_dark=skip_dark,
-                                      calib_date=calib_date)
-            except Exception as err:
-                self.logger.warning(f"Problem making master calib for calib_date={calib_date}:"
-                                    f" {err!r}")
+                # If there are no bias frames available then we can't do anything
+                elif calib_type == "bias" and skip_bias:
+                    self.logger.warning(f"No bias frames available for {calib_date}. Skipping.")
+                    return
+
+                elif skip_bias and skip_dark and calib_type == "dark":
+                    self.logger.warning(f"No dark frames available for {calib_date} and no bias"
+                                        " frames to be made. Skipping.")
+                    return
+
+            # Make master calibs without raising errors
+            self.logger.info(f"Making master calibs for calib_date={calib_date}.")
+            br.make_master_calibs(skip_bias=skip_bias, skip_dark=skip_dark, calib_date=calib_date,
+                                  raise_error=False)
+
+            # Archive the master calibs
             try:
                 self.logger.info(f"Archiving master calibs for calib_date={calib_date}.")
                 br.archive_master_calibs()

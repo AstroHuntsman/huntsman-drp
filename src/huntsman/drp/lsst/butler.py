@@ -257,7 +257,7 @@ class ButlerRepository(HuntsmanBase):
     # Making
 
     def make_master_calibs(self, calib_date=None, rerun="default", skip_bias=False,
-                           skip_dark=False, **kwargs):
+                           skip_dark=False, raise_error=True, **kwargs):
         """ Make master calibs from ingested raw calib data.
         Args:
             calib_date (object, optional): The calib date to assign to the master calibs. If None
@@ -265,6 +265,8 @@ class ButlerRepository(HuntsmanBase):
             rerun (str, optional): The name of the rerun. If None (default), use default rerun.
             skip_bias (bool, optional): Skip creation of master biases? Default False.
             skip_dark (bool, optional): Skip creation of master darks? Default False.
+            raise_error (bool, optional): If True (default), raise an error if master calib
+                verification fails. Else, log the error message and continue.
         """
         if calib_date is None:
             calib_date = current_date_ymd()
@@ -272,13 +274,24 @@ class ButlerRepository(HuntsmanBase):
             calib_date = date_to_ymd(calib_date)
 
         for calib_type in ("bias", "dark", "flat"):
+
             if skip_bias and calib_type == "bias":
                 continue
             if skip_dark and calib_type == "dark":
                 continue
+
             self.logger.info(f"Creating master {calib_type} frames for calib_date={calib_date}.")
-            self._make_master_calibs(calib_type, calib_date=calib_date, rerun=rerun, **kwargs)
-            self._verify_master_calibs(calib_type)
+
+            try:
+                self._make_master_calibs(calib_type, calib_date=calib_date, rerun=rerun, **kwargs)
+                self._verify_master_calibs(calib_type, raise_error=raise_error)
+
+            except Exception as err:
+                msg = (f"Problem making master {calib_type} frames for calibDate={calib_date}:"
+                       f" {err!r}")
+                self.logger.error(msg)
+                if raise_error:
+                    raise err
 
     def make_reference_catalogue(self, ingest=True, **kwargs):
         """ Make the reference catalogue for the ingested science frames.
@@ -420,14 +433,12 @@ class ButlerRepository(HuntsmanBase):
             with open(filename_mapper, "w") as f:
                 f.write(self._mapper)
 
-    def _verify_master_calibs(self, dataset_type, raise_error=True):
+    def _verify_master_calibs(self, dataset_type):
         """ Check that the correct number of master calibs have been created following a call
         to make_master_calibs. This function compares the set of calibIds that should be ingested
         (using ingested raw calibs) to the calibIds that actually exist and are ingested.
         Args:
             dataset_type (str): The dataset type. Should be a valid calib dataset type (e.g. bias).
-            raise_error (bool, optional): If True (default), an error will be raised if there
-                are missing calibIds. Else, a warning is generated.
         """
         butler = self.get_butler()  # Use root butler
 
@@ -454,11 +465,7 @@ class ButlerRepository(HuntsmanBase):
         # Handle result
         if len(missing_ids) > 0:
             msg = f"{len(missing_ids)} missing master {dataset_type} calibs: {missing_ids}."
-            if raise_error:
-                self.logger.error(msg)
-                raise FileNotFoundError(msg)
-            else:
-                self.logger.warning(msg)
+            raise FileNotFoundError(msg)
         else:
             self.logger.debug(f"No missing {dataset_type} calibs detected.")
 
