@@ -73,7 +73,13 @@ class Document(abc.Mapping):
         self._document.update(d)
 
     def to_mongo(self):
+        """ Get the full mongo filter for the document """
         return encode_mongo_filter(self._document)
+
+    def get_mongo_id(self):
+        """ Get the unique mongo ID for the document """
+        doc = {k: self[k] for k in self._required_keys}
+        return encode_mongo_filter(doc)
 
     # Private methods
 

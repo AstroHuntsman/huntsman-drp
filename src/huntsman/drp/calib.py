@@ -1,6 +1,6 @@
 """ Continually produce, update and archive master calibs.
 
-TODO: Think about having separate threads for bias, darks and flats.
+TODO: Think about having separating processing for bias, darks and flats. Might make things cleaner.
 """
 import os
 import time
@@ -77,28 +77,24 @@ class MasterCalibMaker(HuntsmanBase):
         Args:
             calib_date (object): The calib date.
         """
+        identifier = f"calib_date={calib_date}"
+
         # Get metadata for all raw calibs that are valid for this date
         raw_data_ids = self._find_raw_calibs(calib_date=calib_date)
 
         # Get a list of all unique calib IDs from the raw calibs
-        calib_ids = self._get_unique_calib_ids(calib_date=calib_date, documents=raw_data_ids)
-
-        self.logger.info(f"Found {len(calib_ids)} unique calib IDs for calib_date={calib_date}.")
+        calib_ids_all = self._get_unique_calib_ids(calib_date=calib_date, documents=raw_data_ids)
+        self.logger.info(f"Found {len(calib_ids_all)} unique calib IDs for {identifier}.")
 
         # Figure out which calib IDs need processing
-        calib_ids_to_process = []
-        for calib_id in calib_ids:
-            if self._should_process(calib_id, raw_data_ids):
-                calib_ids_to_process.append(calib_id)
+        calib_ids = [c for c in calib_ids_all if self._should_process(c, raw_data_ids)]
+        self.logger.info(f"{len(calib_ids)} calib IDs require processing for {identifier}.")
 
-        self.logger.info(f"{len(calib_ids_to_process)} calib IDs require processing for"
-                         f" calib_date={calib_date}.")
-
-        if len(calib_ids_to_process) == 0:
+        if len(calib_ids) == 0:
             return
 
         calibs_existing = [c for c in calib_ids if os.path.isfile(c["filename"])]
-        calibs_ingest = [c for c in calibs_existing if c not in calib_ids_to_process]
+        calibs_ingest = [c for c in calibs_existing if c not in calib_ids]
 
         # Figure out if we can skip any of the calibs
         skip_bias = not any([_["datasetType"] == "bias" for _ in calib_ids])

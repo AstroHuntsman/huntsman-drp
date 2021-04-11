@@ -284,7 +284,7 @@ class ButlerRepository(HuntsmanBase):
 
             try:
                 self._make_master_calibs(calib_type, calib_date=calib_date, rerun=rerun, **kwargs)
-                self._verify_master_calibs(calib_type, raise_error=raise_error)
+                self._verify_master_calibs(calib_type)
 
             except Exception as err:
                 msg = (f"Problem making master {calib_type} frames for calibDate={calib_date}:"
@@ -412,7 +412,7 @@ class ButlerRepository(HuntsmanBase):
                 archived_filename = get_calib_filename(config=self.config, **metadata)
                 metadata["filename"] = archived_filename
 
-                # Copy the file into the calib archive
+                # Copy the file into the calib archive, overwriting if necessary
                 self.logger.debug(f"Copying {filename} to {archived_filename}.")
                 os.makedirs(os.path.dirname(archived_filename), exist_ok=True)
                 shutil.copy(filename, archived_filename)

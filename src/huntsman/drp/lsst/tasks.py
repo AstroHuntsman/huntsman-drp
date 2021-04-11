@@ -22,22 +22,26 @@ MASTER_CALIB_SCRIPTS = {"bias": "constructBias.py",
 
 
 def run_command(cmd, logger=None):
-    """Run an LSST commandline task.
-
-    Parameters
-    ----------
-    cmd : str
-        The LSST commandline task to run in a subprocess.
-
-    Returns
-    -------
-    [subprocess.CompletedProcess]
-        Returns a CompletedProcess instance which has returncode, stdout and stderr attributes
+    """Run an LSST command line task.
+    Args:
+        cmd (str): The LSST commandline task to run in a subprocess.
+    Returns:
+        subprocess.CompletedProcess: The result of the command.
     """
     if logger is None:
         logger = get_logger()
     logger.debug(f"Running LSST command in subprocess: {cmd}")
-    return subprocess.run(cmd, shell=True, check=True)
+
+    result = subprocess.run(cmd, shell=True, check=False, capture_output=True)
+
+    for pipe in (result.stdout, result.stderr):
+        for line in iter(pipe.readline, b''):
+            logger.debug(line)
+
+    if result.returncode != 0:
+        raise RuntimeError(f"Error calling subcommand {cmd}: {result.stderr!r}")
+
+    return result
 
 
 def ingest_raw_data(filenames, butler_dir, mode="link", ignore_ingested=True):

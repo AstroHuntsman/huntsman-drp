@@ -128,24 +128,21 @@ class Collection(HuntsmanBase):
         """
         # Check the required columns exist in the new document
         document = self._data_id_type(document)
-
-        # Add date records
-        document["date_created"] = current_date()
-        document["date_modified"] = current_date()
-
-        # Prepare document for insertion
-        mongo_doc = document.to_mongo()
+        document_id = document.get_mongo_id()
 
         # Check there is at most one match in the table
-        count = self._table.count_documents(mongo_doc)
-        if count == 1:
+        if self.find_one(document_filter=document_id) is not None:
             if overwrite:
-                self.delete(mongo_doc)
+                self.update_one(document_id, to_update=document)
+                return
             else:
-                raise RuntimeError(f"Found existing document for {mongo_doc} in {self}."
+                raise RuntimeError(f"Document {document} already exists in {self}."
                                    " Pass overwrite=True to overwrite.")
-        elif count != 0:
-            raise RuntimeError(f"Multiple matches found for document in {self}: {mongo_doc}.")
+
+        # Prepare document to insert
+        document["date_created"] = current_date()
+        document["date_modified"] = current_date()
+        mongo_doc = document.to_mongo()
 
         # Insert the document
         self.logger.debug(f"Inserting new document into {self}: {document}.")
@@ -174,9 +171,11 @@ class Collection(HuntsmanBase):
         count = self._table.count_documents(mongo_filter)
         if count > 1:
             raise RuntimeError(f"Multiple matches found for document in {self}: {document_filter}.")
+
         elif (count == 0) and not upsert:
             raise RuntimeError(f"No matches found for document {document_filter} in {self}. Use"
                                " upsert=True to upsert.")
+
         self._table.update_one(document_filter, {'$set': mongo_update}, upsert=upsert)
 
     def delete_one(self, document_filter):
