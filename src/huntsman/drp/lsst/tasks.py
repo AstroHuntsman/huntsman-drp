@@ -149,8 +149,9 @@ def make_master_calib(datasetType, calibId, dataIds, butler, butler_dir, calib_d
         cmd += " --id"
         for k, v in data_id.items():
             cmd += f" {k}={v}"
-    cmd += f" --nodes {nodes} --procs {procs}"
     cmd += " --calibId " + " ".join([f"{k}={v}" for k, v in calibId.items()])
+    cmd += f" --nodes {nodes} --procs {procs}"
+    cmd += " --doraise"  # We want the code to raise an error if there is a problem
 
     # Run the LSST script
     return run_command(cmd)
@@ -190,6 +191,7 @@ def make_calexps(data_ids, rerun, butler_dir, calib_dir, no_exit=True, procs=1,
             cmd += f" {k}={v}"
     if clobber_config:
         cmd += " --clobber-config"
+
     run_command(cmd)
 
 

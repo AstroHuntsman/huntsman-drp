@@ -301,6 +301,7 @@ class ButlerRepository(HuntsmanBase):
                 dataIds = self._calibId_to_dataIds(datasetType, calibId)
 
                 # For some reason the dataIds also need to contain the calibDate
+                # TODO: Figure out why and remove
                 for dataId in dataIds:
                     dataId["calibDate"] = calibDate
 
