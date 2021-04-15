@@ -1,8 +1,4 @@
-""" Continually produce, update and archive master calibs.
-
-TODO: Think about having separating processing for bias, darks and flats. Might make things cleaner.
-"""
-import os
+""" Continually produce, update and archive master calibs. """
 import time
 import datetime
 from threading import Thread
@@ -77,28 +73,35 @@ class MasterCalibMaker(HuntsmanBase):
         Args:
             calib_date (object): The calib date.
         """
-        identifier = f"calib_date={calib_date}"
-
         # Get metadata for all raw calibs that are valid for this date
         raw_data_ids = self._find_raw_calibs(calib_date=calib_date)
 
         # Get a list of all unique calib IDs from the raw calibs
         calib_ids_all = self._get_unique_calib_ids(calib_date=calib_date, documents=raw_data_ids)
-        self.logger.info(f"Found {len(calib_ids_all)} unique calib IDs for {identifier}.")
+        self.logger.info(f"Found {len(calib_ids_all)} unique calib IDs for"
+                         f" calib_date={calib_date}.")
 
         # Figure out which calib IDs need processing
-        calib_ids = [c for c in calib_ids_all if self._should_process(c, raw_data_ids)]
-        self.logger.info(f"{len(calib_ids)} calib IDs require processing for {identifier}.")
+        calibs_to_process = [c for c in calib_ids_all if self._should_process(c, raw_data_ids)]
+        self.logger.info(f"{len(calibs_to_process)} calib IDs require processing for"
+                         f" calib_date={calib_date}.")
 
-        if len(calib_ids) == 0:
+        if not calibs_to_process:
+            self.logger.warning(f"No calibIds require processing for calibDate={calib_date}.")
             return
 
-        calibs_existing = [c for c in calib_ids if os.path.isfile(c["filename"])]
-        calibs_ingest = [c for c in calibs_existing if c not in calib_ids]
+        # Identify existing calibs that need ingesting
+        calibs_to_ingest = [c for c in calib_ids_all if c not in calibs_to_process]
 
         # Figure out if we can skip any of the calibs
-        skip_bias = not any([_["datasetType"] == "bias" for _ in calib_ids])
-        skip_dark = skip_bias and not any([_["datasetType"] == "dark" for _ in calib_ids])
+        datasetTypes_to_skip = []
+
+        if not any([_["datasetType"] == "bias" for _ in calibs_to_process]):
+            datasetTypes_to_skip.append("bias")
+
+            # Only skip darks if we are also skipping biases
+            if not any([_["datasetType"] == "dark" for _ in calibs_to_process]):
+                datasetTypes_to_skip.append("dark")
 
         # Process data in a temporary butler repo
         with TemporaryButlerRepository() as br:
@@ -109,31 +112,27 @@ class MasterCalibMaker(HuntsmanBase):
             # Ingest any existing master calibs
             for calib_type in self._calib_types:
 
-                filenames = [c["filename"] for c in calibs_ingest if c["calibType"] == calib_type]
-
+                filenames = [
+                    c["filename"] for c in calibs_to_ingest if c["calibType"] == calib_type]
                 if filenames:
                     br.ingest_master_calibs(calib_type, filenames=filenames,
                                             validity=self._validity)
 
-                # If there are no bias frames available then we can't do anything
-                elif calib_type == "bias" and skip_bias:
-                    self.logger.warning(f"No bias frames available for {calib_date}. Skipping.")
-                    return
-
-                elif skip_bias and skip_dark and calib_type == "dark":
-                    self.logger.warning(f"No dark frames available for {calib_date} and no bias"
-                                        " frames to be made. Skipping.")
+                # Check if there is sufficient data to proceed
+                elif calib_type in datasetTypes_to_skip:
+                    self.logger.warning(f"No {calib_type} frames available for {calib_date}."
+                                        " Skipping.")
                     return
 
             # Make master calibs without raising errors
-            self.logger.info(f"Making master calibs for calib_date={calib_date}.")
-            br.make_master_calibs(skip_bias=skip_bias, skip_dark=skip_dark, calib_date=calib_date,
-                                  raise_error=False)
+            br.make_master_calibs(calib_date=calib_date, datasetTypes_to_skip=datasetTypes_to_skip,
+                                  validity=self._validity.days)
 
             # Archive the master calibs
             try:
                 self.logger.info(f"Archiving master calibs for calib_date={calib_date}.")
                 br.archive_master_calibs()
+
             except Exception as err:
                 self.logger.warning(f"Unable to archive master calibs for calib_date={calib_date}:"
                                     f" {err!r}")

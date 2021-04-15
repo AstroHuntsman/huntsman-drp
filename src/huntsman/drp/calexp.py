@@ -146,7 +146,7 @@ class CalexpQualityMonitor(HuntsmanBase):
             # Ingest the corresponding master calibs
             for calib_type, calib_id in calibs.items():
                 calib_filename = calib_id["filename"]
-                br.ingest_master_calibs(calib_type=calib_type, filenames=[calib_filename])
+                br.ingest_master_calibs(datasetType=calib_type, filenames=[calib_filename])
 
             # Make and ingest the reference catalogue
             if self._refcat_filename is None:
@@ -163,10 +163,10 @@ class CalexpQualityMonitor(HuntsmanBase):
                 return
 
             required_keys = br.get_keys("raw")
-            calexps, data_ids = br.get_calexps(extra_keys=required_keys)
+            calexps, dataIds = br.get_calexps(extra_keys=required_keys)
 
             # Evaluate metrics and insert into the database
-            for calexp, calexp_id in zip(calexps, data_ids):
+            for calexp, calexp_id in zip(calexps, dataIds):
 
                 metrics = get_quality_metrics(calexp)
 

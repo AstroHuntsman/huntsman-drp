@@ -86,13 +86,13 @@ def test_make_master_calibs(exposure_table, temp_butler_repo, config):
         br.ingest_raw_data(filenames)
 
         # Make the calibs
-        br.make_master_calibs(calib_date=current_date(), rerun="test_rerun", ingest=True)
+        br.make_master_calibs(calib_date=current_date(), rerun="test_rerun")
 
         # Archive the calibs
         br.archive_master_calibs()
 
         # Check the biases in the butler dir
-        metadata_bias = br.get_calib_metadata(dataset_type="bias")
+        metadata_bias = br.get_calib_metadata(datasetType="bias")
         assert len(metadata_bias) == n_bias
         ccds = set()
         for md in metadata_bias:
@@ -100,7 +100,7 @@ def test_make_master_calibs(exposure_table, temp_butler_repo, config):
         assert len(ccds) == test_config["n_cameras"]
 
         # Check the darks in the butler dir
-        metadata_dark = br.get_calib_metadata(dataset_type="dark")
+        metadata_dark = br.get_calib_metadata(datasetType="dark")
         assert len(metadata_dark) == n_dark
         ccds = set()
         for md in metadata_dark:
@@ -108,7 +108,7 @@ def test_make_master_calibs(exposure_table, temp_butler_repo, config):
         assert len(ccds) == test_config["n_cameras"]
 
         # Check the flats in the butler dir
-        metadata_flat = br.get_calib_metadata(dataset_type="flat")
+        metadata_flat = br.get_calib_metadata(datasetType="flat")
         assert len(metadata_flat) == n_flat
         filters = set()
         ccds = set()
