@@ -25,7 +25,8 @@ class ButlerRepository(HuntsmanBase):
     _ra_key = "RA-MNT"
     _dec_key = "DEC-MNT"  # TODO: Move to config
 
-    def __init__(self, directory, calib_dir=None, initialise=True, calib_table=None, **kwargs):
+    def __init__(self, directory, calib_dir=None, initialise=True, calib_table=None,
+                 max_dataIds_per_calib=50, **kwargs):
         super().__init__(**kwargs)
 
         if directory is not None:
@@ -37,6 +38,7 @@ class ButlerRepository(HuntsmanBase):
         self._calib_dir = calib_dir
 
         self._calib_validity = self.config["calibs"]["validity"]
+        self._max_dataIds_per_calib = int(max_dataIds_per_calib)
 
         if self.butler_dir is None:
             self._refcat_filename = None
@@ -296,6 +298,16 @@ class ButlerRepository(HuntsmanBase):
 
                 # Get dataIds that correspond to this calibId
                 dataIds = self._calibId_to_dataIds(datasetType, calibId)
+
+                # Make sure there aren't too many dataIds
+                # This avoids long processing times and apparently also segfaults
+                if self._max_dataIds_per_calib:
+                    if len(dataIds) >= self._max_dataIds_per_calib:
+                        self.logger.warning(
+                            f"Number of dataIds for calibId={calibId} ({len(dataIds)}) exceeds"
+                            f" allowed maximum ({self._max_dataIds_per_calib}). Using first"
+                            f" {self._max_dataIds_per_calib} matches.")
+                        dataIds = dataIds[:self._max_dataIds_per_calib]
 
                 self.logger.info(f"Making master {datasetType} frame for calibId={calibId} using"
                                  f" {len(dataIds)} dataIds.")
