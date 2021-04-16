@@ -17,10 +17,11 @@ class MasterCalibMaker(HuntsmanBase):
 
     _date_key = "dateObs"
 
-    def __init__(self, exposure_table=None, calib_table=None, **kwargs):
+    def __init__(self, exposure_table=None, calib_table=None, nproc=1, **kwargs):
         super().__init__(**kwargs)
 
         self._calib_types = self.config["calibs"]["types"]
+        self._nproc = int(nproc)
 
         validity = self.config["calibs"]["validity"]
         self._validity = datetime.timedelta(days=validity)  # TODO: Validity based on calib type
@@ -126,7 +127,7 @@ class MasterCalibMaker(HuntsmanBase):
 
             # Make master calibs without raising errors
             br.make_master_calibs(calib_date=calib_date, datasetTypes_to_skip=datasetTypes_to_skip,
-                                  validity=self._validity.days)
+                                  validity=self._validity.days, procs=self._nproc)
 
             # Archive the master calibs
             try:
