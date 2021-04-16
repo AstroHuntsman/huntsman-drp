@@ -105,7 +105,7 @@ class MasterCalibMaker(HuntsmanBase):
                 datasetTypes_to_skip.append("dark")
 
         # Process data in a temporary butler repo
-        with TemporaryButlerRepository() as br:
+        with TemporaryButlerRepository(calib_table=self._calib_table) as br:
 
             # Ingest raw exposures
             br.ingest_raw_data([_["filename"] for _ in raw_data_ids])
@@ -189,7 +189,11 @@ class MasterCalibMaker(HuntsmanBase):
         return False
 
     def _find_raw_calibs(self, calib_date):
-        """
+        """ Find all valid raw calibs in the raw exposure collection given a calib date.
+        Args:
+            calib_date (object): The calib date.
+        Returns:
+            list of RawExposureDocument: The documents.
         """
         parsed_date = parse_date(calib_date)
         date_start = parsed_date - self._validity
@@ -210,7 +214,12 @@ class MasterCalibMaker(HuntsmanBase):
         return docs
 
     def _get_unique_calib_ids(self, calib_date, documents):
-        """
+        """ Get all possible CalibDocuments from a set of documents.
+        Args:
+            calib_date (object): The calib date.
+            documents (list): The list of documents.
+        Returns:
+            list of CalibDocument: The calb documents.
         """
         calib_date = date_to_ymd(calib_date)
         calib_types = self.config["calibs"]["types"]

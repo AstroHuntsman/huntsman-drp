@@ -27,6 +27,17 @@ class ButlerRepository(HuntsmanBase):
 
     def __init__(self, directory, calib_dir=None, initialise=True, calib_table=None,
                  max_dataIds_per_calib=50, **kwargs):
+        """
+        Args:
+            directory (str): The path of the butler reposity.
+            calib_dir (str, optional): The path of the butler calib repository. If None (default),
+                will create a new CALIB directory under the butler repository root.
+            initialise (bool, optional): If True (default), initialise the butler reposity
+                with required files.
+            calib_table (MasterCalibCollection, optional): The master calib collection.
+            max_dataIds_per_calib (int, optional): Limit the maximum number of dataIds that can
+                contribute to a single calib to this number. Default 50.
+        """
         super().__init__(**kwargs)
 
         if directory is not None:
