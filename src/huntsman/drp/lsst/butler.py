@@ -305,10 +305,9 @@ class ButlerRepository(HuntsmanBase):
             # Get the unique set of calibIds defined by the set of all ingested dataIds
             # Each calibId will have at least one corresponding raw dataId
             calibIds = self._get_all_calibIds(datasetType, calibDate)
-            self.logger.debug(f"Found {len(calibIds)} calibId(s) for datasetType={datasetType},"
-                              f" calibDate={calibDate}.")
 
-            self.logger.info(f"Making master {datasetType} frame(s) for calibDate={calibDate}.")
+            self.logger.info(f"Making {len(calibIds)} master {datasetType} frame(s) for"
+                             f" calibDate={calibDate}.")
 
             filenames_to_ingest = set()
             calib_dir = os.path.join(self.butler_dir, "rerun", rerun)
