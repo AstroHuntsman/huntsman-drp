@@ -43,6 +43,7 @@ def run_command(cmd, logger=None):
                 logger.debug(line)
 
     # Raise an error if the command failed
+    # This does not always seem to work
     if result.returncode != 0:
         raise subprocess.CalledProcessError(cmd=cmd, returncode=result.returncode,
                                             output=result.stdout, stderr=result.stderr)
@@ -127,8 +128,8 @@ def ingest_master_calibs(datasetType, filenames, butler_dir, calib_dir, validity
     run_command(cmd)
 
 
-def make_master_calib(datasetType, calibId, dataIds, butler, butler_dir, calib_dir, rerun, nodes=1,
-                      procs=1, logger=None):
+def make_master_calib(datasetType, calibId, dataIds, butler_dir, calib_dir, rerun, nodes=1,
+                      procs=1):
     """ Use the LSST stack to create a single master calib given a calibId and set of dataIds.
     Args:
         datasetType (str): The calib datasetType (bias, dark, flat).

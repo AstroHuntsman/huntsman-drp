@@ -45,36 +45,6 @@ def get_files_of_type(datasetType, directory, policy):
     return dataIds, filenames
 
 
-def fill_calib_keys(dataId, datasetType, butler, keys_ignore=["calibDate"]):
-    """ Get missing keys for a dataId required to identify a calib dataset.
-    Args:
-        dataId (dict): The partial dataId.
-        datasetType (str): The type of calib, e.g. bias, flat.
-        butler (lsst.daf.persistence.butler.Butler): The butler object.
-        keys_ignore (iterable): Calib keys to ignore. Default: ['calibDate'].
-    Returns:
-        dict: The complete dataId.
-    """
-    # Get the raw dataId
-    dataId = dataId.copy()
-    raw_keys = butler.getKeys("raw").keys()
-    raw_dataId = {k: dataId[k] for k in raw_keys}
-
-    # Identify required keys
-    required_keys = butler.getKeys(datasetType).keys()
-    missing_keys = set(required_keys) - set(dataId.keys())
-    if keys_ignore is not None:
-        missing_keys -= set(keys_ignore)
-
-    # Fill the missing keys
-    dataId = dataId.copy()
-    for k in missing_keys:
-        v = butler.queryMetadata("raw", format=[k], dataId=raw_dataId)
-        dataId[k] = v[0]
-
-    return dataId
-
-
 def get_all_calibIds(datasetType, dataIds, calibDate, butler):
     """ Get calibIds given a set of dataIds and datasetType.
     Args:
@@ -104,7 +74,13 @@ def get_all_calibIds(datasetType, dataIds, calibDate, butler):
 
 
 def calibId_to_dataIds(datasetType, calibId, butler):
-    """
+    """ Get ingested dataIds that match a calibId of a given datasetType.
+    Args:
+        datasetType (str): The calib type, e.g. flat, bias.
+        CalibId (dict): The calibId.
+        butler (lsst.daf.persistence.butler.Butler): The butler object.
+    Returns:
+        list of dict: A list of matching dataIds.
     """
     raw_keys = list(butler.getKeys("raw"))
     calib_keys = list(butler.getKeys(datasetType))

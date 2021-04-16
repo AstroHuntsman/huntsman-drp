@@ -267,8 +267,7 @@ class ButlerRepository(HuntsmanBase):
             skip_dark (bool, optional): Skip creation of master darks? Default False.
             datasetTypes_to_skip (list, optional):
         """
-        butler_kwargs = dict(butler_dir=self.butler_dir, calib_dir=self.calib_dir, rerun=rerun,
-                             logger=self.logger, butler=self.get_butler())  # Use root butler
+        butler_kwargs = dict(butler_dir=self.butler_dir, calib_dir=self.calib_dir, rerun=rerun)
         butler_kwargs.update(kwargs)
 
         if datasetTypes_to_skip is None:
@@ -295,10 +294,11 @@ class ButlerRepository(HuntsmanBase):
 
             for calibId in calibIds:  # Process each calibId separately
 
-                self.logger.debug(f"Making master {datasetType} frame for calibId={calibId}.")
-
                 # Get dataIds that correspond to this calibId
                 dataIds = self._calibId_to_dataIds(datasetType, calibId)
+
+                self.logger.info(f"Making master {datasetType} frame for calibId={calibId} using"
+                                 f" {len(dataIds)} dataIds.")
 
                 # For some reason the dataIds also need to contain the calibDate
                 # TODO: Figure out why and remove
@@ -318,15 +318,6 @@ class ButlerRepository(HuntsmanBase):
                 f"calibrations.{datasetType}", directory=calib_dir, policy=self._policy)[1]
 
             self.ingest_master_calibs(datasetType, filenames, validity=validity)
-
-    def _get_all_calibIds(self, datasetType, calibDate):
-        """ Get all calibIds given """
-        dataIds = self.get_dataIds(datasetType="raw")
-        return utils.get_all_calibIds(datasetType, dataIds, calibDate, butler=self.get_butler())
-
-    def _calibId_to_dataIds(self, datasetType, calibId):
-        """ Find all matching dataIds given a calibId. """
-        return utils.calibId_to_dataIds(datasetType, calibId, butler=self.get_butler())
 
     def make_reference_catalogue(self, ingest=True, **kwargs):
         """ Make the reference catalogue for the ingested science frames.
@@ -468,40 +459,26 @@ class ButlerRepository(HuntsmanBase):
             with open(filename_mapper, "w") as f:
                 f.write(self._mapper)
 
-    def _verify_master_calibs(self, datasetType):
-        """ Check that the correct number of master calibs have been created following a call
-        to make_master_calibs. This function compares the set of calibIds that should be ingested
-        (using ingested raw calibs) to the calibIds that actually exist and are ingested.
+    def _get_all_calibIds(self, datasetType, calibDate):
+        """ Get the full set of calibIds from all the ingested dataIds.
         Args:
-            datasetType (str): The dataset type. Should be a valid calib dataset type (e.g. bias).
+            datasetType (str): The datasetType (e.g. bias).
+            calibDate (str): The calibDate.
+        Returns:
+            list of dict: All possible calibIds.
         """
-        butler = self.get_butler()  # Use root butler
+        dataIds = self.get_dataIds(datasetType="raw")
+        return utils.get_all_calibIds(datasetType, dataIds, calibDate, butler=self.get_butler())
 
-        keys_ignore = ["id", "calibDate", "validStart", "validEnd"]
-
-        extra_keys = []
-        if datasetType == "flat":
-            extra_keys.append("filter")  # TODO: Get this info somewhere else
-
-        # Get data_ids of raw ingested calibs
-        raw_ids = self.get_dataIds(datasetType="raw", data_id={'dataType': datasetType})
-
-        # Get calibIds of master calibs that *should* be ingested
-        calib_ids_required = utils.data_id_to_calib_id(datasetType, raw_ids, butler=butler,
-                                                       keys_ignore=keys_ignore)
-
-        # Get calibIds of ingested master calibs
-        calib_ids_ingested = self.get_calib_metadata(datasetType, keys_ignore=keys_ignore)
-
-        # Check for missing master calibs
-        missing_ids = utils.get_missing_data_ids(calib_ids_ingested, calib_ids_required)
-
-        # Handle result
-        if len(missing_ids) > 0:
-            msg = f"{len(missing_ids)} missing master {datasetType} calibs: {missing_ids}."
-            raise FileNotFoundError(msg)
-        else:
-            self.logger.debug(f"No missing {datasetType} calibs detected.")
+    def _calibId_to_dataIds(self, datasetType, calibId):
+        """ Find all matching dataIds given a calibId.
+        Args:
+            datasetType (str): The datasetType (e.g. bias).
+            calibId (dict): The calibId
+        Returns:
+            list of dict: All matching dataIds.
+        """
+        return utils.calibId_to_dataIds(datasetType, calibId, butler=self.get_butler())
 
     def _get_skymap_ids(self, rerun):
         """ Get the sky map IDs, which consist of a tract ID and associated patch IDs.
