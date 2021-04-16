@@ -26,7 +26,7 @@ class ButlerRepository(HuntsmanBase):
     _dec_key = "DEC-MNT"  # TODO: Move to config
 
     def __init__(self, directory, calib_dir=None, initialise=True, calib_table=None,
-                 max_dataIds_per_calib=50, **kwargs):
+                 min_dataIds_per_calib=1, max_dataIds_per_calib=50, **kwargs):
         """
         Args:
             directory (str): The path of the butler reposity.
@@ -35,8 +35,11 @@ class ButlerRepository(HuntsmanBase):
             initialise (bool, optional): If True (default), initialise the butler reposity
                 with required files.
             calib_table (MasterCalibCollection, optional): The master calib collection.
+            min_dataIds_per_calib (int, optional): Limit the minimum number of dataIds that can
+                contribute to a single calib to this number. Default 1.
             max_dataIds_per_calib (int, optional): Limit the maximum number of dataIds that can
-                contribute to a single calib to this number. Default 50.
+                contribute to a single calib to this number. If None, no upper limit is applied.
+                Default 50.
         """
         super().__init__(**kwargs)
 
@@ -49,7 +52,8 @@ class ButlerRepository(HuntsmanBase):
         self._calib_dir = calib_dir
 
         self._calib_validity = self.config["calibs"]["validity"]
-        self._max_dataIds_per_calib = int(max_dataIds_per_calib)
+        self._min_dataIds_per_calib = min_dataIds_per_calib
+        self._max_dataIds_per_calib = max_dataIds_per_calib
 
         if self.butler_dir is None:
             self._refcat_filename = None
@@ -299,6 +303,7 @@ class ButlerRepository(HuntsmanBase):
                 continue
 
             # Get the unique set of calibIds defined by the set of all ingested dataIds
+            # Each calibId will have at least one corresponding raw dataId
             calibIds = self._get_all_calibIds(datasetType, calibDate)
             self.logger.debug(f"Found {len(calibIds)} calibId(s) for datasetType={datasetType},"
                               f" calibDate={calibDate}.")
@@ -312,6 +317,12 @@ class ButlerRepository(HuntsmanBase):
 
                 # Get dataIds that correspond to this calibId
                 dataIds = self._calibId_to_dataIds(datasetType, calibId, limit=True)
+                if len(dataIds) < self._min_dataIds_per_calib:
+                    self.logger.warning(
+                        f"Skipping master {datasetType} for calibId={calibId} because number of"
+                        f" matching dataIds ({len(dataIds)}) is less than required minimum"
+                        f" ({self._min_dataIds_per_calib}).")
+                    continue
 
                 self.logger.info(f"Making master {datasetType} frame for calibId={calibId} using"
                                  f" {len(dataIds)} dataIds.")
