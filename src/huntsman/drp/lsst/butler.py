@@ -294,6 +294,9 @@ class ButlerRepository(HuntsmanBase):
 
             self.logger.info(f"Making master {datasetType} frame(s) for calibDate={calibDate}.")
 
+            filenames_to_ingest = set()
+            calib_dir = os.path.join(self.butler_dir, "rerun", rerun)
+
             for calibId in calibIds:  # Process each calibId separately
 
                 # Get dataIds that correspond to this calibId
@@ -314,12 +317,17 @@ class ButlerRepository(HuntsmanBase):
                     self.logger.error(f"Problem making master {datasetType} frame for"
                                       f" calibId={calibId}: {err!r}")
 
-            # Ingest the master calibs for this datasetType
-            calib_dir = os.path.join(self.butler_dir, "rerun", rerun)
-            filenames = utils.get_files_of_type(
-                f"calibrations.{datasetType}", directory=calib_dir, policy=self._policy)[1]
+                # We are not able to catch errors in the LSST masterCalib task yet
+                # Therefore, we need to check if the file actually exists
+                filenames = utils.get_files_of_type(
+                    f"calibrations.{datasetType}", directory=calib_dir, policy=self._policy)[1]
+                if len(filenames) != len(filenames_to_ingest) + 1:
+                    self.logger.error(f"Missing master {datasetType} for calibId={calibId}.")
 
-            self.ingest_master_calibs(datasetType, filenames, validity=validity)
+                filenames_to_ingest.update(filenames)
+
+            # Ingest the master calibs for this datasetType
+            self.ingest_master_calibs(datasetType, filenames_to_ingest, validity=validity)
 
     def make_reference_catalogue(self, ingest=True, **kwargs):
         """ Make the reference catalogue for the ingested science frames.
