@@ -297,17 +297,7 @@ class ButlerRepository(HuntsmanBase):
             for calibId in calibIds:  # Process each calibId separately
 
                 # Get dataIds that correspond to this calibId
-                dataIds = self._calibId_to_dataIds(datasetType, calibId)
-
-                # Make sure there aren't too many dataIds
-                # This avoids long processing times and apparently also segfaults
-                if self._max_dataIds_per_calib:
-                    if len(dataIds) >= self._max_dataIds_per_calib:
-                        self.logger.warning(
-                            f"Number of dataIds for calibId={calibId} ({len(dataIds)}) exceeds"
-                            f" allowed maximum ({self._max_dataIds_per_calib}). Using first"
-                            f" {self._max_dataIds_per_calib} matches.")
-                        dataIds = dataIds[:self._max_dataIds_per_calib]
+                dataIds = self._calibId_to_dataIds(datasetType, calibId, limit=True)
 
                 self.logger.info(f"Making master {datasetType} frame for calibId={calibId} using"
                                  f" {len(dataIds)} dataIds.")
@@ -482,15 +472,29 @@ class ButlerRepository(HuntsmanBase):
         dataIds = self.get_dataIds(datasetType="raw")
         return utils.get_all_calibIds(datasetType, dataIds, calibDate, butler=self.get_butler())
 
-    def _calibId_to_dataIds(self, datasetType, calibId):
+    def _calibId_to_dataIds(self, datasetType, calibId, limit=False):
         """ Find all matching dataIds given a calibId.
         Args:
             datasetType (str): The datasetType (e.g. bias).
-            calibId (dict): The calibId
+            calibId (dict): The calibId.
+            limit (bool): If True, limit the number of returned dataIds to a maximum value
+                indicated by self._max_dataIds_per_calib. This avoids long processing times and
+                apparently also segfaults. Default: False.
         Returns:
             list of dict: All matching dataIds.
         """
-        return utils.calibId_to_dataIds(datasetType, calibId, butler=self.get_butler())
+        dataIds = utils.calibId_to_dataIds(datasetType, calibId, butler=self.get_butler())
+
+        # Limit the number of dataIds per calib
+        if limit:
+            if len(dataIds) >= self._max_dataIds_per_calib:
+                self.logger.warning(
+                    f"Number of {datasetType} dataIds for calibId={calibId} ({len(dataIds)})"
+                    f" exceeds allowed maximum ({self._max_dataIds_per_calib}). Using first"
+                    f" {self._max_dataIds_per_calib} matches.")
+                dataIds = dataIds[:self._max_dataIds_per_calib]
+
+        return dataIds
 
     def _get_skymap_ids(self, rerun):
         """ Get the sky map IDs, which consist of a tract ID and associated patch IDs.
