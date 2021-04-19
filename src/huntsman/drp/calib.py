@@ -99,6 +99,8 @@ class MasterCalibMaker(HuntsmanBase):
                 raw_docs_to_process.extend(docs)
             else:
                 self.logger.warning(f"No raw calibs found for {calib_doc}.")
+        self.logger.info(f"Found {len(raw_docs_to_process)} raw calibs that require processing"
+                         f" for {calib_date}.")
 
         # Identify existing calibs that need ingesting
         calibs_to_ingest = [c for c in calib_ids_all if c not in calib_docs_to_process]
