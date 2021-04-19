@@ -300,9 +300,10 @@ class RawExposureCollection(Collection):
         doc_filter["dataType"] = dataset_type
 
         # Add valid date range to query
+        validity = timedelta(days=self.config["calibs"]["validity"])
         calib_date = parse_date(calib_date)
-        date_start = calib_date - self._validity
-        date_end = calib_date + self._validity
+        date_start = calib_date - validity
+        date_end = calib_date + validity
 
         # Do the query
         documents = self.find(doc_filter, date_start=date_start, date_end=date_end)
