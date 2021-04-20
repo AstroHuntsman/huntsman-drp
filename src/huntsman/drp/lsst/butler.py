@@ -352,6 +352,7 @@ class ButlerRepository(HuntsmanBase):
 
     def make_reference_catalogue(self, ingest=True, **kwargs):
         """ Make the reference catalogue for the ingested science frames.
+        TODO: Think about removing.
         Args:
             ingest (bool, optional): If True (default), ingest refcat into butler repo.
         """

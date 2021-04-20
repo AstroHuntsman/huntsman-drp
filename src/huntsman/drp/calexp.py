@@ -108,8 +108,6 @@ class CalexpQualityMonitor(HuntsmanBase):
         self.logger.debug("Starting queue thread.")
 
         while True:
-            self.logger.info(f"Status: {self.status}")
-
             if self._stop:
                 self.logger.debug("Stopping queue thread.")
                 break
@@ -121,12 +119,16 @@ class CalexpQualityMonitor(HuntsmanBase):
             time.sleep(self._sleep)
 
     def _async_process_files(self):
-        """ Continually process documents that require processing. """
+        """ Continually process documents that require processing.
+        TODO: Use multiprocessing.
+        """
         self.logger.debug("Starting processing thread.")
 
         while True:
+            self.logger.info(f"Status: {self.status}")
+
             if self._stop:
-                self.logger.debug("Stopping calexp thread.")
+                self.logger.debug("Stopping processing thread.")
                 break
 
             # Sleep if no new files
