@@ -372,7 +372,7 @@ class MasterCalibCollection(Collection):
             # Query the calib table
             calib_docs = self.find(doc_filter, date_start=date_start, date_end=date_end)
             if len(calib_docs) == 0:
-                raise FileNotFoundError(f"No matching master {calib_type} for {document}.")
+                raise FileNotFoundError(f"No matching master {calib_type} for {doc_filter}.")
 
             dates = [parse_date(_["calibDate"]) for _ in calib_docs]
             timediffs = [abs(date - d) for d in dates]

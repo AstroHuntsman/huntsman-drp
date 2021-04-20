@@ -54,7 +54,7 @@ class CalexpQualityMonitor(HuntsmanBase):
             calib_table = MasterCalibCollection(config=self.config, logger=self.logger)
         self._calib_table = calib_table
 
-        self._calexp_thread = Thread(target=self._async_process_files)
+        self._process_thread = Thread(target=self._async_process_files)
         self._queue_thread = Thread(target=self._async_queue_documents)
 
     @property
@@ -78,7 +78,7 @@ class CalexpQualityMonitor(HuntsmanBase):
         status = {"processed": self._n_processed,
                   "failed": self._n_failed,
                   "queued": self.n_queued,
-                  "running": self._calexp_thread.is_alive()}
+                  "running": self._process_thread.is_alive()}
         return status
 
     def start(self):
@@ -86,7 +86,7 @@ class CalexpQualityMonitor(HuntsmanBase):
         self.logger.info("Starting calexp monitor thread.")
         self._stop = False
         self._queue_thread.start()
-        self._calexp_thread.start()
+        self._process_thread.start()
 
     def stop(self):
         """ Stop the calexp monitoring thread.
@@ -95,7 +95,7 @@ class CalexpQualityMonitor(HuntsmanBase):
         self.logger.info("Stopping calexp queue thread.")
         self._stop = True
         self._queue_thread.join()
-        self._calexp_thread.join()
+        self._process_thread.join()
 
     def _refresh_documents(self):
         """ Update the set of data IDs that require processing. """
