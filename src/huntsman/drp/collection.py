@@ -24,7 +24,6 @@ class Collection(HuntsmanBase):
     def __init__(self, table_name, **kwargs):
         super().__init__(**kwargs)
 
-        self._date_key = self.config["mongodb"]["date_key"]
         self._table_name = table_name
 
         # Initialise the DB
