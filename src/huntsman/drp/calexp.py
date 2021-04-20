@@ -85,16 +85,16 @@ class CalexpQualityMonitor(HuntsmanBase):
         """ Start the calexp montioring thread. """
         self.logger.info("Starting calexp monitor thread.")
         self._stop = False
-        self._query_thread.start()
+        self._queue_thread.start()
         self._calexp_thread.start()
 
     def stop(self):
         """ Stop the calexp monitoring thread.
         Note that this will block until any ongoing processing has finished.
         """
-        self.logger.info("Stopping calexp monitor thread.")
+        self.logger.info("Stopping calexp queue thread.")
         self._stop = True
-        self._query_thread.join()
+        self._queue_thread.join()
         self._calexp_thread.join()
 
     def _refresh_documents(self):
