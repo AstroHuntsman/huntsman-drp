@@ -122,6 +122,7 @@ class CalexpQualityMonitor(HuntsmanBase):
         """ Continually process documents that require processing.
         TODO: Use multiprocessing.
         """
+        time.sleep(10)  # Wait for initial documents to be queued
         self.logger.debug("Starting processing thread.")
 
         while True:
@@ -145,8 +146,6 @@ class CalexpQualityMonitor(HuntsmanBase):
             except Exception as err:
                 self.logger.warning(f"Unable to create calexp for {document}: {err!r}")
                 self._n_failed += 1
-
-            time.sleep(1)
 
     def _process_file(self, document):
         """ Create a calibrated exposure (calexp) for the given data ID and store the metadata.

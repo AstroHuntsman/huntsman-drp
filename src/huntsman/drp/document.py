@@ -29,7 +29,7 @@ class Document(abc.Mapping):
         if validate and self._required_keys:
             self._validate_document(document)
 
-        self._document = document
+        self._document_dict = document
 
     # Special methods
 
@@ -42,40 +42,49 @@ class Document(abc.Mapping):
         return hash(tuple([self[k] for k in self._required_keys]))
 
     def __getitem__(self, key):
-        return self._document[key]
+        return self._document_dict[key]
 
     def __setitem__(self, key, item):
-        self._document[key] = item
+        self._document_dict[key] = item
 
     def __delitem__(self, item):
-        del self._document[item]
+        del self._document_dict[item]
 
     def __iter__(self):
-        return self._document.__iter__()
+        return self._document_dict.__iter__()
 
     def __len__(self):
-        return len(self._document)
+        return len(self._document_dict)
+
+    def __repr__(self):
+        return repr(self._document_dict)
 
     def __str__(self):
-        return str({k: self._document[k] for k in self._required_keys})
+        return str(self._document_dict)
+
+    # Properties
+
+    @property
+    def minimal_dict(self):
+        return {k: self[k] for k in self._required_keys}
 
     # Public methods
 
     def values(self):
-        return self._document.values()
+        return self._document_dict.values()
 
     def items(self):
-        return self._document.items()
+        return self._document_dict.items()
 
     def keys(self):
-        return self._document.keys()
+        return self._document_dict.keys()
 
     def update(self, d):
-        self._document.update(d)
+        self._document_dict.update(d)
 
     def to_mongo(self):
         """ Get the full mongo filter for the document """
-        return encode_mongo_filter(self._document)
+        return encode_mongo_filter(self._document_dict)
 
     def get_mongo_id(self):
         """ Get the unique mongo ID for the document """
@@ -107,6 +116,12 @@ class RawExposureDocument(Document):
         if "date" not in self.keys():
             self["date"] = parse_date(self["dateObs"])
 
+    def __repr__(self):
+        return repr(self.minimal_dict)
+
+    def __str__(self):
+        return str(self.minimal_dict)
+
 
 class CalibDocument(Document):
 
@@ -131,3 +146,9 @@ class CalibDocument(Document):
 
         if not all([k in document for k in keys]):
             raise ValueError(f"Document does not contain all required keys: {keys}.")
+
+    def __repr__(self):
+        return repr(self.minimal_dict)
+
+    def __str__(self):
+        return str(self.minimal_dict)
