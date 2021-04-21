@@ -14,7 +14,7 @@ def get_quality_metrics(calexp):
     """
     result = {}
     for metric in METRICS:
-        func = load_module(f"huntsman.drp.quality.metrics.calexp.{metric}")
+        func = load_module(f"huntsman.drp.metrics.calexp.{metric}")
         result[metric] = func(calexp)
     return result
 
@@ -65,7 +65,7 @@ class CalexpQualityMonitor(HuntsmanBase):
             calib_table = MasterCalibCollection(config=self.config, logger=self.logger)
         self._calib_table = calib_table
 
-        self._calexp_thread = Thread(target=self._async_process_files)
+        self._process_thread = Thread(target=self._async_process_files)
         self._queue_thread = Thread(target=self._async_queue_documents)
 
     @property
@@ -89,7 +89,7 @@ class CalexpQualityMonitor(HuntsmanBase):
         status = {"processed": self._n_processed,
                   "failed": self._n_failed,
                   "queued": self.n_queued,
-                  "running": self._calexp_thread.is_alive()}
+                  "running": self._process_thread.is_alive()}
         return status
 
     def start(self):
@@ -97,7 +97,7 @@ class CalexpQualityMonitor(HuntsmanBase):
         self.logger.info("Starting calexp monitor thread.")
         self._stop = False
         self._queue_thread.start()
-        self._calexp_thread.start()
+        self._process_thread.start()
 
     def stop(self):
         """ Stop the calexp monitoring thread.
@@ -106,7 +106,7 @@ class CalexpQualityMonitor(HuntsmanBase):
         self.logger.info("Stopping calexp queue thread.")
         self._stop = True
         self._queue_thread.join()
-        self._calexp_thread.join()
+        self._process_thread.join()
 
     def _refresh_documents(self):
         """ Update the set of data IDs that require processing. """
@@ -119,8 +119,6 @@ class CalexpQualityMonitor(HuntsmanBase):
         self.logger.debug("Starting queue thread.")
 
         while True:
-            self.logger.info(f"Status: {self.status}")
-
             if self._stop:
                 self.logger.debug("Stopping queue thread.")
                 break
@@ -132,12 +130,17 @@ class CalexpQualityMonitor(HuntsmanBase):
             time.sleep(self._sleep)
 
     def _async_process_files(self):
-        """ Continually process documents that require processing. """
+        """ Continually process documents that require processing.
+        TODO: Use multiprocessing.
+        """
+        time.sleep(10)  # Wait for initial documents to be queued
         self.logger.debug("Starting processing thread.")
 
         while True:
+            self.logger.info(f"Status: {self.status}")
+
             if self._stop:
-                self.logger.debug("Stopping calexp thread.")
+                self.logger.debug("Stopping processing thread.")
                 break
 
             # Sleep if no new files
@@ -154,8 +157,6 @@ class CalexpQualityMonitor(HuntsmanBase):
             except Exception as err:
                 self.logger.warning(f"Unable to create calexp for {document}: {err!r}")
                 self._n_failed += 1
-
-            time.sleep(1)
 
     def _process_file(self, document):
         """ Create a calibrated exposure (calexp) for the given data ID and store the metadata.

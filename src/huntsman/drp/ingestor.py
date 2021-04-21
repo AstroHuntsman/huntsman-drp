@@ -132,9 +132,9 @@ class FileIngestor(HuntsmanBase):
 
             # Get the current status
             status = self.status
-            self.logger.info(f"screener status: {status}")
+            self.logger.info(f"Ingestor status: {status}")
             if not self.is_running:
-                self.logger.warning("screener is not running.")
+                self.logger.warning("Ingestor is not running.")
 
             # Sleep before reporting status again
             time.sleep(self._status_interval)
@@ -146,7 +146,6 @@ class FileIngestor(HuntsmanBase):
         self.logger.debug("Starting queue thread.")
 
         while True:
-
             if self._stop_threads:
                 self.logger.debug("Stopping queue thread.")
                 return
@@ -169,7 +168,7 @@ class FileIngestor(HuntsmanBase):
         """ Continually process files in the queue. """
         self.logger.debug(f"Starting process with {self._nproc} processes.")
         with Pool(self._nproc) as pool:
-            pool.map(self._process_files, range(self._proc))
+            pool.map(self._process_files, range(self._nproc))
 
     def _process_files(self, process_number):
         """ Dummy method to process files via pool.map.
