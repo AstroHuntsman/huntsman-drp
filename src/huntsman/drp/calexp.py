@@ -5,7 +5,7 @@ from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.library import load_module
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
-from huntsman.drp.quality.metrics.calexp import METRICS
+from huntsman.drp.metrics.calexp import METRICS
 
 
 def get_quality_metrics(calexp):
@@ -51,6 +51,7 @@ class CalexpQualityMonitor(HuntsmanBase):
         calexp_monitor_config = self.config.get("calexp-monitor", {})
 
         # Set the number of processes
+        # This is a dummy for now
         if nproc is None:
             nproc = calexp_monitor_config.get("nproc", 1)
         self._nproc = int(nproc)

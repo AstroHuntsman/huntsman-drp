@@ -2,10 +2,10 @@ import os
 import time
 
 from huntsman.drp.screener import Screener
-from huntsman.drp.utils.screening import SCREEN_SUCCESS_FLAG, screen_success
+from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG, screen_success
 
 
-def test_screener_ingest(tempdir_and_exposure_table_with_uningested_files, config):
+def test_ingest(tempdir_and_exposure_table_with_uningested_files, config):
     """This test runs on a directory where ~70% of the images have already been
     ingested into the datatable. The files already in the datatable should be
     identified as requiring screening. The uningested files should be ingested
@@ -43,7 +43,7 @@ def test_screener_ingest(tempdir_and_exposure_table_with_uningested_files, confi
             raise RuntimeError("Screener has stopped running.")
 
         for md in exposure_table.find():
-            assert SCREEN_SUCCESS_FLAG in md
+            assert METRIC_SUCCESS_FLAG in md
             assert "quality" in md
 
         for metric_value in md["quality"].values():

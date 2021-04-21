@@ -12,7 +12,7 @@ from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date, parse_date
 from huntsman.drp.document import Document, RawExposureDocument, CalibDocument
 from huntsman.drp.utils.mongo import encode_mongo_filter, mongo_logical_or, mongo_logical_and
-from huntsman.drp.utils.screening import SCREEN_SUCCESS_FLAG
+from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
 
 
 class Collection(HuntsmanBase):
@@ -84,7 +84,7 @@ class Collection(HuntsmanBase):
 
         # Screen the results if necessary
         if screen:
-            document_filter[SCREEN_SUCCESS_FLAG] = True
+            document_filter[METRIC_SUCCESS_FLAG] = True
 
         mongo_filter = document_filter.to_mongo()
 
@@ -103,7 +103,7 @@ class Collection(HuntsmanBase):
             return [d[key] for d in documents]
 
         # Skip validation to speed up - inserted documents should already be valid
-        return [self._data_id_type(d, validate=False, config=self.config) for d in documents]
+        return [self._document_type(d, validate=False, config=self.config) for d in documents]
 
     def find_one(self, *args, **kwargs):
         """ Find a single matching document. If multiple matches, raise a RuntimeError.
@@ -126,7 +126,7 @@ class Collection(HuntsmanBase):
             overwrite (bool, optional): If True override any existing document, by default False.
         """
         # Check the required columns exist in the new document
-        document = self._data_id_type(document)
+        document = self._document_type(document)
         document_id = document.get_mongo_id()
 
         # Check there is at most one match in the table
@@ -171,9 +171,13 @@ class Collection(HuntsmanBase):
         if count > 1:
             raise RuntimeError(f"Multiple matches found for document in {self}: {document_filter}.")
 
-        elif (count == 0) and not upsert:
-            raise RuntimeError(f"No matches found for document {document_filter} in {self}. Use"
-                               " upsert=True to upsert.")
+        elif count == 0:
+            if upsert:
+                # Make sure the combined document is valid
+                to_update = self._document_type(to_update, validate=True)  # Implicit validation
+            else:
+                raise RuntimeError(f"No matches found for document {document_filter} in {self}. Use"
+                                   " upsert=True to upsert.")
 
         self._table.update_one(document_filter, {'$set': mongo_update}, upsert=upsert)
 
@@ -260,7 +264,7 @@ class Collection(HuntsmanBase):
 class RawExposureCollection(Collection):
     """ Table to store metadata for Huntsman exposures. """
 
-    _data_id_type = RawExposureDocument
+    _document_type = RawExposureDocument
 
     def __init__(self, table_name="raw_data", **kwargs):
         super().__init__(table_name=table_name, **kwargs)
@@ -338,7 +342,7 @@ class RawExposureCollection(Collection):
 class MasterCalibCollection(Collection):
     """ Table to store metadata for master calibs. """
 
-    _data_id_type = CalibDocument
+    _document_type = CalibDocument
 
     def __init__(self, table_name="master_calib", **kwargs):
         super().__init__(table_name=table_name, **kwargs)
