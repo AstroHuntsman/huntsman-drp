@@ -25,7 +25,7 @@ class CalexpQualityMonitor(HuntsmanBase):
     """
 
     def __init__(self, sleep=300, exposure_table=None, calib_table=None, refcat_filename=None,
-                 *args, **kwargs):
+                 nproc=None, *args, **kwargs):
         """
         Args:
             sleep (float): Time to sleep if there are no new files that require processing. Default
@@ -36,6 +36,8 @@ class CalexpQualityMonitor(HuntsmanBase):
                 a new MasterCalibCollection instance.
             refcat_filename (str, optional): The reference catalogue filename. If not provided,
                 will create a new refcat.
+            nproc (int): The number of processes to use. If None (default), will check the config
+                item `calexp-monitor.nproc` with a default value of 1.
         """
         super().__init__(*args, **kwargs)
         self._sleep = sleep
@@ -45,6 +47,14 @@ class CalexpQualityMonitor(HuntsmanBase):
         self._documents_to_process = set()
         self._n_processed = 0
         self._n_failed = 0
+
+        calexp_monitor_config = self.config.get("calexp-monitor", {})
+
+        # Set the number of processes
+        if nproc is None:
+            nproc = calexp_monitor_config.get("nproc", 1)
+        self._nproc = int(nproc)
+        self.logger.debug(f"Calexp monitor using {nproc} processes.")
 
         if exposure_table is None:
             exposure_table = RawExposureCollection(config=self.config, logger=self.logger)

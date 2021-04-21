@@ -19,19 +19,36 @@ class Screener(HuntsmanBase):
     """ Class to watch for new file entries in database and process their metadata
     """
 
-    def __init__(self, exposure_table=None, sleep_interval=None, status_interval=60,
-                 monitored_directory='/data/nifi/huntsman_priv/images', *args, **kwargs):
+    def __init__(self, exposure_table=None, sleep_interval=None, status_interval=60, nproc=None,
+                 directory=None, *args, **kwargs):
         """
         Args:
             sleep_interval (float/int): The amout of time to sleep in between checking for new
                 files to screen.
             status_interval (float, optional): Sleep for this long between status reports. Default
                 60s.
-            monitored_directory (str): The top level directory to watch for new files, so they can
+            directory (str): The top level directory to watch for new files, so they can
                 be added to the relevant datatable.
+            nproc (int): The number of processes to use. If None (default), will check the config
+                item `screener.nproc` with a default value of 1.
             *args, **kwargs: Parsed to HuntsmanBase initialiser.
         """
         super().__init__(*args, **kwargs)
+
+        screener_config = self.config.get("screener", {})
+
+        # Set the number of processes
+        # This is a dummy for now
+        if nproc is None:
+            nproc = screener_config.get("nproc", 1)
+        self._nproc = int(nproc)
+        self.logger.info(f"Screener using {nproc} processes.")
+
+        # Set the monitored directory
+        if directory is None:
+            directory = screener_config["directory"]
+        self._directory = directory
+        self.logger.debug(f"Screening directory: {self._directory}")
 
         # work around so that tests can run without running the has_wcs metric
         self._raw_metrics = deepcopy(RAW_METRICS)
@@ -45,8 +62,6 @@ class Screener(HuntsmanBase):
             self._sleep_interval = 0
 
         self._status_interval = status_interval
-
-        self._monitored_directory = monitored_directory
 
         self._n_screened = 0
         self._n_ingested = 0
@@ -224,12 +239,12 @@ class Screener(HuntsmanBase):
             # Tell the queue we are done with this file
             self._screen_queue.task_done()
 
-    def _get_filenames_to_ingest(self, monitored_directory='/data/nifi/huntsman_priv/images'):
+    def _get_filenames_to_ingest(self, directory='/data/nifi/huntsman_priv/images'):
         """ Watch top level directory for new files to process/ingest into database.
 
         Parameters
         ----------
-        monitored_directory : str, optional
+        directory : str, optional
             Top level directory to watch for files (including files in subdirectories),
             by default '/data/nifi/huntsman_priv/images'.
 
@@ -238,10 +253,10 @@ class Screener(HuntsmanBase):
         list:
             The list of filenames to process.
 
-        #TODO: monitored_directory should be loaded from a config or somthing
+        #TODO: directory should be loaded from a config or somthing
         """
         # create a list of fits files within the directory of interest
-        files_in_directory = list_fits_files_recursive(self._monitored_directory)
+        files_in_directory = list_fits_files_recursive(self._directory)
         # list of all entries in data base
         files_in_table = [item['filename'] for item in self._table.find()]
         # determine which files don't have entries in the database and haven't been added to queue
