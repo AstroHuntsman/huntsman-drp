@@ -93,6 +93,16 @@ def get_logger(rotation="500 MB"):
     # Note: Use enqueue=True to make it work with multiprocessing
     for level in FILE_LOG_LEVELS:
         filename = os.path.join(logdir, f"hunts-drp-{level.lower()}.log")
-        LOGGER.add(filename, level=level, rotation=rotation, enqueue=True)
+
+        # Make sure the file has not already been added
+        # TODO: Check if there is a cleaner way of doing this!
+        duplicate = False
+        for handler in LOGGER._core.handlers.values():
+            with suppress(AttributeError):
+                if filename == handler._sink._file_path:
+                    duplicate = True
+                    break
+        if not duplicate:
+            LOGGER.add(filename, level=level, rotation=rotation, enqueue=True)
 
     return LOGGER
