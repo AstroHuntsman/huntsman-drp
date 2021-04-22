@@ -2,7 +2,7 @@ import time
 import queue
 import atexit
 import multiprocessing
-from multiprocessing.queues import JoinableQueue as Queue
+from multiprocessing import JoinableQueue as Queue
 from copy import deepcopy
 from contextlib import suppress
 from threading import Thread
@@ -16,28 +16,6 @@ from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header, read_f
 from huntsman.drp.utils.library import load_module
 from huntsman.drp.metrics.raw import RAW_METRICS
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG, list_fits_files_recursive
-
-
-class UniqueQueue(Queue):
-    """ Small override for multiprocessing.Queue to only put objects if they are not already in
-    the queue.
-    """
-
-    def __init__(self, *args, **kwargs):
-        ctx = multiprocessing.get_context()
-        super().__init__(*args, **kwargs, ctx=ctx)
-        self._unique_objs = set()  # Might be a cleaner way of doing this
-
-    def put(self, obj, *args, **kwargs):
-        if obj in self._unique_objs:
-            return
-        self._unique_objs.update([obj])
-        super().put(obj, *args, **kwargs)
-
-    def get(self, *args, **kwargs):
-        obj = super().get(*args, **kwargs)
-        self._unique_objs.remove(obj)
-        return obj
 
 
 def _pool_init(function, queue, collection_name, config):
@@ -69,12 +47,16 @@ def _process_file(metric_names, config):
     fits_header_translator = _process_file.fits_header_translator
     logger = exposure_collection.logger
 
-    filename = _process_file.queue.get(timeout=5)  # Raises queue.Empty if timeout occurs
+    try:
+        filename = _process_file.queue.get(timeout=5)  # Raises queue.Empty if timeout occurs
+    except queue.Empty as err:
+        return err  # Do not raise otherwise it will break the pool
+
     logger.debug(f"Processing {filename}.")
 
     # Read the header
     try:
-        header = fits_header_translator.read_and_parse(filename)
+        parsed_header = fits_header_translator.read_and_parse(filename)
     except Exception as err:
         logger.error(f"Exception while parsing FITS header for {filename}: {err}.")
         success = False
@@ -84,12 +66,9 @@ def _process_file(metric_names, config):
         to_update = {METRIC_SUCCESS_FLAG: success, "quality": metrics}
 
         # Update the document (upserting if necessary)
-        to_update.update(header)
+        to_update.update(parsed_header)
         to_update["filename"] = filename
-
-        logger.info(f"{to_update}")
-
-        exposure_collection.update_one(header, to_update=to_update, upsert=True)
+        exposure_collection.update_one(parsed_header, to_update=to_update, upsert=True)
 
     return filename, success
 
@@ -98,8 +77,9 @@ def _get_raw_metrics(filename, metric_names, logger):
     """ Evaluate metrics for a raw/unprocessed file.
     Args:
         filename (str): The filename of the FITS image to be processed.
+        metric_names (list of str): The list of the metrics to process.
     Returns:
-        dict: Dictionary containing the metric values.
+        dict: Dictionary containing the metric names / values.
     """
     result = {}
     success = True
@@ -169,7 +149,7 @@ class FileIngestor(HuntsmanBase):
         self._status_interval = status_interval
 
         # Setup threads
-        self._file_queue = UniqueQueue()
+        self._file_queue = Queue()
         self._status_thread = Thread(target=self._async_monitor_status)
         self._queue_thread = Thread(target=self._async_queue_files)
         self._process_thread = Thread(target=self._async_process_files)
@@ -179,6 +159,7 @@ class FileIngestor(HuntsmanBase):
         self._n_processed = 0
         self._n_failed = 0
         self._stop = False
+        self._queued_files = set()
 
         atexit.register(self.stop)  # This gets called when python is quit
 
@@ -269,7 +250,10 @@ class FileIngestor(HuntsmanBase):
 
             # Update files to process
             for filename in files_to_process:
-                self._file_queue.put(filename)  # Note that we are using UniqueQueue
+
+                if filename not in self._queued_files:  # Make sure queue items are unique
+                    self._queued_files.add(filename)
+                    self._file_queue.put(filename)
 
             timer = CountdownTimer(duration=self._sleep_interval)
             while not timer.expired():
@@ -297,17 +281,27 @@ class FileIngestor(HuntsmanBase):
                                  error_callback=self._error_callback)
 
     def _process_callback(self, result):
-        """ Function that is called after a file is processed.
+        """ Function that is called after a file is successfully processed.
         Args:
             result (tuple): The result of the completed function call.
         """
+        if isinstance(result, queue.Empty):
+            return  # Nothing to do here
+
         filename, success = result
         self.logger.debug(f"Finished processing {filename}.")
+
         self._n_processed += 1
         if not success:
             self._n_failed += 1
+
         self._file_queue.task_done()
+        self._queued_files.remove(filename)
 
     def _error_callback(self, exception):
-        if not isinstance(exception, queue.Empty):
-            raise exception
+        """ This function is called if there is an uncaught exception in a process.
+        Args:
+            exception (Exception): The raised exception.
+        """
+        self.logger.error(f"{exception!r}")
+        raise exception

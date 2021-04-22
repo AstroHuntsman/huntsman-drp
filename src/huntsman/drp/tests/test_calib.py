@@ -32,7 +32,7 @@ def exposure_table_lite(tmp_path_factory, config_lite, fits_header_translator):
     expseq.generate_fake_data(directory=tempdir)
 
     # Populate the database
-    exposure_table = RawExposureCollection(config=config_lite, table_name="fake_data_lite")
+    exposure_table = RawExposureCollection(config=config_lite, collection_name="fake_data_lite")
 
     for filename, header in expseq.header_dict.items():
 
