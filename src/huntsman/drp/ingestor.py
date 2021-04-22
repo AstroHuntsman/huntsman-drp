@@ -26,16 +26,28 @@ class UniqueQueue(Queue):
     def __init__(self, *args, **kwargs):
         ctx = multiprocessing.get_context()
         super().__init__(*args, **kwargs, ctx=ctx)
+        self._unique_objs = set()  # Might be a cleaner way of doing this
 
     def put(self, obj, *args, **kwargs):
-        if obj in self._buffer:
+        if obj in self._unique_objs:
             return
+        self._unique_objs.update([obj])
         super().put(obj, *args, **kwargs)
+
+    def get(self, *args, **kwargs):
+        obj = super().get(*args, **kwargs)
+        self._unique_objs.remove(obj)
+        return obj
 
 
 def _pool_init(function, queue, collection_name, config):
     """ Initialise the process pool.
     This allows a single mongodb connection per process rather than per file, which is inefficient.
+    Args:
+        function (Function): The function to parallelise.
+        queue (UniqueQueue): The multiprocessing file queue object.
+        collection_name (str): The collection name for the raw exposures.
+        config (dict): The config dictionary.
     """
     logger = get_logger()
     function.exposure_collection = RawExposureCollection(collection_name=collection_name,
@@ -132,17 +144,17 @@ class FileIngestor(HuntsmanBase):
         """
         super().__init__(*args, **kwargs)
 
-        screener_config = self.config.get("screener", {})
+        ingestor_config = self.config.get("ingestor", {})
 
         # Set the number of processes
         if nproc is None:
-            nproc = screener_config.get("nproc", 1)
+            nproc = ingestor_config.get("nproc", 1)
         self._nproc = int(nproc)
         self.logger.info(f"File ingestor using {nproc} processes.")
 
         # Set the monitored directory
         if directory is None:
-            directory = screener_config["directory"]
+            directory = ingestor_config["directory"]
         self._directory = directory
         self.logger.debug(f"Ingesting files in directory: {self._directory}")
 
@@ -289,8 +301,6 @@ class FileIngestor(HuntsmanBase):
         Args:
             result (tuple): The result of the completed function call.
         """
-        self.logger.info(f"{result}")
-
         filename, success = result
         self.logger.debug(f"Finished processing {filename}.")
         self._n_processed += 1
