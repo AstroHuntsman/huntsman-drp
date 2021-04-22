@@ -21,14 +21,20 @@ class Collection(HuntsmanBase):
     """
     _unique_columns = "filename",  # Required to identify a unique document
 
-    def __init__(self, table_name, **kwargs):
+    def __init__(self, collection_name, **kwargs):
         super().__init__(**kwargs)
 
-        self._table_name = table_name
+        self._collection_name = str(collection_name)
 
         # Initialise the DB
         db_name = self.config["mongodb"]["db_name"]
-        self._connect(db_name, self._table_name)
+        self._connect(db_name, self._collection_name)
+
+    # Properties
+
+    @property
+    def collection_name(self):
+        return self._collection_name
 
     # Public methods
 
@@ -84,7 +90,7 @@ class Collection(HuntsmanBase):
 
         # Screen the results if necessary
         if screen:
-            document_filter[METRIC_SUCCESS_FLAG] = True
+            document_filter[METRIC_SUCCESS_FLAG] = True  # TODO: Move to raw exposure table
 
         mongo_filter = document_filter.to_mongo()
 
@@ -232,11 +238,11 @@ class Collection(HuntsmanBase):
 
     # Private methods
 
-    def _connect(self, db_name, table_name):
+    def _connect(self, db_name, collection_name):
         """ Initialise the database.
         Args:
             db_name (str): The name of the (mongo) database.
-            table_name (str): The name of the table (mongo collection).
+            collection_name (str): The name of the table (mongo collection).
         """
         # Connect to the mongodb
         hostname = self.config["mongodb"]["hostname"]
@@ -255,7 +261,7 @@ class Collection(HuntsmanBase):
             self.logger.error(f"Unable to connect {self} to mongodb at {hostname}:{port}.")
             raise err
         self._db = self._client[db_name]
-        self._table = self._db[table_name]
+        self._table = self._db[collection_name]
 
     def _get_quality_filter(self):
         """ Return the Query object corresponding to quality cuts. """
@@ -267,8 +273,8 @@ class RawExposureCollection(Collection):
 
     _document_type = RawExposureDocument
 
-    def __init__(self, table_name="raw_data", **kwargs):
-        super().__init__(table_name=table_name, **kwargs)
+    def __init__(self, collection_name="raw_data", **kwargs):
+        super().__init__(collection_name=collection_name, **kwargs)
 
     # Public methods
 
@@ -345,8 +351,8 @@ class MasterCalibCollection(Collection):
 
     _document_type = CalibDocument
 
-    def __init__(self, table_name="master_calib", **kwargs):
-        super().__init__(table_name=table_name, **kwargs)
+    def __init__(self, collection_name="master_calib", **kwargs):
+        super().__init__(collection_name=collection_name, **kwargs)
 
     def get_matching_calibs(self, document):
         """ Return best matching set of calibs for a given document.

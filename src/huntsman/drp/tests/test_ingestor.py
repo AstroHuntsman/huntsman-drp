@@ -56,7 +56,7 @@ def test_file_ingestor(ingestor, tempdir_and_exposure_table_with_uningested_file
     assert ingestor._n_failed == 0
 
     for md in exposure_table.find():
-        print(md)
+        ingestor.logger.info(f"{md}")
         assert METRIC_SUCCESS_FLAG in md
         assert "quality" in md
         assert screen_success(md)

@@ -33,12 +33,13 @@ class UniqueQueue(Queue):
         super().put(obj, *args, **kwargs)
 
 
-def _pool_init(function, queue, config):
+def _pool_init(function, queue, collection_name, config):
     """ Initialise the process pool.
     This allows a single mongodb connection per process rather than per file, which is inefficient.
     """
     logger = get_logger()
-    function.exposure_collection = RawExposureCollection(config=config, logger=logger)
+    function.exposure_collection = RawExposureCollection(collection_name=collection_name,
+                                                         config=config, logger=logger)
     function.fits_header_translator = FitsHeaderTranslator(config=config, logger=logger)
     function.queue = queue
 
@@ -134,7 +135,6 @@ class FileIngestor(HuntsmanBase):
         screener_config = self.config.get("screener", {})
 
         # Set the number of processes
-        # This is a dummy for now
         if nproc is None:
             nproc = screener_config.get("nproc", 1)
         self._nproc = int(nproc)
@@ -150,6 +150,7 @@ class FileIngestor(HuntsmanBase):
         if exposure_collection is None:
             exposure_collection = RawExposureCollection(config=self.config, logger=self.logger)
         self._exposure_collection = exposure_collection
+        self._collection_name = exposure_collection.collection_name
 
         # Sleep intervals
         self._sleep_interval = sleep_interval
@@ -270,9 +271,9 @@ class FileIngestor(HuntsmanBase):
 
         # Define the function to parallelise
         func_kwargs = dict(metric_names=self._raw_metrics, config=self.config)
+        init_args = (_process_file, self._file_queue, self._collection_name, self.config)
 
-        with multiprocessing.Pool(self._nproc, initializer=_pool_init,
-                                  initargs=(_process_file, self._file_queue, self.config)) as pool:
+        with multiprocessing.Pool(self._nproc, initializer=_pool_init, initargs=init_args) as pool:
             while True:
                 if self._stop:
                     self.logger.debug("Stopping process thread.")

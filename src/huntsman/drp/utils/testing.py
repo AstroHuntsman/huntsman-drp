@@ -75,7 +75,7 @@ def create_test_exposure_table(config, fits_header_translator, screen=True):
     raw data table.
     """
     # Populate the database
-    exposure_table = RawExposureCollection(config=config, table_name="real_data")
+    exposure_table = RawExposureCollection(config=config, collection_name="real_data")
 
     for filename in get_testdata_fits_filenames(config=config):
 
