@@ -12,7 +12,7 @@ def ingestor(tempdir_and_exposure_table_with_uningested_files, config):
     """
     tempdir, exposure_table = tempdir_and_exposure_table_with_uningested_files
 
-    ingestor = FileIngestor(exposure_table=exposure_table, sleep_interval=1, status_interval=1,
+    ingestor = FileIngestor(exposure_collection=exposure_table, sleep_interval=1, status_interval=1,
                             directory=tempdir, config=config)
 
     # Skip astrometry tasks as tests running in drp-lsst container

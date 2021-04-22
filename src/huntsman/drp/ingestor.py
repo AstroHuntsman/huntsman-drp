@@ -1,11 +1,16 @@
 import time
 import queue
 import atexit
-from multiprocessing import Pool, Queue
+import multiprocessing
+from multiprocessing.queues import Queue
+from functools import partial
 from copy import deepcopy
 from contextlib import suppress
 from threading import Thread
 
+from panoptes.utils.time import CountdownTimer
+
+from huntsman.drp.core import get_logger
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.collection import RawExposureCollection
 from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header, read_fits_data
@@ -14,14 +19,99 @@ from huntsman.drp.metrics.raw import RAW_METRICS
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG, list_fits_files_recursive
 
 
+class UniqueQueue(Queue):
+    """ Small override for multiprocessing.Queue to only put objects if they are not already in
+    the queue.
+    """
+
+    def __init__(self, *args, **kwargs):
+        ctx = multiprocessing.get_context()
+        super().__init__(*args, **kwargs, ctx=ctx)
+
+    def put(self, obj, *args, **kwargs):
+        if obj in self._buffer:
+            return
+        super().put(obj, *args, **kwargs)
+
+
+def _pool_init(function, config):
+    """ Initialise the process pool.
+    This allows a single mongodb connection per process rather than per file, which is inefficient.
+    """
+    logger = get_logger()
+    function.exposure_collection = RawExposureCollection(config=config, logger=logger)
+    function.fits_header_translator = FitsHeaderTranslator(config=config, logger=logger)
+
+
+def _process_file(filename, metric_names):
+    """ Process a single file.
+    This function has to be defined outside of the FileIngestor class since we are using
+    multiprocessing and class instance methods cannot be pickled.
+    Args:
+        filename (str): The name of the file to process.
+    Returns:
+        bool: True if file was successfully processed, else False.
+    """
+    exposure_collection = _process_file.exposure_collection
+    fits_header_translator = _process_file.fits_header_translator
+    logger = exposure_collection.logger
+
+    logger.debug(f"Processing {filename}.")
+
+    # Read the header
+    try:
+        header = fits_header_translator.read_and_parse(filename)
+    except Exception as err:
+        logger.error(f"Exception while parsing FITS header for {filename}: {err}.")
+        return False
+
+    # Get the metrics
+    metrics, success = _get_raw_metrics(filename, metric_names=metric_names, logger=logger)
+    to_update = {METRIC_SUCCESS_FLAG: success, "quality": metrics}
+
+    # Update the document (upserting if necessary)
+    to_update.update(header)
+    exposure_collection.update_one(header, to_update=to_update, upsert=True)
+
+    return success
+
+
+def _get_raw_metrics(filename, metric_names, logger):
+    """ Evaluate metrics for a raw/unprocessed file.
+    Args:
+        filename (str): The filename of the FITS image to be processed.
+    Returns:
+        dict: Dictionary containing the metric values.
+    """
+    result = {}
+    success = True
+
+    # Read the FITS file
+    try:
+        header = read_fits_header(filename)
+        data = read_fits_data(filename)  # Returns float array
+    except Exception as err:
+        logger.error(f"Unable to read {filename}: {err!r}")
+
+    for metric in metric_names:
+        func = load_module(f"huntsman.drp.quality.metrics.raw.{metric}")
+        try:
+            result.update(func(filename, data=data, header=header))
+        except Exception as err:
+            logger.error(f"Exception while calculating {metric} for {filename}: {err!r}")
+            success = False
+
+    return result, success
+
+
 class FileIngestor(HuntsmanBase):
     """ Class to watch for new file entries in database and process their metadata
     """
     # Work around so that tests can run without running the has_wcs metric
     _raw_metrics = deepcopy(RAW_METRICS)
 
-    def __init__(self, exposure_table=None, sleep_interval=None, status_interval=60, nproc=None,
-                 directory=None, *args, **kwargs):
+    def __init__(self, exposure_collection=None, sleep_interval=None, status_interval=60,
+                 nproc=None, directory=None, *args, **kwargs):
         """
         Args:
             sleep_interval (float/int): The amout of time to sleep in between checking for new
@@ -52,12 +142,9 @@ class FileIngestor(HuntsmanBase):
         self.logger.debug(f"Screening directory: {self._directory}")
 
         # Setup the exposure collection
-        if exposure_table is None:
-            exposure_table = RawExposureCollection(config=self.config, logger=self.logger)
-        self._exposure_collection = exposure_table
-
-        # Make the FITS header translator
-        self._fits_header_translator = FitsHeaderTranslator(config=self.config, logger=self.logger)
+        if exposure_collection is None:
+            exposure_collection = RawExposureCollection(config=self.config, logger=self.logger)
+        self._exposure_collection = exposure_collection
 
         # Sleep intervals
         self._sleep_interval = sleep_interval
@@ -67,7 +154,7 @@ class FileIngestor(HuntsmanBase):
         self._status_interval = status_interval
 
         # Setup threads
-        self._files_queue = Queue()
+        self._file_queue = UniqueQueue()
         self._status_thread = Thread(target=self._async_monitor_status)
         self._queue_thread = Thread(target=self._async_queue_files)
         self._process_thread = Thread(target=self._async_process_files)
@@ -95,8 +182,8 @@ class FileIngestor(HuntsmanBase):
             dict: The status dictionary.
         """
         status = {"status_thread": self._status_thread.is_alive(),
-                  "queue_thread": self._ingest_queuer_thread.is_alive(),
-                  "process_thread": self._screen_queuer_thread.is_alive(),
+                  "queue_thread": self._queue_thread.is_alive(),
+                  "process_thread": self._process_thread.is_alive(),
                   "processed": self._n_processed,
                   "failed": self._n_failed,
                   "queued": self._file_queue.qsize}
@@ -104,7 +191,7 @@ class FileIngestor(HuntsmanBase):
 
     def start(self):
         """ Start the file ingestor. """
-        self.logger.info("Starting screening.")
+        self.logger.info("Starting file ingestor.")
         self._stop = False
         for thread in self._threads:
             thread.start()
@@ -137,7 +224,11 @@ class FileIngestor(HuntsmanBase):
                 self.logger.warning("Ingestor is not running.")
 
             # Sleep before reporting status again
-            time.sleep(self._status_interval)
+            timer = CountdownTimer(duration=self._status_interval)
+            while not timer.expired():
+                if self._stop:
+                    break
+                time.sleep(1)
 
     def _async_queue_files(self):
         """ Queue all existing files that are not in the exposure collection or have not passed
@@ -146,7 +237,7 @@ class FileIngestor(HuntsmanBase):
         self.logger.debug("Starting queue thread.")
 
         while True:
-            if self._stop_threads:
+            if self._stop:
                 self.logger.debug("Stopping queue thread.")
                 return
 
@@ -154,90 +245,52 @@ class FileIngestor(HuntsmanBase):
             files_in_directory = set(list_fits_files_recursive(self._directory))
 
             # Get set of all files that are ingested and pass screening
-            files_ingested = set(self._raw_collection.find(screen=True, key="filename"))
+            files_ingested = set(self._exposure_collection.find(screen=True, key="filename"))
 
             # Identify files that require processing
             files_to_process = files_in_directory - files_ingested
 
             # Update files to process
             for filename in files_to_process:
-                if filename not in self._file_queue:
-                    self._file_queue.put(filename)
+                self._file_queue.put(filename)  # Note that we are using UniqueQueue
+
+            timer = CountdownTimer(duration=self._sleep_interval)
+            while not timer.expired():
+                if self._stop:
+                    break
+                time.sleep(1)
 
     def _async_process_files(self):
         """ Continually process files in the queue. """
         self.logger.debug(f"Starting process with {self._nproc} processes.")
-        with Pool(self._nproc) as pool:
-            pool.map(self._process_files, range(self._nproc))
 
-    def _process_files(self, process_number):
-        """ Dummy method to process files via pool.map.
+        # Define the function to parallelise
+        func = partial(_process_file, metric_names=self._raw_metrics)
+
+        with multiprocessing.Pool(self._nproc, initializer=_pool_init,
+                                  initargs=(func, self.config)) as pool:
+            while True:
+                if self._stop:
+                    self.logger.debug("Stopping process thread.")
+                    break
+
+                # Get a filename from the queue
+                try:
+                    # Use a timeout so we can quickly stop the thread if necessary
+                    filename = self._file_queue.get(timeout=5)
+                except queue.Empty:
+                    continue
+
+                # Process the file in the pool asyncronously
+                args = (filename,)
+                pool.apply_async(func, args, callback=self._process_callback)
+
+    def _process_callback(self, success):
+        """ Function that is called after a file is processed.
         Args:
-            process_number (int): The process ID number.
+            success (bool): True if the file was successfully processed, else False.
         """
-        self.logger.debug(f"Starting worker process {process_number}.")
-        while True:
-            if self._stop:
-                self.logger.debug(f"Stopping worker process {process_number}.")
-                return
-            self._process_file()
-
-    def _process_file(self):
-        """ Process a single file from the queue. """
-        try:
-            filename = self._file_queue.get(timeout=10)  # Use timeout so we can gracefully exit
-        except queue.Empty:
-            self._n_failed += 1
-            return
-        self.logger.debug(f"Processing {filename}.")
-
-        # Read the header
-        try:
-            header = self._fits_header_translator.read_and_parse(filename)
-        except Exception as err:
-            self.logger.error(f"Exception while parsing FITS header for {filename}: {err}.")
-            return
-
-        # Get the metrics
-        metrics, success = self._get_raw_metrics(filename)
-        to_update = {METRIC_SUCCESS_FLAG: success, "quality": metrics}
-
-        # Update the document (upserting if necessary)
-        to_update.update(header)
-        self._exposure_collection.update_one(header, to_update=to_update, upsert=True)
-
-        # Mark the file as complete
-        self._file_queue.task_done()
-
         self._n_processed += 1
         if not success:
             self._n_failed += 1
-
-        return
-
-    def _get_raw_metrics(self, filename):
-        """ Evaluate metrics for a raw/unprocessed file.
-        Args:
-            filename (str): The filename of the FITS image to be processed.
-        Returns:
-            dict: Dictionary containing the metric values.
-        """
-        result = {}
-        success = True
-
-        # Read the FITS file
-        try:
-            header = read_fits_header(filename)
-            data = read_fits_data(filename)  # Returns float array
-        except Exception as err:
-            self.logger.error(f"Unable to read {filename}: {err!r}")
-
-        for metric in self._raw_metrics:
-            func = load_module(f"huntsman.drp.quality.metrics.raw.{metric}")
-            try:
-                result.update(func(filename, data=data, header=header))
-            except Exception as err:
-                self.logger.error(f"Exception while calculating {metric} for {filename}: {err!r}")
-                success = False
-
-        return result, success
+        self._file_queue.task_done()
