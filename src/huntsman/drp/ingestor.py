@@ -108,12 +108,12 @@ class FileIngestor(HuntsmanBase):
     # Work around so that tests can run without running the has_wcs metric
     _raw_metrics = deepcopy(RAW_METRICS)
 
-    def __init__(self, exposure_collection=None, sleep_interval=10, status_interval=60,
+    def __init__(self, exposure_collection=None, queue_interval=60, status_interval=60,
                  nproc=None, directory=None, *args, **kwargs):
         """
         Args:
-            sleep_interval (float): The amout of time to sleep in between checking for new
-                files to screen in seconds. Default 10.
+            queue_interval (float): The amout of time to sleep in between checking for new
+                files to process in seconds. Default 60s.
             status_interval (float, optional): Sleep for this long between status reports. Default
                 60s.
             directory (str): The top level directory to watch for new files, so they can
@@ -145,7 +145,7 @@ class FileIngestor(HuntsmanBase):
         self._collection_name = exposure_collection.collection_name
 
         # Sleep intervals
-        self._sleep_interval = sleep_interval
+        self._queue_interval = queue_interval
         self._status_interval = status_interval
 
         # Setup threads
@@ -255,7 +255,7 @@ class FileIngestor(HuntsmanBase):
                     self._queued_files.add(filename)
                     self._file_queue.put(filename)
 
-            timer = CountdownTimer(duration=self._sleep_interval)
+            timer = CountdownTimer(duration=self._queue_interval)
             while not timer.expired():
                 if self._stop:
                     break
