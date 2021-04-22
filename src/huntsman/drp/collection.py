@@ -179,6 +179,7 @@ class Collection(HuntsmanBase):
                 raise RuntimeError(f"No matches found for document {document_filter} in {self}. Use"
                                    " upsert=True to upsert.")
 
+        self.logger.debug(f"Updating document with: {mongo_update}")
         self._table.update_one(document_filter, {'$set': mongo_update}, upsert=upsert)
 
     def delete_one(self, document_filter):

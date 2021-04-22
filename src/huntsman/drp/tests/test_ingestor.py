@@ -12,8 +12,8 @@ def ingestor(tempdir_and_exposure_table_with_uningested_files, config):
     """
     tempdir, exposure_table = tempdir_and_exposure_table_with_uningested_files
 
-    ingestor = FileIngestor(exposure_collection=exposure_table, sleep_interval=1, status_interval=1,
-                            directory=tempdir, config=config)
+    ingestor = FileIngestor(exposure_collection=exposure_table, sleep_interval=10,
+                            status_interval=5, directory=tempdir, config=config)
 
     # Skip astrometry tasks as tests running in drp-lsst container
     ingestor._raw_metrics = [_ for _ in ingestor._raw_metrics if _ != "get_wcs"]
@@ -50,7 +50,13 @@ def test_file_ingestor(ingestor, tempdir_and_exposure_table_with_uningested_file
     if not ingestor.is_running:
         raise RuntimeError("Ingestor has stopped running.")
 
+    ingestor.stop(blocking=True)
+    assert not ingestor.is_running
+
+    assert ingestor._n_failed == 0
+
     for md in exposure_table.find():
+        print(md)
         assert METRIC_SUCCESS_FLAG in md
         assert "quality" in md
         assert screen_success(md)

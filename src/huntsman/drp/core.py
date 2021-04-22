@@ -125,3 +125,11 @@ def get_logger(backupCount=5, maxBytes=256000000):
         logger.addHandler(handler)
 
     return logger
+
+
+from loguru import logger as LOGGER
+
+def get_logger():
+    """
+    """
+    return LOGGER
