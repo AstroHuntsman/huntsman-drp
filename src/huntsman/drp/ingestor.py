@@ -1,8 +1,7 @@
 import time
 import queue
 import atexit
-import multiprocessing
-from multiprocessing import JoinableQueue as Queue
+from multiprocessing import Pool
 from copy import deepcopy
 from contextlib import suppress
 from threading import Thread
@@ -18,12 +17,11 @@ from huntsman.drp.metrics.raw import RAW_METRICS
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG, list_fits_files_recursive
 
 
-def _pool_init(function, queue, collection_name, config):
+def _pool_init(function, collection_name, config):
     """ Initialise the process pool.
     This allows a single mongodb connection per process rather than per file, which is inefficient.
     Args:
         function (Function): The function to parallelise.
-        queue (UniqueQueue): The multiprocessing file queue object.
         collection_name (str): The collection name for the raw exposures.
         config (dict): The config dictionary.
     """
@@ -31,26 +29,21 @@ def _pool_init(function, queue, collection_name, config):
     function.exposure_collection = RawExposureCollection(collection_name=collection_name,
                                                          config=config, logger=logger)
     function.fits_header_translator = FitsHeaderTranslator(config=config, logger=logger)
-    function.queue = queue
 
 
-def _process_file(metric_names, config):
+def _process_file(filename, metric_names):
     """ Process a single file.
     This function has to be defined outside of the FileIngestor class since we are using
     multiprocessing and class instance methods cannot be pickled.
     Args:
         filename (str): The name of the file to process.
+        metric_names (list of str): The list of the metrics to process.
     Returns:
         bool: True if file was successfully processed, else False.
     """
     exposure_collection = _process_file.exposure_collection
     fits_header_translator = _process_file.fits_header_translator
     logger = exposure_collection.logger
-
-    try:
-        filename = _process_file.queue.get(timeout=5)  # Raises queue.Empty if timeout occurs
-    except queue.Empty as err:
-        return err  # Do not raise otherwise it will break the pool
 
     logger.debug(f"Processing {filename}.")
 
@@ -149,7 +142,7 @@ class FileIngestor(HuntsmanBase):
         self._status_interval = status_interval
 
         # Setup threads
-        self._file_queue = Queue()
+        self._file_queue = queue.Queue()
         self._status_thread = Thread(target=self._async_monitor_status)
         self._queue_thread = Thread(target=self._async_queue_files)
         self._process_thread = Thread(target=self._async_process_files)
@@ -203,6 +196,7 @@ class FileIngestor(HuntsmanBase):
             for thread in self._threads:
                 with suppress(RuntimeError):
                     thread.join()
+        self.logger.info("File ingestor stopped.")
 
     def _async_monitor_status(self):
         """ Report the status on a regular interval. """
@@ -226,6 +220,8 @@ class FileIngestor(HuntsmanBase):
                     break
                 time.sleep(1)
 
+        self.logger.debug("Status thread stopped.")
+
     def _async_queue_files(self):
         """ Queue all existing files that are not in the exposure collection or have not passed
         screening.
@@ -235,7 +231,7 @@ class FileIngestor(HuntsmanBase):
         while True:
             if self._stop:
                 self.logger.debug("Stopping queue thread.")
-                return
+                break
 
             # Get set of all files in watched directory
             files_in_directory = set(list_fits_files_recursive(self._directory))
@@ -261,24 +257,38 @@ class FileIngestor(HuntsmanBase):
                     break
                 time.sleep(1)
 
+        self.logger.debug("Queue thread stopped.")
+
     def _async_process_files(self):
         """ Continually process files in the queue. """
         self.logger.debug(f"Starting process with {self._nproc} processes.")
 
         # Define the function to parallelise
-        func_kwargs = dict(metric_names=self._raw_metrics, config=self.config)
-        init_args = (_process_file, self._file_queue, self._collection_name, self.config)
+        func_kwargs = dict(metric_names=self._raw_metrics)
+        init_args = (_process_file, self._collection_name, self.config)
 
-        with multiprocessing.Pool(self._nproc, initializer=_pool_init, initargs=init_args) as pool:
+        # Avoid Pool context manager to make multiprocessing coverage work
+        pool = Pool(self._nproc, initializer=_pool_init, initargs=init_args)
+        try:
             while True:
                 if self._stop:
                     self.logger.debug("Stopping process thread.")
                     break
 
+                try:
+                    filename = self._file_queue.get(timeout=5)
+                except queue.Empty:
+                    continue
+
                 # Process the file in the pool asyncronously
-                pool.apply_async(_process_file, (), func_kwargs,
+                pool.apply_async(_process_file, (filename,), func_kwargs,
                                  callback=self._process_callback,
                                  error_callback=self._error_callback)
+        finally:
+            pool.close()
+            pool.join()
+
+        self.logger.debug("Process thread stopped.")
 
     def _process_callback(self, result):
         """ Function that is called after a file is successfully processed.

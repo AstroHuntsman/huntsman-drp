@@ -4,7 +4,6 @@ from datetime import timedelta
 from urllib.parse import quote_plus
 
 import numpy as np
-import pandas as pd
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
 
@@ -277,21 +276,6 @@ class RawExposureCollection(Collection):
         super().__init__(collection_name=collection_name, **kwargs)
 
     # Public methods
-
-    def get_metrics(self, *args, **kwargs):
-        """
-        """
-        documents = self.find_latest(*args, **kwargs)
-
-        # Convert to a DataFrame object
-        df = pd.DataFrame([d["metrics"] for d in documents])
-        df.replace("", np.nan, inplace=True)
-
-        # Add columns required to identify files
-        for key in self._unique_columns:
-            df[key] = [d[key] for d in documents]
-
-        return df
 
     def get_matching_raw_calibs(self, calib_document, calib_date):
         """ Return matching set of calib IDs for a given data_id and calib_date.
