@@ -2,7 +2,7 @@ import os
 import time
 import numpy as np
 
-from huntsman.drp.calexp import CalexpQualityMonitor
+from huntsman.drp.services.calexp import CalexpQualityMonitor
 
 
 def test_calexp_quality_monitor(exposure_table_real_data, master_calib_table_real_data, config):

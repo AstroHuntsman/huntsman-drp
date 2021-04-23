@@ -2,7 +2,7 @@ import os
 import time
 import pytest
 
-from huntsman.drp.ingestor import FileIngestor
+from huntsman.drp.services.ingestor import FileIngestor
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG, screen_success
 
 

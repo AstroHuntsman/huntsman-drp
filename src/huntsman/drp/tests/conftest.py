@@ -6,7 +6,7 @@ from huntsman.drp.collection import RawExposureCollection
 from huntsman.drp.refcat import TapReferenceCatalogue
 from huntsman.drp.lsst.butler import ButlerRepository, TemporaryButlerRepository
 from huntsman.drp.utils import testing
-from huntsman.drp.calib import MasterCalibMaker
+from huntsman.drp.services.calib import MasterCalibMaker
 
 # ===========================================================================
 # Config

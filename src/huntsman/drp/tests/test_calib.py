@@ -6,7 +6,7 @@ from panoptes.utils import error
 
 from huntsman.drp.utils.testing import FakeExposureSequence
 from huntsman.drp.collection import RawExposureCollection
-from huntsman.drp.calib import MasterCalibMaker
+from huntsman.drp.services.calib import MasterCalibMaker
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
 
 

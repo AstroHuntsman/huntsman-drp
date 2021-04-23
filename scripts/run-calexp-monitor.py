@@ -2,7 +2,7 @@
 like zeropoints and PSF FWHM from screened data, storing the information in the data quality
 database table. """
 import os
-from huntsman.drp.calexp import CalexpQualityMonitor
+from huntsman.drp.services.calexp import CalexpQualityMonitor
 
 if __name__ == "__main__":
 
