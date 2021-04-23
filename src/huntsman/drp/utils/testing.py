@@ -70,12 +70,12 @@ def create_test_bulter_repository(directory, config=None, **kwargs):
     return br
 
 
-def create_test_exposure_table(config, fits_header_translator, screen=True):
+def create_test_exposure_collection(config, fits_header_translator, screen=True):
     """ Create a temporary directory populated with fake FITS images, then parse the images into the
     raw data table.
     """
     # Populate the database
-    exposure_table = RawExposureCollection(config=config, collection_name="real_data")
+    exposure_collection = RawExposureCollection(config=config, collection_name="real_data")
 
     for filename in get_testdata_fits_filenames(config=config):
 
@@ -88,9 +88,9 @@ def create_test_exposure_table(config, fits_header_translator, screen=True):
             parsed_header[METRIC_SUCCESS_FLAG] = True
 
         # Insert the parsed header into the DB table
-        exposure_table.insert_one(parsed_header)
+        exposure_collection.insert_one(parsed_header)
 
-    return exposure_table
+    return exposure_collection
 
 
 # Fake test data

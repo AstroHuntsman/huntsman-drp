@@ -17,9 +17,9 @@ def get_quality_metrics(calexp):
 
 
 def _init_pool(function, config, logger, exp_coll_name, calib_coll_name):
-    function.exposure_table = RawExposureCollection(collection_name=exp_coll_name, config=config,
+    function.exposure_collection = RawExposureCollection(collection_name=exp_coll_name, config=config,
                                                     logger=logger)
-    function.calib_table = MasterCalibCollection(collection_name=calib_coll_name, config=config,
+    function.calib_collection = MasterCalibCollection(collection_name=calib_coll_name, config=config,
                                                  logger=logger)
 
 
@@ -28,13 +28,13 @@ def _process_file(document, refcat_filename):
     Args:
         document (RawExposureDocument): The document to process.
     """
-    calib_table = _process_file.calib_table
-    exposure_table = _process_file.exposure_table
-    config = exposure_table.config
-    logger = calib_table.logger
+    calib_collection = _process_file.calib_collection
+    exposure_collection = _process_file.exposure_collection
+    config = exposure_collection.config
+    logger = calib_collection.logger
 
     # Get matching master calibs
-    calib_docs = calib_table.get_matching_calibs(document)
+    calib_docs = calib_collection.get_matching_calibs(document)
 
     with TemporaryButlerRepository(logger=logger, config=config) as br:
 
@@ -67,7 +67,7 @@ def _process_file(document, refcat_filename):
             # Make the document and update the DB
             document = {k: calexp_id[k] for k in required_keys}
             to_update = {"quality": {"calexp": metrics}}
-            exposure_table.update_one(document, to_update=to_update)
+            exposure_collection.update_one(document, to_update=to_update)
 
 
 class CalexpQualityMonitor(ProcessQueue):
@@ -101,7 +101,7 @@ class CalexpQualityMonitor(ProcessQueue):
 
     def _get_objs(self):
         """ Update the set of data IDs that require processing. """
-        docs = self._exposure_table.find({"dataType": "science"}, screen=True, quality_filter=True)
+        docs = self._exposure_collection.find({"dataType": "science"}, screen=True, quality_filter=True)
         return [d for d in docs if self._requires_processing(d)]
 
     def _requires_processing(self, file_info):

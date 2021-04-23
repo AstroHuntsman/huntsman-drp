@@ -25,7 +25,7 @@ class ButlerRepository(HuntsmanBase):
     _ra_key = "RA-MNT"
     _dec_key = "DEC-MNT"  # TODO: Move to config
 
-    def __init__(self, directory, calib_dir=None, initialise=True, calib_table=None,
+    def __init__(self, directory, calib_dir=None, initialise=True, calib_collection=None,
                  min_dataIds_per_calib=1, max_dataIds_per_calib=50, **kwargs):
         """
         Args:
@@ -34,7 +34,7 @@ class ButlerRepository(HuntsmanBase):
                 will create a new CALIB directory under the butler repository root.
             initialise (bool, optional): If True (default), initialise the butler reposity
                 with required files.
-            calib_table (MasterCalibCollection, optional): The master calib collection.
+            calib_collection (MasterCalibCollection, optional): The master calib collection.
             min_dataIds_per_calib (int, optional): Limit the minimum number of dataIds that can
                 contribute to a single calib to this number. Default 1.
             max_dataIds_per_calib (int, optional): Limit the maximum number of dataIds that can
@@ -60,9 +60,9 @@ class ButlerRepository(HuntsmanBase):
         else:
             self._refcat_filename = os.path.join(self.butler_dir, "refcat_raw", "refcat_raw.csv")
 
-        if calib_table is None:
-            calib_table = MasterCalibCollection(config=self.config, logger=self.logger)
-        self._calib_table = calib_table
+        if calib_collection is None:
+            calib_collection = MasterCalibCollection(config=self.config, logger=self.logger)
+        self._calib_collection = calib_collection
 
         # Load the policy file
         self._policy = Policy(self._policy_filename)
@@ -475,7 +475,7 @@ class ButlerRepository(HuntsmanBase):
                 shutil.copy(filename, archived_filename)
 
                 # Insert the metadata into the calib database
-                self._calib_table.insert_one(metadata, overwrite=True)
+                self._calib_collection.insert_one(metadata, overwrite=True)
 
     # Private methods
 
