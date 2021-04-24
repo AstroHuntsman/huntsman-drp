@@ -1,5 +1,3 @@
-import multiprocessing
-from multiprocessing import pool
 from multiprocessing.pool import ThreadPool
 
 from huntsman.drp.services.base import ProcessQueue
@@ -7,30 +5,6 @@ from huntsman.drp.utils.library import load_module
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.metrics.calexp import METRICS
-
-# We need to allow our process pool to have child threads (spawned in LSST code)
-# Therefore, we need to override the default Pool class
-# See: https://stackoverflow.com/questions/6974695/python-process-pool-non-daemonic
-
-
-class NoDaemonProcess(multiprocessing.Process):
-    @property
-    def daemon(self):
-        return False
-
-    @daemon.setter
-    def daemon(self, value):
-        pass
-
-
-class NoDaemonContext(type(multiprocessing.get_context())):
-    Process = NoDaemonProcess
-
-
-class NestablePool(pool.Pool):
-    def __init__(self, *args, **kwargs):
-        kwargs['context'] = NoDaemonContext()
-        super(NestablePool, self).__init__(*args, **kwargs)
 
 
 def _get_quality_metrics(calexp):
