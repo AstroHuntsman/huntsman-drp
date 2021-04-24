@@ -15,8 +15,7 @@ from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
 class ProcessQueue(HuntsmanBase, ABC):
     """ Abstract class to process queued objects in parallel. """
 
-    _init_pool_args = None  # These should be overridden by subclasses
-    _process_func_kwargs = None
+    _pool_class = Pool  # Allow class overrides
 
     def __init__(self, exposure_collection=None, calib_collection=None, queue_interval=60,
                  status_interval=60, nproc=None, directory=None, *args, **kwargs):
@@ -153,11 +152,11 @@ class ProcessQueue(HuntsmanBase, ABC):
             objs_to_process = self._get_objs()
 
             # Update files to process
-            for filename in objs_to_process:
+            for obj in objs_to_process:
 
-                if filename not in self._queued_objs:  # Make sure queue objs are unique
-                    self._queued_objs.add(filename)
-                    self._queue.put(filename)
+                if obj not in self._queued_objs:  # Make sure queue objs are unique
+                    self._queued_objs.add(obj)
+                    self._queue.put(obj)
 
             timer = CountdownTimer(duration=self._queue_interval)
             while not timer.expired():
@@ -167,15 +166,20 @@ class ProcessQueue(HuntsmanBase, ABC):
 
         self.logger.debug("Queue thread stopped.")
 
-    def _async_process_files(self):
-        """ Continually process objects in the queue. """
-        global _process_file
-        global _pool_init
-
+    def _async_process_files(self, process_func, pool_init=None, pool_init_args=None,
+                             process_func_kwargs=None):
+        """ Continually process objects in the queue.
+        This method is indended to be overridden with all arguments provided by the subclass.
+        Args:
+            process_func (Function): The function to parallelise.
+            pool_init (Function or None): The function used to initialise the process pool.
+            pool_init_args (tuple): Args parsed to the pool initialiser.
+            process_func_kwargs (dict): Kwargs parsed to the process function.
+        """
         self.logger.debug(f"Starting process with {self._nproc} processes.")
 
         # Avoid Pool context manager to make multiprocessing coverage work
-        pool = Pool(self._nproc, initializer=_pool_init, initargs=self._init_pool_args)
+        pool = self._pool_class(self._nproc, initializer=pool_init, initargs=pool_init_args)
         try:
             while True:
                 if self._stop:
@@ -189,7 +193,7 @@ class ProcessQueue(HuntsmanBase, ABC):
                 self.logger.debug(f"Got object {obj} from queue.")
 
                 # Process the file in the pool asyncronously
-                pool.apply_async(_process_file, (obj,), self._process_func_kwargs,
+                pool.apply_async(process_func, (obj,), process_func_kwargs,
                                  callback=self._process_callback,
                                  error_callback=self._error_callback)
         finally:
@@ -204,6 +208,7 @@ class ProcessQueue(HuntsmanBase, ABC):
             result (tuple): A tupe of (obj, success).
         """
         obj, success = result
+        self.logger.debug(f"successfully processed {obj}.")
 
         self._n_processed += 1
         if not success:

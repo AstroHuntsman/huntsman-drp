@@ -9,7 +9,7 @@ from huntsman.drp.metrics.raw import RAW_METRICS
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG, list_fits_files_recursive
 
 
-def _pool_init(function, collection_name, config):
+def _init_pool(function, collection_name, config):
     """ Initialise the process pool.
     This allows a single mongodb connection per process rather than per file, which is inefficient.
     Args:
@@ -117,8 +117,14 @@ class FileIngestor(ProcessQueue):
         self._directory = directory
         self.logger.debug(f"Ingesting files in directory: {self._directory}")
 
-        self._process_func_kwargs = dict(metric_names=self._raw_metrics)
-        self._pool_init_args = (_process_file, self._collection_name, self.config)
+    def _async_process_files(self, *args, **kwargs):
+        """ Continually process objects in the queue. """
+        process_func_kwargs = dict(metric_names=self._raw_metrics)
+        pool_init_args = (_process_file, self._exposure_collection.collection_name, self.config)
+        return super()._async_process_files(process_func=_process_file,
+                                            pool_init=_init_pool,
+                                            pool_init_args=pool_init_args,
+                                            process_func_kwargs=process_func_kwargs)
 
     def _get_objs(self):
         """ Get list of files to process. """

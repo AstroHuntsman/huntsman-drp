@@ -21,34 +21,39 @@ MASTER_CALIB_SCRIPTS = {"bias": "constructBias.py",
                         "flat": "constructFlat.py"}
 
 
-def run_command(cmd, logger=None):
+def run_command(cmd, logger=None, timeout=None):
     """Run an LSST command line task.
     Args:
         cmd (str): The LSST commandline task to run in a subprocess.
+        timeout (float): The subprocess timeout in seconds. If None (default), no timeout is
+            applied.
     Returns:
         subprocess.CompletedProcess: The result of the command.
     Raises:
-        subprocess.CalledProcessError
+        subprocess.CalledProcessError: If the subprocess return code is non-zero.
+        subprocess.TimeoutExpired: If the subprocess timeout is reached.
     """
     if logger is None:
         logger = get_logger()
     logger.debug(f"Running LSST command in subprocess: {cmd}")
 
-    result = subprocess.run(cmd, shell=True, check=False, capture_output=True)
+    with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT) as proc:
 
-    # Log the LSST output
-    for pipe in (result.stdout, result.stderr):  # TODO: Override LSST logger?
-        for line in pipe.decode().split("\n"):
-            if line:
-                logger.debug(line)
+        # Log subprocess output in real time
+        with proc.stdout as pipe:
+            for line in iter(pipe.readline, b''):
+                logger.debug(line.decode().strip("\n"))
+
+        # Wait for subprocess to finish
+        returncode = proc.wait(timeout=timeout)
 
     # Raise an error if the command failed
-    # This does not always seem to work
-    if result.returncode != 0:
-        raise subprocess.CalledProcessError(cmd=cmd, returncode=result.returncode,
-                                            output=result.stdout, stderr=result.stderr)
+    # This does not always seem to work as some LSST scripts always seem to exit 0
+    if returncode != 0:
+        raise subprocess.CalledProcessError(cmd=cmd, returncode=returncode)
 
-    return result
+    return
 
 
 def ingest_raw_data(filenames, butler_dir, mode="link", ignore_ingested=True):
@@ -96,21 +101,13 @@ def ingest_reference_catalogue(butler_dir, filenames, output_directory=None):
 
 
 def ingest_master_calibs(datasetType, filenames, butler_dir, calib_dir, validity):
-    """Ingest the master calib of a given date.
-
-    Parameters
-    ----------
-    datasetType : str
-        Can be set to "bias" or "flat".
-    filenames : list
-        List of reference catalogue files to ingest.
-    butler_dir : str
-        Directory that contains the butler repo.
-    calib_dir : str
-        Directory that contains the calib repo.
-    validity : int
-        validity period in days for calib files.
-
+    """ Ingest the master calib of a given date.
+    Args:
+        datasetType (str): One of bias, dark or flat.
+        filenames (list of str): List of filenames to ingest.
+        butler_dir (str): Directory that contains the butler repo.
+        calib_dir (str): Directory that contains the calib repo.
+        validity (int): Validity period in days for calib files.
     """
     cmd = f"ingestCalibs.py {butler_dir}"
     cmd += " " + " ".join(filenames)
