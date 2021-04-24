@@ -107,13 +107,13 @@ class CalexpQualityMonitor(ProcessQueue):
         self._nproc = int(nproc)
         self.logger.debug(f"Calexp monitor using {nproc} processes.")
 
-    def _async_process_files(self, *args, **kwargs):
+    def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """
         process_func_kwargs = dict(refcat_filename=self._refcat_filename)
         pool_init_args = (_process_file, self.config, self.logger,
                           self._exposure_collection.collection_name,
                           self._calib_collection.collection_name)
-        return super()._async_process_files(process_func=_process_file,
+        return super()._async_process_objects(process_func=_process_file,
                                             pool_init=_init_pool,
                                             pool_init_args=pool_init_args,
                                             process_func_kwargs=process_func_kwargs)

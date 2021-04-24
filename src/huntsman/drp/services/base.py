@@ -52,8 +52,8 @@ class ProcessQueue(HuntsmanBase, ABC):
         # Setup threads
         self._queue = queue.Queue()
         self._status_thread = Thread(target=self._async_monitor_status)
-        self._queue_thread = Thread(target=self._async_queue_files)
-        self._process_thread = Thread(target=self._async_process_files)
+        self._queue_thread = Thread(target=self._async_queue_objects)
+        self._process_thread = Thread(target=self._async_process_objects)
         self._threads = [self._status_thread, self._queue_thread, self._process_thread]
 
         # Starting values
@@ -140,7 +140,7 @@ class ProcessQueue(HuntsmanBase, ABC):
 
         self.logger.debug("Status thread stopped.")
 
-    def _async_queue_files(self):
+    def _async_queue_objects(self):
         """ Add new objs to the queue. """
         self.logger.debug("Starting queue thread.")
 
@@ -166,7 +166,7 @@ class ProcessQueue(HuntsmanBase, ABC):
 
         self.logger.debug("Queue thread stopped.")
 
-    def _async_process_files(self, process_func, pool_init=None, pool_init_args=None,
+    def _async_process_objects(self, process_func, pool_init=None, pool_init_args=None,
                              process_func_kwargs=None):
         """ Continually process objects in the queue.
         This method is indended to be overridden with all arguments provided by the subclass.

@@ -117,11 +117,11 @@ class FileIngestor(ProcessQueue):
         self._directory = directory
         self.logger.debug(f"Ingesting files in directory: {self._directory}")
 
-    def _async_process_files(self, *args, **kwargs):
+    def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """
         process_func_kwargs = dict(metric_names=self._raw_metrics)
         pool_init_args = (_process_file, self._exposure_collection.collection_name, self.config)
-        return super()._async_process_files(process_func=_process_file,
+        return super()._async_process_objects(process_func=_process_file,
                                             pool_init=_init_pool,
                                             pool_init_args=pool_init_args,
                                             process_func_kwargs=process_func_kwargs)
