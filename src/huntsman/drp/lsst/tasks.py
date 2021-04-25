@@ -25,10 +25,9 @@ def run_command(cmd, logger=None, timeout=None):
     """Run an LSST command line task.
     Args:
         cmd (str): The LSST commandline task to run in a subprocess.
-        timeout (float): The subprocess timeout in seconds. If None (default), no timeout is
-            applied.
-    Returns:
-        subprocess.CompletedProcess: The result of the command.
+        logger (logger, optinal): The logger.
+        timeout (float, optional): The subprocess timeout in seconds. If None (default), no timeout
+            is applied.
     Raises:
         subprocess.CalledProcessError: If the subprocess return code is non-zero.
         subprocess.TimeoutExpired: If the subprocess timeout is reached.

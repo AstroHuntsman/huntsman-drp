@@ -167,7 +167,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         self.logger.debug("Queue thread stopped.")
 
     def _async_process_objects(self, process_func, pool_init=None, pool_init_args=None,
-                             process_func_kwargs=None):
+                               process_func_kwargs=None):
         """ Continually process objects in the queue.
         This method is indended to be overridden with all arguments provided by the subclass.
         Args:

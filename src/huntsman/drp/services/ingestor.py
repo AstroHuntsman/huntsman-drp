@@ -122,9 +122,9 @@ class FileIngestor(ProcessQueue):
         process_func_kwargs = dict(metric_names=self._raw_metrics)
         pool_init_args = (_process_file, self._exposure_collection.collection_name, self.config)
         return super()._async_process_objects(process_func=_process_file,
-                                            pool_init=_init_pool,
-                                            pool_init_args=pool_init_args,
-                                            process_func_kwargs=process_func_kwargs)
+                                              pool_init=_init_pool,
+                                              pool_init_args=pool_init_args,
+                                              process_func_kwargs=process_func_kwargs)
 
     def _get_objs(self):
         """ Get list of files to process. """

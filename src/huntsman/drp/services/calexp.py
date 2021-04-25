@@ -25,14 +25,14 @@ def _init_pool(function, config, logger, exp_coll_name, calib_coll_name):
                                                       config=config, logger=logger)
 
 
-def _process_file(document, refcat_filename):
+def _process_document(document, refcat_filename):
     """ Create a calibrated exposure (calexp) for the given data ID and store the metadata.
     Args:
         document (RawExposureDocument): The document to process.
     """
 
-    calib_collection = _process_file.calib_collection
-    exposure_collection = _process_file.exposure_collection
+    calib_collection = _process_document.calib_collection
+    exposure_collection = _process_document.exposure_collection
     config = exposure_collection.config
     logger = calib_collection.logger
 
@@ -110,13 +110,13 @@ class CalexpQualityMonitor(ProcessQueue):
     def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """
         process_func_kwargs = dict(refcat_filename=self._refcat_filename)
-        pool_init_args = (_process_file, self.config, self.logger,
+        pool_init_args = (_process_document, self.config, self.logger,
                           self._exposure_collection.collection_name,
                           self._calib_collection.collection_name)
-        return super()._async_process_objects(process_func=_process_file,
-                                            pool_init=_init_pool,
-                                            pool_init_args=pool_init_args,
-                                            process_func_kwargs=process_func_kwargs)
+        return super()._async_process_objects(process_func=_process_document,
+                                              pool_init=_init_pool,
+                                              pool_init_args=pool_init_args,
+                                              process_func_kwargs=process_func_kwargs)
 
     def _get_objs(self):
         """ Update the set of data IDs that require processing. """
