@@ -1,9 +1,11 @@
 import os
 from tempfile import NamedTemporaryFile
 from contextlib import suppress
+
 import numpy as np
 import pandas as pd
 from astroquery.utils.tap.core import TapPlus
+
 from huntsman.drp.base import HuntsmanBase
 
 
@@ -61,6 +63,7 @@ class TapReferenceCatalogue(HuntsmanBase):
 
         # Start the query
         self.logger.debug(f"Cone search command: {query}.")
+
         self._tap.launch_job_async(query, dump_to_file=True, output_format="csv",
                                    output_file=filename)
         return pd.read_csv(filename)
@@ -75,19 +78,25 @@ class TapReferenceCatalogue(HuntsmanBase):
             pandas.DataFrame: The reference catalogue.
         """
         result = None
+
         with NamedTemporaryFile(delete=True) as tempfile:
             for ra, dec in zip(ra_list, dec_list):
+
                 # Do the cone search and get result
                 df = self.cone_search(ra, dec, filename=tempfile.name, **kwargs)
+
                 # First iteration
                 if result is None:
                     result = df
                     continue
+
                 # Remove existing sources & concat
                 is_new = np.isin(df[self._unique_key].values, result[self._unique_key].values,
                                  invert=True)
                 result = pd.concat([result, df[is_new]], ignore_index=False)
+
         self.logger.debug(f"{result.shape[0]} sources in reference catalogue.")
+
         if filename is not None:
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             result.to_csv(filename)

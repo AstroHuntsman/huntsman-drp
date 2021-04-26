@@ -18,7 +18,8 @@ def _get_quality_metrics(calexp):
     return result
 
 
-def _process_document(document, exposure_collection, calib_collection, refcat_filename, **kwargs):
+def _process_document(document, exposure_collection, calib_collection, refcat_filename, timeout,
+                      **kwargs):
     """ Create a calibrated exposure (calexp) for the given data ID and store the metadata.
     Args:
         document (RawExposureDocument): The document to process.
@@ -32,36 +33,24 @@ def _process_document(document, exposure_collection, calib_collection, refcat_fi
 
     with TemporaryButlerRepository(logger=logger, config=config) as br:
 
-        logger.info(f"xxx A {document['visit']}")
-
         # Ingest raw science exposure into the bulter repository
         br.ingest_raw_data([document["filename"]])
-
-        logger.info(f"xxx B {document['visit']}")
 
         # Ingest the corresponding master calibs
         for calib_type, calib_doc in calib_docs.items():
             calib_filename = calib_doc["filename"]
             br.ingest_master_calibs(datasetType=calib_type, filenames=[calib_filename])
 
-        logger.info(f"xxx C {document['visit']}")
-
         # Make and ingest the reference catalogue
         if refcat_filename is None:
-            logger.info(f"xxx Ca {document['visit']}")
             br.make_reference_catalogue()
-            logger.info(f"xxx Cb {document['visit']}")
         else:
             br.ingest_reference_catalogue([refcat_filename])
-
-        logger.info(f"xxx D {document['visit']}")
 
         # Make the calexps, also getting the dataIds to match with their raw frames
         br.make_calexps()
         required_keys = br.get_keys("raw")
-        calexps, dataIds = br.get_calexps(extra_keys=required_keys)
-
-        logger.info(f"xxx E {document['visit']}")
+        calexps, dataIds = br.get_calexps(extra_keys=required_keys, timeout=timeout)
 
         # Evaluate metrics and insert into the database
         logger.debug(f"Calculating metrics for {document}")
@@ -75,14 +64,13 @@ def _process_document(document, exposure_collection, calib_collection, refcat_fi
             to_update = {"quality": {"calexp": metrics}}
             exposure_collection.update_one(document_filter, to_update=to_update)
 
-        logger.info(f"F {document['visit']}")
-
 
 class CalexpQualityMonitor(ProcessQueue):
     """ Class to continually evauate and archive calexp quality metrics for raw exposures that
     have not already been processed. Intended to run as a docker service.
     """
     _pool_class = ThreadPool  # Use ThreadPool as LSST code makes its own subprocesses
+    _timeout = 600  # TODO: Move to config
 
     def __init__(self, nproc=None, refcat_filename=None, *args, **kwargs):
         """
@@ -106,7 +94,8 @@ class CalexpQualityMonitor(ProcessQueue):
     def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """
 
-        func = partial(_process_document, refcat_filename=self._refcat_filename)
+        func = partial(_process_document, refcat_filename=self._refcat_filename,
+                       timeout=self._timeout)
 
         return super()._async_process_objects(process_func=func)
 

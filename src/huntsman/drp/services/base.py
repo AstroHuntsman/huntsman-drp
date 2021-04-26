@@ -32,6 +32,7 @@ def _wrap_process_func(i, func):
     global input_queue
     global output_queue
     global stop_queue
+    global lock
 
     while True:
 
@@ -49,7 +50,8 @@ def _wrap_process_func(i, func):
         # Process the object
         result = {"obj": obj}
         try:
-            func(obj, calib_collection=calib_collection, exposure_collection=exposure_collection)
+            func(obj, calib_collection=calib_collection, exposure_collection=exposure_collection,
+                 lock=lock)
         except Exception as err:
             result["exception"] = err
 
@@ -173,7 +175,10 @@ class ProcessQueue(HuntsmanBase, ABC):
         """
         self.logger.info(f"Stopping {self}.")
         self._stop = True
-        self._stop_queue.put("stop")
+
+        for _ in range(self._nproc):
+            self._stop_queue.put("stop")
+
         if blocking:
             for thread in self._threads:
                 with suppress(RuntimeError):
