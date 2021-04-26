@@ -137,7 +137,7 @@ class MasterCalibMaker(HuntsmanBase):
             for calib_type in self._calib_types:
 
                 filenames = [
-                    c["filename"] for c in calibs_to_ingest if c["calibType"] == calib_type]
+                    c["filename"] for c in calibs_to_ingest if c["datasetType"] == calib_type]
                 if filenames:
                     br.ingest_master_calibs(calib_type, filenames=filenames,
                                             validity=self._validity)
