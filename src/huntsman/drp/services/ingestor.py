@@ -1,61 +1,45 @@
+from functools import partial
 from copy import deepcopy
 
-from huntsman.drp.core import get_logger
 from huntsman.drp.services.base import ProcessQueue
-from huntsman.drp.collection import RawExposureCollection
 from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header, read_fits_data
 from huntsman.drp.utils.library import load_module
 from huntsman.drp.metrics.raw import RAW_METRICS
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG, list_fits_files_recursive
 
 
-def _init_pool(function, collection_name, config):
-    """ Initialise the process pool.
-    This allows a single mongodb connection per process rather than per file, which is inefficient.
-    Args:
-        function (Function): The function to parallelise.
-        collection_name (str): The collection name for the raw exposures.
-        config (dict): The config dictionary.
-    """
-    logger = get_logger()
-    function.exposure_collection = RawExposureCollection(collection_name=collection_name,
-                                                         config=config, logger=logger)
-    function.fits_header_translator = FitsHeaderTranslator(config=config, logger=logger)
-
-
-def _process_file(filename, metric_names):
+def _process_file(filename, metric_names, exposure_collection, **kwargs):
     """ Process a single file.
     This function has to be defined outside of the FileIngestor class since we are using
     multiprocessing and class instance methods cannot be pickled.
     Args:
         filename (str): The name of the file to process.
         metric_names (list of str): The list of the metrics to process.
+        exposure_collection (RawExposureCollection): The raw exposure collection.
     Returns:
         bool: True if file was successfully processed, else False.
     """
-    exposure_collection = _process_file.exposure_collection
-    fits_header_translator = _process_file.fits_header_translator
+    config = exposure_collection.config
     logger = exposure_collection.logger
 
-    logger.debug(f"Processing {filename}.")
+    logger.debug(f"Processing file: {filename}.")
+    fits_header_translator = FitsHeaderTranslator(config=config, logger=logger)
 
     # Read the header
-    try:
-        parsed_header = fits_header_translator.read_and_parse(filename)
-    except Exception as err:
-        logger.error(f"Exception while parsing FITS header for {filename}: {err}.")
-        success = False
-    else:
-        # Get the metrics
-        metrics, success = _get_raw_metrics(filename, metric_names=metric_names, logger=logger)
-        to_update = {METRIC_SUCCESS_FLAG: success, "quality": metrics}
+    parsed_header = fits_header_translator.read_and_parse(filename)
 
-        # Update the document (upserting if necessary)
-        to_update.update(parsed_header)
-        to_update["filename"] = filename
-        exposure_collection.update_one(parsed_header, to_update=to_update, upsert=True)
+    # Get the metrics
+    metrics, success = _get_raw_metrics(filename, metric_names=metric_names, logger=logger)
+    to_update = {METRIC_SUCCESS_FLAG: success, "quality": metrics}
 
-    return filename, success
+    # Update the document (upserting if necessary)
+    to_update.update(parsed_header)
+    to_update["filename"] = filename
+    exposure_collection.update_one(parsed_header, to_update=to_update, upsert=True)
+
+    # Raise an exception if not success
+    if not success:
+        raise RuntimeError(f"Metric evaluation unsuccessful for {filename}.")
 
 
 def _get_raw_metrics(filename, metric_names, logger):
@@ -119,12 +103,10 @@ class FileIngestor(ProcessQueue):
 
     def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """
-        process_func_kwargs = dict(metric_names=self._raw_metrics)
-        pool_init_args = (_process_file, self._exposure_collection.collection_name, self.config)
-        return super()._async_process_objects(process_func=_process_file,
-                                              pool_init=_init_pool,
-                                              pool_init_args=pool_init_args,
-                                              process_func_kwargs=process_func_kwargs)
+
+        func = partial(_process_file, metric_names=self._raw_metrics)
+
+        return super()._async_process_objects(process_func=func)
 
     def _get_objs(self):
         """ Get list of files to process. """

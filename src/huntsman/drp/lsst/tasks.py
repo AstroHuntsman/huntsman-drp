@@ -154,7 +154,7 @@ def make_master_calib(datasetType, calibId, dataIds, butler_dir, calib_dir, reru
     return run_command(cmd)
 
 
-def make_calexps(data_ids, rerun, butler_dir, calib_dir, no_exit=True, procs=1,
+def make_calexps(data_ids, rerun, butler_dir, calib_dir, no_exit=False, procs=1,
                  clobber_config=False):
     """ Make calibrated exposures (calexps) using the LSST stack. These are astrometrically
     and photometrically calibrated as well as background subtracted. There are several byproducts
@@ -170,7 +170,7 @@ def make_calexps(data_ids, rerun, butler_dir, calib_dir, no_exit=True, procs=1,
         calib_dir : str
             The calib directory used by the butler repository.
         no_exit : bool, optional
-            If True (default), the program will not exit if an error is raised by the stack.
+            If True, the program will not exit if an error is raised by the stack. Default False.
         procs : int, optional
             The number of processes to use per node, by default 1.
         clobber_config : bool, optional

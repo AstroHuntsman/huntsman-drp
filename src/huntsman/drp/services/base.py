@@ -1,9 +1,19 @@
+"""
+Code to provide a base class for processing objects in a queue in parallel.
+
+Features:
+- Can run using either a process pool or thread pool.
+- Handles and logs uncaught exceptions.
+- Minimal CPU downtime.
+"""
 import time
 import atexit
 import queue
+from functools import partial
 from threading import Thread
 from contextlib import suppress
 from multiprocessing import Pool
+from multiprocessing import JoinableQueue as Queue
 from abc import ABC, abstractmethod
 
 from panoptes.utils.time import CountdownTimer
@@ -12,17 +22,73 @@ from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
 
 
+def _wrap_process_func(i, func):
+    """ Get objects from the input queue and process them, putting results in output queue.
+    Args:
+        i (int): Dummy variable used to start the pool.
+        func (Function): Function used to process the object.
+    """
+    global exposure_collection
+    global input_queue
+    global output_queue
+    global stop_queue
+
+    while True:
+
+        # Check if we should break out of the loop
+        with suppress(queue.Empty):
+            stop_queue.get_nowait()
+            break
+
+        # Get an object from the queue
+        try:
+            obj = input_queue.get(timeout=1)
+        except queue.Empty:
+            continue
+
+        # Process the object
+        result = {"obj": obj}
+        try:
+            func(obj, calib_collection=calib_collection, exposure_collection=exposure_collection)
+        except Exception as err:
+            result["exception"] = err
+
+        # Put the result in the output queue
+        output_queue.put(result)
+
+
+def _init_pool(function, config, logger, in_queue, out_queue, stp_queue, exp_coll_name,
+               calib_coll_name):
+    """ Initialise the process pool.
+
+    """
+    global exposure_collection
+    global calib_collection
+    global input_queue
+    global output_queue
+    global stop_queue
+
+    input_queue = in_queue
+    output_queue = out_queue
+    stop_queue = stp_queue
+
+    exposure_collection = RawExposureCollection(collection_name=exp_coll_name,
+                                                config=config, logger=logger)
+    calib_collection = MasterCalibCollection(collection_name=calib_coll_name,
+                                             config=config, logger=logger)
+
+
 class ProcessQueue(HuntsmanBase, ABC):
     """ Abstract class to process queued objects in parallel. """
 
     _pool_class = Pool  # Allow class overrides
 
-    def __init__(self, exposure_collection=None, calib_collection=None, queue_interval=60,
+    def __init__(self, exposure_collection=None, calib_collection=None, queue_interval=300,
                  status_interval=60, nproc=None, directory=None, *args, **kwargs):
         """
         Args:
             queue_interval (float): The amout of time to sleep in between checking for new
-                files to process in seconds. Default 60s.
+                files to process in seconds. Default 300s.
             status_interval (float, optional): Sleep for this long between status reports. Default
                 60s.
             directory (str): The top level directory to watch for new files, so they can
@@ -49,8 +115,12 @@ class ProcessQueue(HuntsmanBase, ABC):
         self._queue_interval = queue_interval
         self._status_interval = status_interval
 
+        # Make queues
+        self._input_queue = Queue()
+        self._output_queue = Queue()
+        self._stop_queue = Queue()
+
         # Setup threads
-        self._queue = queue.Queue()
         self._status_thread = Thread(target=self._async_monitor_status)
         self._queue_thread = Thread(target=self._async_queue_objects)
         self._process_thread = Thread(target=self._async_process_objects)
@@ -86,7 +156,7 @@ class ProcessQueue(HuntsmanBase, ABC):
                   "process_thread": self._process_thread.is_alive(),
                   "processed": self._n_processed,
                   "failed": self._n_failed,
-                  "queued": self._queue.qsize()}
+                  "queued": self._input_queue.qsize()}
         return status
 
     def start(self):
@@ -103,6 +173,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         """
         self.logger.info(f"Stopping {self}.")
         self._stop = True
+        self._stop_queue.put("stop")
         if blocking:
             for thread in self._threads:
                 with suppress(RuntimeError):
@@ -156,7 +227,7 @@ class ProcessQueue(HuntsmanBase, ABC):
 
                 if obj not in self._queued_objs:  # Make sure queue objs are unique
                     self._queued_objs.add(obj)
-                    self._queue.put(obj)
+                    self._input_queue.put(obj)
 
             timer = CountdownTimer(duration=self._queue_interval)
             while not timer.expired():
@@ -166,61 +237,57 @@ class ProcessQueue(HuntsmanBase, ABC):
 
         self.logger.debug("Queue thread stopped.")
 
-    def _async_process_objects(self, process_func, pool_init=None, pool_init_args=None,
-                               process_func_kwargs=None):
+    def _async_process_objects(self, process_func):
         """ Continually process objects in the queue.
         This method is indended to be overridden with all arguments provided by the subclass.
         Args:
-            process_func (Function): The function to parallelise.
-            pool_init (Function or None): The function used to initialise the process pool.
-            pool_init_args (tuple): Args parsed to the pool initialiser.
-            process_func_kwargs (dict): Kwargs parsed to the process function.
+            process_func (Function): Univariate function to parallelise.
         """
-        self.logger.debug(f"Starting process with {self._nproc} processes.")
+        self.logger.debug(f"Starting processing with {self._nproc} processes.")
+
+        wrapped_func = partial(_wrap_process_func, func=process_func)
+
+        pool_init_args = (wrapped_func, self.config, self.logger,
+                          self._input_queue, self._output_queue, self._stop_queue,
+                          self._exposure_collection.collection_name,
+                          self._calib_collection.collection_name)
 
         # Avoid Pool context manager to make multiprocessing coverage work
-        pool = self._pool_class(self._nproc, initializer=pool_init, initargs=pool_init_args)
+        pool = self._pool_class(self._nproc, initializer=_init_pool, initargs=pool_init_args)
+
         try:
-            while True:
-                if self._stop:
-                    self.logger.debug("Stopping process thread.")
-                    break
+            pool.map_async(wrapped_func, range(self._nproc))
 
-                try:
-                    obj = self._queue.get(timeout=5)
-                except queue.Empty:
-                    continue
-                self.logger.debug(f"Got object {obj} from queue.")
-
-                # Process the file in the pool asyncronously
-                pool.apply_async(process_func, (obj,), process_func_kwargs,
-                                 callback=self._process_callback,
-                                 error_callback=self._error_callback)
+            while not (self._stop and self._output_queue.empty()):
+                self._process_results()
         finally:
             pool.close()
             pool.join()
 
         self.logger.debug("Process thread stopped.")
 
-    def _process_callback(self, result):
-        """ Function that is called after an object is successfully processed.
-        Args:
-            result (tuple): A tupe of (obj, success).
-        """
-        obj, success = result
-        self.logger.debug(f"successfully processed {obj}.")
+    def _process_results(self):
+        """ Process the results in the output queue. """
+        try:
+            result = self._output_queue.get(timeout=1)
+        except queue.Empty:
+            return
+
+        obj = result["obj"]
+        success = True
+
+        err = result.get("exception", None)
+        if err:
+            self.logger.error(f"Unhandled exception while processing {obj}: {err!r}")
+            success = False
+
+        success_or_fail = "success" if success else "fail"
+        self.logger.debug(f"Finished processing {obj} ({success_or_fail}).")
 
         self._n_processed += 1
         if not success:
             self._n_failed += 1
 
-        self._queue.task_done()
+        self._input_queue.task_done()
+        self._output_queue.task_done()
         self._queued_objs.remove(obj)
-
-    def _error_callback(self, exception):
-        """ This function is called if there is an uncaught exception in a process.
-        Args:
-            exception (Exception): The raised exception.
-        """
-        self.logger.error(f"{exception!r}")
-        raise exception
