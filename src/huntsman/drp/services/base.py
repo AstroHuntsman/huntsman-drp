@@ -32,7 +32,6 @@ def _wrap_process_func(i, func):
     global input_queue
     global output_queue
     global stop_queue
-    global lock
 
     while True:
 
@@ -50,8 +49,7 @@ def _wrap_process_func(i, func):
         # Process the object
         result = {"obj": obj}
         try:
-            func(obj, calib_collection=calib_collection, exposure_collection=exposure_collection,
-                 lock=lock)
+            func(obj, calib_collection=calib_collection, exposure_collection=exposure_collection)
         except Exception as err:
             result["exception"] = err
 
