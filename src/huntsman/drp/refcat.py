@@ -1,4 +1,7 @@
 import os
+import pickle
+import serpent
+from threading import Lock
 from tempfile import NamedTemporaryFile
 from contextlib import suppress
 
@@ -6,11 +9,72 @@ import numpy as np
 import pandas as pd
 from astroquery.utils.tap.core import TapPlus
 
+import Pyro5.server
+from Pyro5.api import Proxy
+
 from huntsman.drp.base import HuntsmanBase
+from huntsman.drp.utils.pyro.nameserver import NameServer
+
+PYRO_NAME = "refcat"
+
+
+class RefcatServer(HuntsmanBase):
+    """ Class to expose reference catalogue over network. """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._lock = Lock()
+        self._tap = TapReferenceCatalogue(config=self.config, logger=self.logger)
+
+    @Pyro5.server.expose
+    def make_reference_catalogue(self, *args, **kwargs):
+        """ Thread-safe implementation of refcat query.
+        Args:
+            *args, **kwargs: Parsed to TapReferenceCatalogue.make_reference_catalogue.
+        """
+        # Get the data
+        with self._lock:
+            df = self._tap.make_reference_catalogue(*args, **kwargs)
+
+        # Pickle the data and return it
+        # This sends an encoded version over the network and may not be advisable for large files
+        return pickle.dumps(df)
+
+
+class RefcatClient(HuntsmanBase):
+    """ Client-side interface to the thread-safe tap reference catalogue. """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        ns = NameServer(config=self.config, logger=self.logger)
+        ns.connect()
+
+        uri = ns.name_server.lookup(PYRO_NAME)
+        self._proxy = Proxy(uri)
+
+    def make_reference_catalogue(self, *args, **kwargs):
+        """ Thread-safe implementation of refcat query.
+        Args:
+            *args, **kwargs: Parsed to TapReferenceCatalogue.make_reference_catalogue.
+        """
+        filename = kwargs.pop("filename", None)  # file needs to be stored on local volume
+
+        # Get and decode the data sent over the network
+        data = self._proxy.make_reference_catalogue(*args, **kwargs)
+        df_bytes = serpent.tobytes(data)
+
+        df = pickle.loads(df_bytes)
+
+        # Save to a path on the local volume
+        if filename:
+            df.to_csv(filename)
+
+        return df
 
 
 class TapReferenceCatalogue(HuntsmanBase):
-    """ """
+    """ Class to download reference catalogues using Table Access Protocol (TAP). """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -100,4 +164,5 @@ class TapReferenceCatalogue(HuntsmanBase):
         if filename is not None:
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             result.to_csv(filename)
+
         return result

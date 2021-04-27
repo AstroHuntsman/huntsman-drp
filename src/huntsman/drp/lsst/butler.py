@@ -10,7 +10,7 @@ from lsst.daf.persistence.policy import Policy
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.lsst import tasks
 from huntsman.drp.collection import MasterCalibCollection
-from huntsman.drp.refcat import TapReferenceCatalogue
+from huntsman.drp.refcat import RefcatClient
 from huntsman.drp.utils.date import date_to_ymd, current_date_ymd
 import huntsman.drp.lsst.utils.butler as utils
 from huntsman.drp.fitsutil import read_fits_header
@@ -26,7 +26,7 @@ class ButlerRepository(HuntsmanBase):
     _dec_key = "DEC-MNT"  # TODO: Move to config
 
     def __init__(self, directory, calib_dir=None, initialise=True, calib_collection=None,
-                 min_dataIds_per_calib=1, max_dataIds_per_calib=50, **kwargs):
+                 min_dataIds_per_calib=1, max_dataIds_per_calib=50, refcat_client=None, **kwargs):
         """
         Args:
             directory (str): The path of the butler reposity.
@@ -35,6 +35,8 @@ class ButlerRepository(HuntsmanBase):
             initialise (bool, optional): If True (default), initialise the butler reposity
                 with required files.
             calib_collection (MasterCalibCollection, optional): The master calib collection.
+            refcat_client (huntsman.drp.refcat.RefcatClient, optional): The reference catalogue
+                client. If not given, will make one using the current config.
             min_dataIds_per_calib (int, optional): Limit the minimum number of dataIds that can
                 contribute to a single calib to this number. Default 1.
             max_dataIds_per_calib (int, optional): Limit the maximum number of dataIds that can
@@ -59,6 +61,12 @@ class ButlerRepository(HuntsmanBase):
             self._refcat_filename = None
         else:
             self._refcat_filename = os.path.join(self.butler_dir, "refcat_raw", "refcat_raw.csv")
+
+        # Make the reference catalogue client
+        # This is a thread-safe implementation of the TapReferenceCatalogue
+        if refcat_client is None:
+            refcat_client = RefcatClient(config=self.config, logger=self.logger)
+        self._refcat = refcat_client
 
         if calib_collection is None:
             calib_collection = MasterCalibCollection(config=self.config, logger=self.logger)
@@ -375,8 +383,7 @@ class ButlerRepository(HuntsmanBase):
         self.logger.debug(f"Creating reference catalogue for {len(ra_list)} science frames.")
 
         # Make the reference catalogue
-        tap = TapReferenceCatalogue(config=self.config, logger=self.logger)
-        tap.make_reference_catalogue(ra_list, dec_list, filename=self._refcat_filename)
+        self._refcat.make_reference_catalogue(ra_list, dec_list, filename=self._refcat_filename)
 
         # Ingest into the repository
         if ingest:
