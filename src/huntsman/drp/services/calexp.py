@@ -47,10 +47,12 @@ def _process_document(document, exposure_collection, calib_collection, refcat_fi
         else:
             br.ingest_reference_catalogue([refcat_filename])
 
-        # Make the calexps, also getting the dataIds to match with their raw frames
-        br.make_calexps()
+        # Make the calexps
+        br.make_calexps(timeout=timeout)
         required_keys = br.get_keys("raw")
-        calexps, dataIds = br.get_calexps(extra_keys=required_keys, timeout=timeout)
+
+        # Retrieve the calexp objects and their data IDs
+        calexps, dataIds = br.get_calexps(extra_keys=required_keys)
 
         # Evaluate metrics and insert into the database
         logger.debug(f"Calculating metrics for {document}")

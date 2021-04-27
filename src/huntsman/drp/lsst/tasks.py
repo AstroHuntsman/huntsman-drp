@@ -155,7 +155,7 @@ def make_master_calib(datasetType, calibId, dataIds, butler_dir, calib_dir, reru
 
 
 def make_calexps(data_ids, rerun, butler_dir, calib_dir, no_exit=False, procs=1,
-                 clobber_config=False):
+                 clobber_config=False, timeout=None):
     """ Make calibrated exposures (calexps) using the LSST stack. These are astrometrically
     and photometrically calibrated as well as background subtracted. There are several byproducts
     of making calexps including sky background maps and preliminary source catalogues and metadata,
@@ -175,6 +175,8 @@ def make_calexps(data_ids, rerun, butler_dir, calib_dir, no_exit=False, procs=1,
             The number of processes to use per node, by default 1.
         clobber_config : bool, optional
             Override config values, by default False.
+        timeout (float, optional): The subprocess timeout in seconds. If None (default), no timeout
+            is applied.
     """
     cmd = f"processCcd.py {butler_dir}"
     if no_exit:
@@ -189,7 +191,7 @@ def make_calexps(data_ids, rerun, butler_dir, calib_dir, no_exit=False, procs=1,
     if clobber_config:
         cmd += " --clobber-config"
 
-    run_command(cmd)
+    run_command(cmd, timeout=timeout)
 
 
 def make_discrete_sky_map(butler_dir, calib_dir, rerun):
