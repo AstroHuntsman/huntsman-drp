@@ -29,42 +29,71 @@ def _process_document(document, exposure_collection, calib_collection, refcat_fi
 
     logger.info(f"Processing document: {document}")
 
+    # Get matching calibs for this document
+    # If there is no matching set, this will raise an error
     calib_docs = calib_collection.get_matching_calibs(document)
 
-    with TemporaryButlerRepository(logger=logger, config=config) as br:
+    # Use a directory prefix for the temporary directory
+    # This is necessary as the tempfile module is apparently creating duplicates(!)
+    directory_prefix = document["expId"]
+
+    with TemporaryButlerRepository(logger=logger, config=config,
+                                   calib_collection=calib_collection,
+                                   directory_prefix=directory_prefix) as br:
+
+        logger.debug(f"Butler directory for {document}: {br.butler_dir}")
 
         # Ingest raw science exposure into the bulter repository
+        logger.debug(f"Ingesting raw data for {document}")
         br.ingest_raw_data([document["filename"]])
 
+        # Check the files were ingested properly
+        # This shouldn't be neccessary but helps for debugging
+        ingested_docs = br.get_dataIds("raw")
+        if len(ingested_docs) != 1:
+            raise RuntimeError(f"Unexpected number of ingested raw files: {len(ingested_docs)}")
+
         # Ingest the corresponding master calibs
+        logger.debug(f"Ingesting master calibs for {document}")
+
         for calib_type, calib_doc in calib_docs.items():
             calib_filename = calib_doc["filename"]
             br.ingest_master_calibs(datasetType=calib_type, filenames=[calib_filename])
 
         # Make and ingest the reference catalogue
         if refcat_filename is None:
-            br.make_reference_catalogue()
+            logger.debug(f"Making refcat for {document}")
+            try:
+                br.make_reference_catalogue()
+            except Exception as err:
+                logger.error(f"Exception while making refcat for {document}: {err!r}")
+                raise err
         else:
+            logger.debug(f"Using existing refcat for {document}: {refcat_filename}")
             br.ingest_reference_catalogue([refcat_filename])
 
-        # Make the calexps
+        # Make the calexp
+        logger.debug(f"Making calexp for {document}")
         br.make_calexps(timeout=timeout)
         required_keys = br.get_keys("raw")
 
         # Retrieve the calexp objects and their data IDs
         calexps, dataIds = br.get_calexps(extra_keys=required_keys)
+        if len(calexps) != 1:
+            raise RuntimeError(f"Unexpected number of calexps: {len(ingested_docs)}")
+
+        calexp = calexps[0]
+        calexpId = dataIds[0]
 
         # Evaluate metrics and insert into the database
         logger.debug(f"Calculating metrics for {document}")
 
-        for calexp, calexp_id in zip(calexps, dataIds):
+        metrics = _get_quality_metrics(calexp)
 
-            metrics = _get_quality_metrics(calexp)
-
-            # Make the document and update the DB
-            document_filter = {k: calexp_id[k] for k in required_keys}
-            to_update = {"quality": {"calexp": metrics}}
-            exposure_collection.update_one(document_filter, to_update=to_update)
+        # Make the document and update the DB
+        document_filter = {k: calexpId[k] for k in required_keys}
+        to_update = {"quality": {"calexp": metrics}}
+        exposure_collection.update_one(document_filter, to_update=to_update)
 
 
 class CalexpQualityMonitor(ProcessQueue):
@@ -72,9 +101,8 @@ class CalexpQualityMonitor(ProcessQueue):
     have not already been processed. Intended to run as a docker service.
     """
     _pool_class = ThreadPool  # Use ThreadPool as LSST code makes its own subprocesses
-    _timeout = 600  # TODO: Move to config
 
-    def __init__(self, nproc=None, refcat_filename=None, *args, **kwargs):
+    def __init__(self, nproc=None, refcat_filename=None, timeout=None, *args, **kwargs):
         """
         Args:
             refcat_filename (str, optional): The reference catalogue filename. If not provided,
@@ -84,14 +112,18 @@ class CalexpQualityMonitor(ProcessQueue):
         """
         super().__init__(*args, **kwargs)
 
-        self._refcat_filename = refcat_filename
+        calexp_config = self.config.get("calexp-monitor", {})
 
         # Set the number of processes
-        calexp_monitor_config = self.config.get("calexp-monitor", {})
         if nproc is None:
-            nproc = calexp_monitor_config.get("nproc", 1)
+            nproc = calexp_config.get("nproc", 1)
         self._nproc = int(nproc)
         self.logger.debug(f"Calexp monitor using {nproc} processes.")
+
+        # Specify timeout for calexp processing
+        self._timeout = timeout if timeout is not None else calexp_config.get("timeout", None)
+
+        self._refcat_filename = refcat_filename
 
     def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """

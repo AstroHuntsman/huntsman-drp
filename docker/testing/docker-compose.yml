@@ -10,9 +10,12 @@ services:
     logging:
         driver: none
 
-  pyro-nameserver:
+  hunts-pyro-services:
     image: huntsmanarray/drp-lsst:develop
+    container_name: hunts-pyro-services
     network_mode: "host"
+    stdin_open: true
+    tty: true
     volumes:
       - ${OBS_HUNTSMAN}:/opt/lsst/software/stack/obs_huntsman
       - ${HUNTSMAN_DRP}:/opt/lsst/software/stack/huntsman-drp
@@ -30,7 +33,7 @@ services:
       dockerfile: docker/Dockerfile
     depends_on:
       - mongo
-      - pyro-nameserver
+      - hunts-pyro-services
     network_mode: "host"
     stdin_open: true
     tty: true

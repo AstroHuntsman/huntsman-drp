@@ -67,7 +67,9 @@ class RefcatClient(HuntsmanBase):
         df = pickle.loads(df_bytes)
 
         # Save to a path on the local volume
-        if filename:
+        if filename is not None:
+            self.logger.debug(f"Writing reference catalogue to {filename}.")
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
             df.to_csv(filename)
 
         return df

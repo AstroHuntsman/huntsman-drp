@@ -47,9 +47,9 @@ class NameServer(HuntsmanBase):
         """ Connect to the name server.
         See documentation for Pyro5.core.locate_ns. """
         try:
-            self.logger.info(f'Looking for nameserver on {self.host}:{self.port}')
+            self.logger.debug(f'Looking for nameserver on {self.host}:{self.port}')
             self.name_server = locate_ns(host=self.host, port=self.port, broadcast=broadcast)
-            self.logger.info(f'Found Pyro name server: {self.name_server}')
+            self.logger.debug(f'Found Pyro name server: {self.name_server}')
             return True
         except Pyro5.errors.NamingError:
             if not suppress_error:

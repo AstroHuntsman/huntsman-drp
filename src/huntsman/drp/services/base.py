@@ -6,6 +6,7 @@ Features:
 - Handles and logs uncaught exceptions.
 - Minimal CPU downtime.
 """
+import gc
 import time
 import atexit
 import queue
@@ -55,6 +56,9 @@ def _wrap_process_func(i, func):
 
         # Put the result in the output queue
         output_queue.put(result)
+
+        # Explicit garbage collection
+        gc.collect()
 
 
 def _init_pool(function, config, logger, in_queue, out_queue, stp_queue, exp_coll_name,
@@ -285,7 +289,7 @@ class ProcessQueue(HuntsmanBase, ABC):
             success = False
 
         success_or_fail = "success" if success else "fail"
-        self.logger.debug(f"Finished processing {obj} ({success_or_fail}).")
+        self.logger.info(f"Finished processing {obj} ({success_or_fail}).")
 
         self._n_processed += 1
         if not success:
