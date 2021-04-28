@@ -61,7 +61,7 @@ def _process_document(document, exposure_collection, calib_collection, refcat_fi
 
             # Use a high validity as the calib matching is already taken care of
             br.ingest_master_calibs(datasetType=calib_type, filenames=[calib_filename],
-                                    validty=1000)
+                                    validity=1000)
 
         # Make and ingest the reference catalogue
         if refcat_filename is None:
