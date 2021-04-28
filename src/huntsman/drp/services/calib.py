@@ -140,7 +140,7 @@ class MasterCalibMaker(HuntsmanBase):
                     c["filename"] for c in calibs_to_ingest if c["datasetType"] == calib_type]
                 if filenames:
                     br.ingest_master_calibs(calib_type, filenames=filenames,
-                                            validity=self._validity)
+                                            validity=self._validity.days)
 
                 # Check if there is sufficient data to proceed
                 elif calib_type in datasetTypes_to_skip:

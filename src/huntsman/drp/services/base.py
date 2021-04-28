@@ -35,6 +35,8 @@ def _wrap_process_func(i, func):
     global output_queue
     global stop_queue
 
+    logger = exposure_collection.logger
+
     while True:
 
         # Check if we should break out of the loop
@@ -49,11 +51,16 @@ def _wrap_process_func(i, func):
             continue
 
         # Process the object
-        result = {"obj": obj}
+        success = True
         try:
             func(obj, calib_collection=calib_collection, exposure_collection=exposure_collection)
         except Exception as err:
-            result["exception"] = err
+            logger.error(f"Exception while processing {obj}: {err!r}")
+            success = False
+
+        # Apparently putting exceptions into the queue causes problems (hanging on get)
+        # So return a boolean value to indicate success
+        result = {"obj": obj, "success": success}
 
         # Put the result in the output queue
         output_queue.put(result)
@@ -78,12 +85,14 @@ def _init_pool(function, config, logger, in_queue, out_queue, stp_queue, exp_col
         exp_col_name (str): The name of the exposure collection. TODO: Get this from the config.
         calib_col_name (str): The name of the calib collection. TODO: Get this from the config.
     """
+    # Declare global objects
     global exposure_collection
     global calib_collection
     global input_queue
     global output_queue
     global stop_queue
 
+    # Assign global objects
     input_queue = in_queue
     output_queue = out_queue
     stop_queue = stp_queue
@@ -100,7 +109,7 @@ class ProcessQueue(HuntsmanBase, ABC):
     _pool_class = Pool  # Allow class overrides
 
     def __init__(self, exposure_collection=None, calib_collection=None, queue_interval=300,
-                 status_interval=60, nproc=None, directory=None, *args, **kwargs):
+                 status_interval=30, nproc=None, directory=None, *args, **kwargs):
         """
         Args:
             queue_interval (float): The amout of time to sleep in between checking for new
@@ -172,7 +181,8 @@ class ProcessQueue(HuntsmanBase, ABC):
                   "process_thread": self._process_thread.is_alive(),
                   "processed": self._n_processed,
                   "failed": self._n_failed,
-                  "queued": self._input_queue.qsize()}
+                  "input_queue": self._input_queue.qsize(),
+                  "output_queue": self._output_queue.qsize()}
         return status
 
     def start(self):
@@ -243,6 +253,7 @@ class ProcessQueue(HuntsmanBase, ABC):
             objs_to_process = self._get_objs()
 
             # Update files to process
+            self.logger.debug("Adding new objects to queue.")
             for obj in objs_to_process:
 
                 if obj not in self._queued_objs:  # Make sure queue objs are unique
@@ -280,6 +291,8 @@ class ProcessQueue(HuntsmanBase, ABC):
 
             while not (self._stop and self._output_queue.empty()):
                 self._process_results()
+
+            self.logger.debug("Terminating process pool.")
         finally:
             pool.close()
             pool.join()
@@ -288,18 +301,14 @@ class ProcessQueue(HuntsmanBase, ABC):
 
     def _process_results(self):
         """ Process the results in the output queue. """
+
         try:
             result = self._output_queue.get(timeout=1)
         except queue.Empty:
             return
 
         obj = result["obj"]
-        success = True
-
-        err = result.get("exception", None)
-        if err:
-            self.logger.error(f"Unhandled exception while processing {obj}: {err!r}")
-            success = False
+        success = result["success"]
 
         success_or_fail = "success" if success else "fail"
         self.logger.info(f"Finished processing {obj} ({success_or_fail}).")
