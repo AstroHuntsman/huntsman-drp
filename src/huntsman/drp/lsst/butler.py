@@ -354,6 +354,7 @@ class ButlerRepository(HuntsmanBase):
 
     def make_reference_catalogue(self, ingest=True, **kwargs):
         """ Make the reference catalogue for the ingested science frames.
+        TODO: Move this out of the butler repository class.
         Args:
             ingest (bool, optional): If True (default), ingest refcat into butler repo.
         """
@@ -366,7 +367,7 @@ class ButlerRepository(HuntsmanBase):
         dataIds = self.get_dataIds("raw")
 
         if len(dataIds) == 0:
-            raise RuntimeError("No coordinates found for reference catalogue.")
+            raise RuntimeError("No science images to make reference catalogue with.")
 
         for dataId in dataIds:
 

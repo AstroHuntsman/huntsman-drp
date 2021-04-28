@@ -2,6 +2,7 @@
 Code to provide a base class for processing objects in a queue in parallel.
 
 Features:
+- Generic use case for processing objects in a queue.
 - Can run using either a process pool or thread pool.
 - Handles and logs uncaught exceptions.
 - Minimal CPU downtime.
@@ -64,7 +65,18 @@ def _wrap_process_func(i, func):
 def _init_pool(function, config, logger, in_queue, out_queue, stp_queue, exp_coll_name,
                calib_coll_name):
     """ Initialise the process pool.
-
+    This function is required because we need to share the queue objects with each process and
+    they cannot be parsed directly. Additionally create Collection objects here so that they do not
+    need to be recreated for each procesed object.
+    Args:
+        function (Function): The wrapped processing function.
+        config (dict): The config.
+        logger (logger): The logger object. TODO: Does this need to be parsed?
+        in_queue (Queue): The input queue.
+        out_queue (Queue): The output queue.
+        stp_queue (Queue): The queue used to send the stop messages.
+        exp_col_name (str): The name of the exposure collection. TODO: Get this from the config.
+        calib_col_name (str): The name of the calib collection. TODO: Get this from the config.
     """
     global exposure_collection
     global calib_collection
@@ -190,7 +202,8 @@ class ProcessQueue(HuntsmanBase, ABC):
     @abstractmethod
     def _get_objs(self):
         """ Return a list of objects to process.
-        Returned objects do not have to be unique and may already exist in the queue.
+        Returned objects do not have to be unique and may already exist in the queue. This is an
+        abstract method and must be overridden by subclasses.
         """
         pass
 
