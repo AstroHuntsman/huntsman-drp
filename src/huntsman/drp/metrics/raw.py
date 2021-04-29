@@ -1,19 +1,21 @@
 from astropy import stats
 from astropy.wcs import WCS
 from panoptes.utils.images.fits import get_solve_field
-from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header
+
+from huntsman.drp.fitsutil import FitsHeaderTranslator
 
 # TODO: Move this to config?
 RAW_METRICS = ("get_wcs", "clipped_stats", "flipped_asymmetry")
 
 
-def get_wcs(filename, header, timeout=60, downsample=4, radius=5, **kwargs):
+def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=False, **kwargs):
     """Function to call get_solve_field on a file and verify if a WCS solution could be found.
     Args:
         filename (str): The filename.
         timeout (int, optional): How long to try and solve in seconds. Defaults to 60.
         downsample (int, optional): Downsample image by this factor. Defaults to 4.
         radius (int, optional): Search radius around mount Ra and Dec coords. Defaults to 5.
+        remake_wcs (bool, optional): If True, remake WCS even if it already exists. Default False.
     Returns:
         dict: dictionary containing metadata.
     """
@@ -23,21 +25,31 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, **kwargs):
     if parsed_header['dataType'] != "science":
         return {"has_wcs": False}
 
-    # Create dict of args to pass to solve_field
-    solve_kwargs = {'--cpulimit': str(timeout),
-                    '--downsample': downsample}
+    # If there is already a WCS then use it
+    make_wcs = False
+    try:
+        wcs = WCS(header)
+        make_wcs = wcs.has_celestial
+    except Exception:
+        pass
 
-    # Try and get the Mount RA/DEC info to speed up the solve
-    if ("RA-MNT" in header) and ("DEC-MNT" in header):
-        solve_kwargs['--ra'] = header["RA-MNT"]
-        solve_kwargs['--dec'] = header["DEC-MNT"]
-        solve_kwargs['--radius'] = radius
+    # Make the WCS if it doesn't already exist
+    if make_wcs or remake_wcs:
+        # Create dict of args to pass to solve_field
+        solve_kwargs = {'--cpulimit': str(timeout),
+                        '--downsample': downsample}
 
-    # Solve for wcs
-    get_solve_field(filename, **solve_kwargs)
+        # Try and get the Mount RA/DEC info to speed up the solve
+        if ("RA-MNT" in header) and ("DEC-MNT" in header):
+            solve_kwargs['--ra'] = header["RA-MNT"]
+            solve_kwargs['--dec'] = header["DEC-MNT"]
+            solve_kwargs['--radius'] = radius
+
+        # Solve for wcs
+        get_solve_field(filename, **solve_kwargs)
 
     # Check if the header now contians a wcs solution
-    wcs = WCS(read_fits_header(filename))
+    wcs = WCS(header)
     has_wcs = wcs.has_celestial
 
     result = {"has_wcs": has_wcs}
