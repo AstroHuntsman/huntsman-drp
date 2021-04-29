@@ -1,6 +1,8 @@
 import time
 from threading import Thread
 
+from astropy.io.misc import yaml as ayaml
+
 import Pyro5.errors
 from Pyro5.core import locate_ns
 from Pyro5.api import Daemon as PyroDaemon
@@ -139,3 +141,16 @@ class PyroService(HuntsmanBase):
             daemon.requestLoop(loopCondition=lambda: self._continue_loop)
 
             self.logger.info(f"Stopping request loop for {self._server_instance}")
+
+# Serialisers
+
+
+def astropy_to_dict(obj):
+    """ Serializer function for Astropy objects using astropy.io.misc.yaml.dump(). """
+    return {"__class__": "astropy_yaml",
+            "yaml_dump": ayaml.dump(obj)}
+
+
+def dict_to_astropy(class_name, d):
+    """ Deserializer function for Astropy objects using astropy.io.misc.yaml.load(). """
+    return ayaml.load(d["yaml_dump"])

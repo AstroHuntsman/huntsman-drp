@@ -8,14 +8,19 @@ from contextlib import suppress
 import numpy as np
 import pandas as pd
 from astroquery.utils.tap.core import TapPlus
+from astropy.coordinates import SkyCoord
 
 import Pyro5.server
-from Pyro5.api import Proxy
+from Pyro5.api import Proxy, register_class_to_dict, register_dict_to_class
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.utils.pyro import NameServer, PyroService
+from huntsman.drp.utils.pyro import NameServer, PyroService, astropy_to_dict, dict_to_astropy
 
 PYRO_NAME = "refcat"
+
+# Register pyro serialisers for astropy SkyCoord objects
+register_class_to_dict(SkyCoord, astropy_to_dict)
+register_dict_to_class("astropy_yaml", dict_to_astropy)
 
 
 class TapReferenceCatalogue(HuntsmanBase):
@@ -42,16 +47,18 @@ class TapReferenceCatalogue(HuntsmanBase):
         # Create the tap object
         self._tap = TapPlus(url=self._tap_url)
 
-    def cone_search(self, ra, dec, filename, radius_degrees=None):
+    def cone_search(self, coord, filename, radius_degrees=None):
         """ Query the reference catalogue, saving output to a .csv file.
         Args:
-            ra (float): RA of the centre of the cone search in J2000 degrees.
-            dec (float): Dec of the centre of the cone search in J2000 degrees.
+            coord (astropy.coordinates.SkyCoord): The central coordinate.
             filename (str): Filename of the returned .csv file.
             radius_degrees (float, optional): Override search radius from config.
         Returns:
             pd.DataFrame: The source catalogue.
         """
+        ra = coord.ra.to_value("deg")
+        dec = coord.dec.to_value("deg")
+
         if radius_degrees is None:
             radius_degrees = self._cone_search_radius
 
@@ -81,11 +88,11 @@ class TapReferenceCatalogue(HuntsmanBase):
                                    output_file=filename)
         return pd.read_csv(filename)
 
-    def make_reference_catalogue(self, ra_list, dec_list, filename=None, **kwargs):
+    def make_reference_catalogue(self, coords, filename=None, **kwargs):
         """ Create the master reference catalogue with no source duplications.
         Args:
-            ra_list (iterable): List of RA in J2000 degrees.
-            dec_list (iterable): List of Dec in J2000 degrees.
+            coords (list of astropy.coordinates.SkyCoord): The central coordinates of each
+                exposure.
             filename (string, optional): Filename to save output catalogue.
         Returns:
             pandas.DataFrame: The reference catalogue.
@@ -93,10 +100,10 @@ class TapReferenceCatalogue(HuntsmanBase):
         result = None
 
         with NamedTemporaryFile(delete=True) as tempfile:
-            for ra, dec in zip(ra_list, dec_list):
+            for coord in coords:
 
                 # Do the cone search and get result
-                df = self.cone_search(ra, dec, filename=tempfile.name, **kwargs)
+                df = self.cone_search(coord, filename=tempfile.name, **kwargs)
 
                 # First iteration
                 if result is None:
@@ -160,7 +167,7 @@ class RefcatServer(HuntsmanBase):
         with self._lock:
             df = self._tap.make_reference_catalogue(*args, **kwargs)
 
-        # Pickle the data and return it
+        # Pickle the data and return it as a bytes object
         # This sends an encoded version over the network and may not be advisable for large files
         return pickle.dumps(df)
 
@@ -182,7 +189,7 @@ class RefcatClient(HuntsmanBase):
         uri = ns.name_server.lookup(pyro_name)
         self._proxy = Proxy(uri)
 
-    def make_reference_catalogue(self, *args, **kwargs):
+    def make_reference_catalogue(self, coord, **kwargs):
         """ Thread-safe implementation of refcat query.
         Args:
             *args, **kwargs: Parsed to TapReferenceCatalogue.make_reference_catalogue.
@@ -190,7 +197,7 @@ class RefcatClient(HuntsmanBase):
         filename = kwargs.pop("filename", None)  # file needs to be stored on local volume
 
         # Get and decode the data sent over the network
-        data = self._proxy.make_reference_catalogue(*args, **kwargs)
+        data = self._proxy.make_reference_catalogue(coord, **kwargs)
         df_bytes = serpent.tobytes(data)
 
         df = pickle.loads(df_bytes)
@@ -202,6 +209,17 @@ class RefcatClient(HuntsmanBase):
             df.to_csv(filename)
 
         return df
+
+    def make_from_documents(self, documents, **kwargs):
+        """ Convenience function to make a reference catalogue from a list of documents.
+        Args:
+            documents (list of RawExposureDocument): The raw exposure documents.
+            **kwargs: Parsed to self.make_reference_catalogue.
+        Returns:
+            pd.DataFrame: The reference catalogue.
+        """
+        coords = [d.get_central_skycoord() for d in documents if d["dataType"] == "science"]
+        return self.make_reference_catalogue(coords=coords, **kwargs)
 
 
 def create_refcat_service(pyro_name=PYRO_NAME, config=None, logger=None, host="localhost", port=0,

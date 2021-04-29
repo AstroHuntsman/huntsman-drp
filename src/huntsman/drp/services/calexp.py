@@ -1,3 +1,4 @@
+import tempfile
 from functools import partial
 from multiprocessing.pool import ThreadPool
 
@@ -5,6 +6,7 @@ from huntsman.drp.services.base import ProcessQueue
 from huntsman.drp.utils.library import load_module
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.metrics.calexp import METRICS
+from huntsman.drp.refcat import RefcatClient
 
 
 def _get_quality_metrics(calexp):
@@ -66,11 +68,23 @@ def _process_document(document, exposure_collection, calib_collection, refcat_fi
         # Make and ingest the reference catalogue
         if refcat_filename is None:
             logger.debug(f"Making refcat for {document}")
-            try:
-                br.make_reference_catalogue()
-            except Exception as err:
-                logger.error(f"Exception while making refcat for {document}: {err!r}")
-                raise err
+
+            refcat_client = RefcatClient(config=config, logger=logger)
+
+            with tempfile.NamedTemporaryFile(prefix=directory_prefix) as tf:
+                try:
+                    # Download the refcat to the tempfile
+                    refcat_client.make_from_documents([document], filename=tf.name)
+                except Exception as err:
+                    logger.error(f"Exception while making refcat for {document}: {err!r}")
+                    raise err
+                finally:
+                    # Cleanup the refcat client
+                    # This *shouldn't* be necessary but seems like it might be...
+                    # TODO: Parse refcat client as function arg?
+                    refcat_client._proxy._pyroRelease()
+
+                br.ingest_reference_catalogue([tf.name])
         else:
             logger.debug(f"Using existing refcat for {document}: {refcat_filename}")
             br.ingest_reference_catalogue([refcat_filename])

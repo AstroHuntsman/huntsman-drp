@@ -3,10 +3,11 @@ from astropy.wcs import WCS
 from panoptes.utils.images.fits import get_solve_field
 from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header
 
+# TODO: Move this to config?
 RAW_METRICS = ("get_wcs", "clipped_stats", "flipped_asymmetry")
 
 
-def get_wcs(filename, timeout=60, downsample=4, radius=5, **kwargs):
+def get_wcs(filename, header, timeout=60, downsample=4, radius=5, **kwargs):
     """Function to call get_solve_field on a file and verify if a WCS solution could be found.
     Args:
         filename (str): The filename.
@@ -16,39 +17,40 @@ def get_wcs(filename, timeout=60, downsample=4, radius=5, **kwargs):
     Returns:
         dict: dictionary containing metadata.
     """
-    has_wcs = False
+    # Skip if dataType is not science
+    # TODO: Move this logic outside this function
+    parsed_header = FitsHeaderTranslator().parse_header(header)
+    if parsed_header['dataType'] != "science":
+        return {"has_wcs": False}
 
-    # Create list of args to pass to solve_field
+    # Create dict of args to pass to solve_field
     solve_kwargs = {'--cpulimit': str(timeout),
                     '--downsample': downsample}
 
-    # try and get the Mount RA/DEC info to speed up the solve
-    try:
-        hdr = read_fits_header(filename)
-        parsed_hdr = FitsHeaderTranslator().parse_header(hdr)
-        ra = hdr.get('RA-MNT')
-        dec = hdr.get('DEC-MNT')
-    except KeyError:
-        pass
-
-    if 'ra' and 'dec' in vars():
-        solve_kwargs['--ra'] = ra
-        solve_kwargs['--dec'] = dec
+    # Try and get the Mount RA/DEC info to speed up the solve
+    if ("RA-MNT" in header) and ("DEC-MNT" in header):
+        solve_kwargs['--ra'] = header["RA-MNT"]
+        solve_kwargs['--dec'] = header["DEC-MNT"]
         solve_kwargs['--radius'] = radius
 
-    # if file is not a science exposure, skip
-    if parsed_hdr['dataType'] != "science":
-        return {"has_wcs": has_wcs}
+    # Solve for wcs
+    get_solve_field(filename, **solve_kwargs)
 
-    # now solve for wcs
-    try:
-        get_solve_field(filename, **solve_kwargs)
-    except Exception:
-        pass
-
-    # finally check if the header now contians a wcs solution
+    # Check if the header now contians a wcs solution
     wcs = WCS(read_fits_header(filename))
-    return {"has_wcs": wcs.has_celestial}
+    has_wcs = wcs.has_celestial
+
+    result = {"has_wcs": has_wcs}
+
+    # Calculate the central sky coordinates
+    if has_wcs:
+        x0_pix = header["NAXIS1"] / 2
+        y0_pix = header["NAXIS2"] / 2
+        ra, dec = wcs.wcs_pix_to_world([[x0_pix, y0_pix]], 0)[0]
+        result["ra_cen"] = ra
+        result["dec_cen"] = dec
+
+    return result
 
 
 def clipped_stats(filename, data, header):
