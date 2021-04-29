@@ -3,13 +3,11 @@ from collections import abc
 from contextlib import suppress
 
 from astropy.coordinates import SkyCoord
-from astropy.wcs import WCS
 from astropy import units as u
 
 from huntsman.drp.core import get_config
 from huntsman.drp.utils.date import parse_date
 from huntsman.drp.utils.mongo import encode_mongo_filter
-from huntsman.drp.fitsutil import read_fits_header
 
 
 class Document(abc.Mapping):
@@ -115,7 +113,6 @@ class RawExposureDocument(Document):
 
     def get_central_skycoord(self):
         """ Return the central celestial coordinate of the exposure using the WCS info.
-        # TODO: Do this in ingestion phase.
         Returns:
             astropy.coordinates.SkyCoord: The central coordinate.
         """
