@@ -1,4 +1,5 @@
 import pytest
+import time
 import tempfile
 from contextlib import suppress
 from requests.exceptions import HTTPError
@@ -38,6 +39,7 @@ def testing_refcat_server(config, refcat_filename):
                                               refcat_kwargs=refcat_kwargs,
                                               config=config)
     refcat_service.start()
+    time.sleep(5)  # Allow some startup time
     yield refcat_service
 
     # Shutdown the refcat server after we are done
