@@ -13,66 +13,9 @@ import Pyro5.server
 from Pyro5.api import Proxy
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.utils.pyro.nameserver import NameServer
+from huntsman.drp.utils.pyro import NameServer, PyroService
 
 PYRO_NAME = "refcat"
-
-
-class RefcatServer(HuntsmanBase):
-    """ Class to expose reference catalogue over network. """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._lock = Lock()
-        self._tap = TapReferenceCatalogue(config=self.config, logger=self.logger)
-
-    @Pyro5.server.expose
-    def make_reference_catalogue(self, *args, **kwargs):
-        """ Thread-safe implementation of refcat query.
-        Args:
-            *args, **kwargs: Parsed to TapReferenceCatalogue.make_reference_catalogue.
-        """
-        # Get the data
-        with self._lock:
-            df = self._tap.make_reference_catalogue(*args, **kwargs)
-
-        # Pickle the data and return it
-        # This sends an encoded version over the network and may not be advisable for large files
-        return pickle.dumps(df)
-
-
-class RefcatClient(HuntsmanBase):
-    """ Client-side interface to the thread-safe tap reference catalogue. """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        ns = NameServer(config=self.config, logger=self.logger)
-        ns.connect()
-
-        uri = ns.name_server.lookup(PYRO_NAME)
-        self._proxy = Proxy(uri)
-
-    def make_reference_catalogue(self, *args, **kwargs):
-        """ Thread-safe implementation of refcat query.
-        Args:
-            *args, **kwargs: Parsed to TapReferenceCatalogue.make_reference_catalogue.
-        """
-        filename = kwargs.pop("filename", None)  # file needs to be stored on local volume
-
-        # Get and decode the data sent over the network
-        data = self._proxy.make_reference_catalogue(*args, **kwargs)
-        df_bytes = serpent.tobytes(data)
-
-        df = pickle.loads(df_bytes)
-
-        # Save to a path on the local volume
-        if filename is not None:
-            self.logger.debug(f"Writing reference catalogue to {filename}.")
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
-            df.to_csv(filename)
-
-        return df
 
 
 class TapReferenceCatalogue(HuntsmanBase):
@@ -80,6 +23,10 @@ class TapReferenceCatalogue(HuntsmanBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        self._initialise()
+
+    def _initialise(self):
 
         # Extract attribute values from config
         self._cone_search_radius = self.config["refcat"]["cone_search_radius"]
@@ -168,3 +115,111 @@ class TapReferenceCatalogue(HuntsmanBase):
             result.to_csv(filename)
 
         return result
+
+
+class TestingTapReferenceCatalogue(TapReferenceCatalogue):
+
+    def __init__(self, refcat_filename, *args, **kwargs):
+        """ Github actions tests cannot successfully query the Skymapper catalogue. For tests we
+        can make this override class which just loads a sample catalogue from file instead.
+        """
+        self._refcat_filename = refcat_filename
+
+        super().__init__(*args, **kwargs)
+
+    def cone_search(self, *args, **kwargs):
+        return pd.read_csv(self._refcat_filename)
+
+    def _initialise(self):
+        self._unique_key = self.config["refcat"]["unique_source_key"]
+
+
+class RefcatServer(HuntsmanBase):
+    """ Class to expose reference catalogue over network. """
+
+    def __init__(self, refcat_type=TapReferenceCatalogue, refcat_kwargs=None, *args, **kwargs):
+        """
+        Args:
+            refcat_type (class, optional): The class to use for the reference catalogue. This is
+            provided for testing purposes. Default: TapReferenceCatalogue.
+        """
+        super().__init__(*args, **kwargs)
+        self._lock = Lock()
+
+        if refcat_kwargs is None:
+            refcat_kwargs = {}
+        self._tap = refcat_type(config=self.config, logger=self.logger, **refcat_kwargs)
+
+    @Pyro5.server.expose
+    def make_reference_catalogue(self, *args, **kwargs):
+        """ Thread-safe implementation of refcat query.
+        Args:
+            *args, **kwargs: Parsed to TapReferenceCatalogue.make_reference_catalogue.
+        """
+        # Get the data
+        with self._lock:
+            df = self._tap.make_reference_catalogue(*args, **kwargs)
+
+        # Pickle the data and return it
+        # This sends an encoded version over the network and may not be advisable for large files
+        return pickle.dumps(df)
+
+
+class RefcatClient(HuntsmanBase):
+    """ Client-side interface to the thread-safe tap reference catalogue. """
+
+    def __init__(self, pyro_name=PYRO_NAME, *args, **kwargs):
+        """ Start the refcat server in an aysnc process.
+        Args:
+            pyro_name (str, optional): The name of the pyro service.
+            *args, **kwargs: Parsed to RefcatServer init function.
+        """
+        super().__init__(*args, **kwargs)
+
+        ns = NameServer(config=self.config, logger=self.logger)
+        ns.connect()
+
+        uri = ns.name_server.lookup(pyro_name)
+        self._proxy = Proxy(uri)
+
+    def make_reference_catalogue(self, *args, **kwargs):
+        """ Thread-safe implementation of refcat query.
+        Args:
+            *args, **kwargs: Parsed to TapReferenceCatalogue.make_reference_catalogue.
+        """
+        filename = kwargs.pop("filename", None)  # file needs to be stored on local volume
+
+        # Get and decode the data sent over the network
+        data = self._proxy.make_reference_catalogue(*args, **kwargs)
+        df_bytes = serpent.tobytes(data)
+
+        df = pickle.loads(df_bytes)
+
+        # Save to a path on the local volume
+        if filename is not None:
+            self.logger.debug(f"Writing reference catalogue to {filename}.")
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            df.to_csv(filename)
+
+        return df
+
+
+def create_refcat_service(pyro_name=PYRO_NAME, config=None, logger=None, host="localhost", port=0,
+                          **kwargs):
+    """ Convenience function to make a PyroService for a TapReferenceCatalogue.
+    NOTE: This does not actually start the pyro daemon.
+    Args:
+        host (optional): The host name for the pyro daemon. Default 'localhost'.
+        port (int, optional): The port for the pyro daemon. Default 0.
+        config (dict, optional): The config dict.
+        pyro_name (str, optional): The name of the pyro service.
+        **kwargs: Parsed to RefcatServer init function.
+    Returns:
+        PyroService: The unstarted pyro servce object.
+    """
+    refcat_server = RefcatServer(config=config, logger=logger, **kwargs)
+
+    service = PyroService(server_instance=refcat_server, pyro_name=pyro_name, config=config,
+                          host=host, port=port, logger=logger)
+
+    return service

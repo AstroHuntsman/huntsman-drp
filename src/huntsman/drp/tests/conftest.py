@@ -29,6 +29,11 @@ def config():
 
 
 @pytest.fixture(scope="function")
+def refcat_filename(config):
+    return testing.get_refcat_filename(config)
+
+
+@pytest.fixture(scope="function")
 def reference_catalogue(config):
     return TapReferenceCatalogue(config=config)
 
