@@ -135,7 +135,7 @@ class Collection(HuntsmanBase):
         document_id = document.get_mongo_id()
 
         # Check there is at most one match in the table
-        if self.find_one(document_filter=document_id) is not None:
+        if self.find_one(document_filter=document_id):
             if overwrite:
                 self.update_one(document_id, to_update=document)
                 return
