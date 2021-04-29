@@ -1,3 +1,5 @@
+from contextlib import suppress
+
 from astropy import stats
 from astropy.wcs import WCS
 from panoptes.utils.images.fits import get_solve_field
@@ -27,11 +29,8 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=Fal
 
     # If there is already a WCS then use it
     make_wcs = False
-    try:
-        wcs = WCS(header)
-        make_wcs = wcs.has_celestial
-    except Exception:
-        pass
+    with suppress(Exception):
+        make_wcs = WCS(header).has_celestial
 
     # Make the WCS if it doesn't already exist
     if make_wcs or remake_wcs:
@@ -58,9 +57,9 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=Fal
     if has_wcs:
         x0_pix = header["NAXIS1"] / 2
         y0_pix = header["NAXIS2"] / 2
-        ra, dec = wcs.wcs_pix_to_world([[x0_pix, y0_pix]], 0)[0]
-        result["ra_cen"] = ra
-        result["dec_cen"] = dec
+        coord = wcs.pixel_to_world(x0_pix, y0_pix)
+        result["ra_cen"] = coord.ra.to_value("deg")
+        result["dec_cen"] = coord.dec.to_value("deg")
 
     return result
 
