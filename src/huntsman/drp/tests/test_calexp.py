@@ -6,7 +6,7 @@ from huntsman.drp.services.calexp import CalexpQualityMonitor
 
 
 def test_calexp_quality_monitor(exposure_collection_real_data, master_calib_collection_real_data,
-                                config):
+                                testing_refcat_server, config):
     """ Test that the quality monitor is able to calculate and archive calexp metrics. """
     refcat_filename = os.path.join(config["directories"]["testdata"], "refcat.csv")
 

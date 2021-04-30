@@ -1,5 +1,4 @@
 import pytest
-import time
 import tempfile
 from contextlib import suppress
 from requests.exceptions import HTTPError
@@ -25,25 +24,6 @@ def dec_list():
 @pytest.fixture(scope="function")
 def coords(ra_list, dec_list):
     return [SkyCoord(ra=ra * u.deg, dec=dec * u.deg) for ra, dec in zip(ra_list, dec_list)]
-
-
-@pytest.fixture(scope="function")
-def testing_refcat_server(config, refcat_filename):
-    """ A testing refcat server that loads the refcat from file rather than downloading it.
-    """
-    refcat_kwargs = dict(refcat_filename=refcat_filename)
-
-    # Yield the refcat server process
-    refcat_service = rc.create_refcat_service(pyro_name="test_refcat",
-                                              refcat_type=rc.TestingTapReferenceCatalogue,
-                                              refcat_kwargs=refcat_kwargs,
-                                              config=config)
-    refcat_service.start()
-    time.sleep(5)  # Allow some startup time
-    yield refcat_service
-
-    # Shutdown the refcat server after we are done
-    refcat_service.stop()
 
 
 def test_refcat_client(config, testing_refcat_server, coords):

@@ -108,3 +108,5 @@ quality:
 pyro:
   host: localhost
   port: 6563
+  refcat:
+    name: "refcat"

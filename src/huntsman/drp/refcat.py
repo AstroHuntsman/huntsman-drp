@@ -126,7 +126,7 @@ class TapReferenceCatalogue(HuntsmanBase):
 
 class TestingTapReferenceCatalogue(TapReferenceCatalogue):
 
-    def __init__(self, refcat_filename, *args, **kwargs):
+    def __init__(self, refcat_filename=None, *args, **kwargs):
         """ Github actions tests cannot successfully query the Skymapper catalogue. For tests we
         can make this override class which just loads a sample catalogue from file instead.
         """
@@ -175,7 +175,7 @@ class RefcatServer(HuntsmanBase):
 class RefcatClient(HuntsmanBase):
     """ Client-side interface to the thread-safe tap reference catalogue. """
 
-    def __init__(self, pyro_name=PYRO_NAME, *args, **kwargs):
+    def __init__(self, pyro_name=None, *args, **kwargs):
         """ Start the refcat server in an aysnc process.
         Args:
             pyro_name (str, optional): The name of the pyro service.
@@ -185,6 +185,9 @@ class RefcatClient(HuntsmanBase):
 
         ns = NameServer(config=self.config, logger=self.logger)
         ns.connect()
+
+        if not pyro_name:
+            pyro_name = self.config["pyro"]["refcat"]["name"]
 
         uri = ns.name_server.lookup(pyro_name)
         self._proxy = Proxy(uri)
@@ -222,7 +225,7 @@ class RefcatClient(HuntsmanBase):
         return self.make_reference_catalogue(coords=coords, **kwargs)
 
 
-def create_refcat_service(pyro_name=PYRO_NAME, config=None, logger=None, host="localhost", port=0,
+def create_refcat_service(pyro_name=None, config=None, logger=None, host="localhost", port=0,
                           **kwargs):
     """ Convenience function to make a PyroService for a TapReferenceCatalogue.
     NOTE: This does not actually start the pyro daemon.
@@ -230,11 +233,15 @@ def create_refcat_service(pyro_name=PYRO_NAME, config=None, logger=None, host="l
         host (optional): The host name for the pyro daemon. Default 'localhost'.
         port (int, optional): The port for the pyro daemon. Default 0.
         config (dict, optional): The config dict.
-        pyro_name (str, optional): The name of the pyro service.
+        pyro_name (str, optional): The name of the pyro service. If not given, will use value from
+            config.
         **kwargs: Parsed to RefcatServer init function.
     Returns:
         PyroService: The unstarted pyro servce object.
     """
+    if not pyro_name:
+        pyro_name = config["pyro"]["refcat"]["name"]
+
     refcat_server = RefcatServer(config=config, logger=logger, **kwargs)
 
     service = PyroService(server_instance=refcat_server, pyro_name=pyro_name, config=config,

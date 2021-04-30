@@ -24,7 +24,7 @@ def config_dict_local():
 def test_logger(logger):
     """
     """
-    time.sleep(1)  # There may be some async processes writing to the logs...
+    time.sleep(3)  # There may be some async processes writing to the logs...
 
     for level in FILE_LOG_LEVELS:
 
