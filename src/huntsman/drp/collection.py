@@ -187,20 +187,24 @@ class Collection(HuntsmanBase):
         self.logger.debug(f"Updating document with: {mongo_update}")
         self._table.update_one(document_filter, {'$set': mongo_update}, upsert=upsert)
 
-    def delete_one(self, document_filter):
+    def delete_one(self, document_filter, force=False):
         """Delete one document from the table.
         Args:
             document_filter (dict, optional): A dictionary containing key, value pairs used to
                 identify the document to delete, by default None
+            force (bool, optional): If True, ignore checks and delete all matching documents.
+                Default False.
         """
         document_filter = Document(document_filter, validate=False)
         mongo_filter = document_filter.to_mongo()
 
-        count = self._table.count_documents(mongo_filter)
-        if count > 1:
-            raise RuntimeError(f"Multiple matches found for document in {self}: {document_filter}.")
-        elif (count == 0):
-            raise RuntimeError(f"No matches found for document in {self}: {document_filter}.")
+        if not force:
+            count = self._table.count_documents(mongo_filter)
+            if count > 1:
+                raise RuntimeError(f"Multiple matches found for document in {self}:"
+                                   f" {document_filter}.")
+            elif (count == 0):
+                raise RuntimeError(f"No matches found for document in {self}: {document_filter}.")
 
         self._table.delete_one(mongo_filter)
 

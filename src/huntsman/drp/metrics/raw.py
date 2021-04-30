@@ -27,10 +27,10 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=Fal
     if parsed_header['dataType'] != "science":
         return {"has_wcs": False}
 
-    # If there is already a WCS then use it
-    make_wcs = False
+    # If there is already a WCS then don't make another one unless remake_wcs=True
+    make_wcs = True
     with suppress(Exception):
-        make_wcs = WCS(header).has_celestial
+        make_wcs = not WCS(header).has_celestial
 
     # Make the WCS if it doesn't already exist
     if make_wcs or remake_wcs:
