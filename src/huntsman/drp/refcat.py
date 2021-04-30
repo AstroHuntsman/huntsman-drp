@@ -189,7 +189,7 @@ class RefcatClient(HuntsmanBase):
         uri = ns.name_server.lookup(pyro_name)
         self._proxy = Proxy(uri)
 
-    def make_reference_catalogue(self, coord, **kwargs):
+    def make_reference_catalogue(self, *args, **kwargs):
         """ Thread-safe implementation of refcat query.
         Args:
             *args, **kwargs: Parsed to TapReferenceCatalogue.make_reference_catalogue.
@@ -197,7 +197,7 @@ class RefcatClient(HuntsmanBase):
         filename = kwargs.pop("filename", None)  # file needs to be stored on local volume
 
         # Get and decode the data sent over the network
-        data = self._proxy.make_reference_catalogue(coord, **kwargs)
+        data = self._proxy.make_reference_catalogue(*args, **kwargs)
         df_bytes = serpent.tobytes(data)
 
         df = pickle.loads(df_bytes)
