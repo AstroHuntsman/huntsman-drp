@@ -58,8 +58,8 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=Fal
         x0_pix = header["NAXIS1"] / 2
         y0_pix = header["NAXIS2"] / 2
         coord = wcs.pixel_to_world(x0_pix, y0_pix)
-        result["ra_cen"] = coord.ra.to_value("deg")
-        result["dec_cen"] = coord.dec.to_value("deg")
+        result["ra_centre"] = coord.ra.to_value("deg")
+        result["dec_centre"] = coord.dec.to_value("deg")
 
     return result
 

@@ -116,7 +116,9 @@ class RawExposureDocument(Document):
         Returns:
             astropy.coordinates.SkyCoord: The central coordinate.
         """
-        return SkyCoord(ra=self["ra_cen"] * u.deg, dec=self["dec_cen"] * u.deg)
+        ra = self["metrics"]["ra_centre"] * u.deg
+        dec = self["metrics"]["dec_centre"] * u.deg
+        return SkyCoord(ra=ra, dec=dec)
 
 
 class CalibDocument(Document):

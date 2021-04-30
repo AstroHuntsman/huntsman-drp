@@ -58,7 +58,7 @@ def test_file_ingestor(ingestor, tempdir_and_exposure_collection_with_uningested
     for md in exposure_collection.find():
         ingestor.logger.info(f"{md}")
         assert METRIC_SUCCESS_FLAG in md
-        assert "quality" in md
+        assert "metrics" in md
         assert screen_success(md)
 
     for metric_value in md["quality"].values():
