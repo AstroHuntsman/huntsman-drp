@@ -103,7 +103,7 @@ def _process_document(document, exposure_collection, calib_collection, timeout, 
 
         # Make the document and update the DB
         document_filter = {k: calexpId[k] for k in required_keys}
-        to_update = {"quality": {"calexp": metrics}}
+        to_update = {"metrics": {"calexp": metrics}}
         exposure_collection.update_one(document_filter, to_update=to_update)
 
 

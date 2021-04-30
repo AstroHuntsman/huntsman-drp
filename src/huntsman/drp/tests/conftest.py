@@ -123,8 +123,7 @@ def exposure_collection_real_data(config, fits_header_translator):
     raw data table.
     """
     # Populate the database
-    exposure_collection = testing.create_test_exposure_collection(config, fits_header_translator,
-                                                                  screen=True)
+    exposure_collection = testing.create_test_exposure_collection(config)
 
     yield exposure_collection
 
