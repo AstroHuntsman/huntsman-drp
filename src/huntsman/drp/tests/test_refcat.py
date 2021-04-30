@@ -31,7 +31,7 @@ def test_refcat_client(config, testing_refcat_server, coords):
     ra_key = config["refcat"]["ra_key"]
     dec_key = config["refcat"]["dec_key"]
 
-    client = rc.RefcatClient(pyro_name="test_refcat")
+    client = rc.RefcatClient(config=config)
 
     with tempfile.NamedTemporaryFile() as tf:
 

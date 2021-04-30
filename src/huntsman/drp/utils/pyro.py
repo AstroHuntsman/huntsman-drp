@@ -140,7 +140,12 @@ class PyroService(HuntsmanBase):
             self.logger.info(f"Starting request loop for {self._server_instance}.")
             daemon.requestLoop(loopCondition=lambda: self._continue_loop)
 
-            self.logger.info(f"Stopping request loop for {self._server_instance}")
+            self.logger.info(f"Stopped request loop for {self._server_instance}")
+
+            # Unregister from NS
+            self.logger.debug(f"Unregistering {self.pyro_name} from pyro nameserver.")
+            ns.name_server.remove(self.pyro_name)
+
 
 # Serialisers
 
