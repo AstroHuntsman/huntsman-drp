@@ -66,18 +66,8 @@ mongodb:
         - "filename"
     MasterCalibCollection:
       name: "master_calibs"
-      type_key: "datasetType"
       unique_keys:
-        bias:
-          - "ccd"
-          - "calibDate"
-        dark:
-          - "ccd"
-          - "calibDate"
-        flat:
-          - "filter"
-          - "ccd"
-          - "calibDate"
+        - "filename"  # Let obs_huntsman handle unique calib file naming
 
 calibs:
   types:  # Order might be important...

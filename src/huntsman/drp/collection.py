@@ -271,24 +271,13 @@ class Collection(HuntsmanBase):
         inserts.
         See: https://docs.mongodb.com/manual/core/index-unique
         """
-        cfg = self.config["mongodb"]["collections"].get(self.__class__.__name__)
+        cfg = self.config["mongodb"]["collections"].get(self.__class__.__name__, {})
 
-        unique_keys = cfg["unique_keys"]
+        unique_keys = cfg.get("unique_keys", None)
         if not unique_keys:
             return
 
-        # If it is a mapping, unique keys are applied separately for each data type
-        elif isinstance(unique_keys, abc.Mapping):
-            for data_type, keys in unique_keys.items():
-                data_type_key = cfg["type_key"]
-                pfe = {data_type_key: {"$eq": data_type}}
-                self._collection.create_index([(k, pymongo.ASCENDING) for k in keys], unique=True,
-                                              partialFilterExpression=pfe)
-
-        # If it is an iterable, unique keys apply to all data types
-        else:
-            self._collection.create_index([(k, pymongo.ASCENDING) for k in unique_keys],
-                                          unique=True)
+        self._collection.create_index([(k, pymongo.ASCENDING) for k in unique_keys], unique=True)
 
     def _get_quality_filter(self):
         """ Return the Query object corresponding to quality cuts. """
