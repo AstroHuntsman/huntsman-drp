@@ -1,11 +1,12 @@
 """Code to interface with the Huntsman mongo database."""
 from contextlib import suppress
+from collections import abc
 from datetime import timedelta
 from urllib.parse import quote_plus
 
 import numpy as np
-from pymongo import MongoClient
-from pymongo.errors import ServerSelectionTimeoutError
+import pymongo
+from pymongo.errors import ServerSelectionTimeoutError, DuplicateKeyError
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date, parse_date
@@ -18,15 +19,24 @@ class Collection(HuntsmanBase):
     """ This class is used to interface with the mongodb. It is responsible for performing queries
     and inserting/updating/deleting documents, as well as validating new documents.
     """
+    _unique_keys = None
 
-    def __init__(self, collection_name, **kwargs):
+    def __init__(self, db_name=None, collection_name=None, **kwargs):
         super().__init__(**kwargs)
 
-        self._collection_name = str(collection_name)
+        cfg = self.config["mongodb"]
+        if not db_name:
+            db_name = cfg["db_name"]
+
+        if not collection_name:
+            collection_name = cfg["collections"][self.__class__.__name__]["name"]
+
+        self._db_name = db_name
+        self._collection_name = collection_name
 
         # Initialise the DB
         db_name = self.config["mongodb"]["db_name"]
-        self._connect(db_name, self._collection_name)
+        self._connect()
 
     # Properties
 
@@ -97,7 +107,7 @@ class Collection(HuntsmanBase):
 
         self.logger.debug(f"Performing mongo find operation with filter: {mongo_filter}.")
 
-        documents = list(self._table.find(mongo_filter, {"_id": False}))
+        documents = list(self._collection.find(mongo_filter, {"_id": False}))
         self.logger.debug(f"Find operation returned {len(documents)} results.")
 
         if key is not None:
@@ -120,24 +130,13 @@ class Collection(HuntsmanBase):
             raise RuntimeError("Matched with more than one document.")
         return documents[0]
 
-    def insert_one(self, document, overwrite=False):
+    def insert_one(self, document):
         """Insert a new document into the table after ensuring it is valid and unique.
         Args:
             document (dict): The document to be inserted into the table.
-            overwrite (bool, optional): If True override any existing document, by default False.
         """
         # Check the required columns exist in the new document
         document = self._document_type(document, copy=True, config=self.config)
-
-        # Check there is at most one match in the table
-        document_id = document.get_mongo_id()
-        if self.find_one(document_filter=document_id):
-            if overwrite:
-                self.update_one(document_id, to_update=document)
-                return
-            else:
-                raise RuntimeError(f"Document {document} already exists in {self}."
-                                   " Pass overwrite=True to overwrite.")
 
         # Prepare document to insert
         document["date_created"] = current_date()
@@ -145,8 +144,9 @@ class Collection(HuntsmanBase):
         mongo_doc = document.to_mongo()
 
         # Insert the document
-        self.logger.debug(f"Inserting new document into {self}: {document}.")
-        self._table.insert_one(mongo_doc)
+        # Uniqueness is verified implicitly
+        self.logger.debug(f"Inserting document into {self}: {document}.")
+        self._collection.insert_one(mongo_doc)
 
     def update_one(self, document_filter, to_update, upsert=False):
         """ Update a single document in the table.
@@ -162,24 +162,24 @@ class Collection(HuntsmanBase):
         with suppress(KeyError):
             del document_filter["date_modified"]  # This might change so don't match with it
 
-        to_update = Document(to_update)
-        to_update["date_modified"] = current_date()
-        mongo_update = to_update.to_mongo()
-
         count = self.count_documents(document_filter)
         if count > 1:
             raise RuntimeError(f"Multiple matches found for document in {self}: {document_filter}.")
 
         elif count == 0:
             if upsert:
-                # Make sure the combined document is valid
-                to_update = self._document_type(to_update, validate=True)  # Implicit validation
+                self.insert_one(to_update)
+                return
             else:
                 raise RuntimeError(f"No matches found for document {document_filter} in {self}. Use"
                                    " upsert=True to upsert.")
 
+        to_update = Document(to_update)
+        to_update["date_modified"] = current_date()
+        mongo_update = to_update.to_mongo()
+
         self.logger.debug(f"Updating document with: {mongo_update}")
-        self._table.update_one(document_filter, {'$set': mongo_update}, upsert=upsert)
+        self._collection.update_one(document_filter, {'$set': mongo_update}, upsert=upsert)
 
     def delete_one(self, document_filter, force=False):
         """Delete one document from the table.
@@ -200,7 +200,7 @@ class Collection(HuntsmanBase):
             elif (count == 0):
                 raise RuntimeError(f"No matches found for document in {self}: {document_filter}.")
 
-        self._table.delete_one(mongo_filter)
+        self._collection.delete_one(mongo_filter)
 
     def insert_many(self, documents, **kwargs):
         """Insert a new document into the table.
@@ -235,7 +235,7 @@ class Collection(HuntsmanBase):
 
     # Private methods
 
-    def _connect(self, db_name, collection_name):
+    def _connect(self):
         """ Initialise the database.
         Args:
             db_name (str): The name of the (mongo) database.
@@ -244,21 +244,51 @@ class Collection(HuntsmanBase):
         # Connect to the mongodb
         hostname = self.config["mongodb"]["hostname"]
         port = self.config["mongodb"]["port"]
+
         if "username" in self.config["mongodb"].keys():
             username = quote_plus(self.config["mongodb"]["username"])
             password = quote_plus(self.config["mongodb"]["password"])
-            uri = f"mongodb://{username}:{password}@{hostname}/{db_name}?ssl=true"
-            self._client = MongoClient(uri)
+            uri = f"mongodb://{username}:{password}@{hostname}/{self._db_name}?ssl=true"
+            self._client = pymongo.MongoClient(uri)
         else:
-            self._client = MongoClient(hostname, port)
+            self._client = pymongo.MongoClient(hostname, port)
         try:
             self._client.server_info()
             self.logger.info(f"{self} connected to mongodb at {hostname}:{port}.")
         except ServerSelectionTimeoutError as err:
             self.logger.error(f"Unable to connect {self} to mongodb at {hostname}:{port}.")
             raise err
-        self._db = self._client[db_name]
-        self._table = self._db[collection_name]
+
+        self._db = self._client[self._db_name]
+        self._collection = self._db[self._collection_name]
+
+        # Define which keys identify unique documents
+        self._set_unique_keys()
+
+    def _set_unique_keys(self):
+        """ Define the set of keys (if any) that identify a unique document.
+        This approach leverages mongdb's server-side locking mechanism to ensure thread-safety on
+        inserts.
+        See: https://docs.mongodb.com/manual/core/index-unique
+        """
+        cfg = self.config["mongodb"]["collections"].get(self.__class__.__name__)
+
+        unique_keys = cfg["unique_keys"]
+        if not unique_keys:
+            return
+
+        # If it is a mapping, unique keys are applied separately for each data type
+        elif isinstance(unique_keys, abc.Mapping):
+            for data_type, keys in unique_keys.items():
+                data_type_key = cfg["type_key"]
+                pfe = {data_type_key: {"$eq": data_type}}
+                self._collection.create_index([(k, pymongo.ASCENDING) for k in keys], unique=True,
+                                              partialFilterExpression=pfe)
+
+        # If it is an iterable, unique keys apply to all data types
+        else:
+            self._collection.create_index([(k, pymongo.ASCENDING) for k in unique_keys],
+                                          unique=True)
 
     def _get_quality_filter(self):
         """ Return the Query object corresponding to quality cuts. """
@@ -281,18 +311,18 @@ class RawExposureCollection(Collection):
             document (RawExposureDocument): The document to insert.
             *args, **kwargs: Parsed to super().insert_one
         Raises:
-            RuntimeError: If a .fz / .fits duplicate already exists.
+            DuplicateKeyError: If a .fz / .fits duplicate already exists.
         """
         doc = self._document_type(document, copy=True, config=self.config)
         filename = doc["filename"]
 
         if filename.endswith(".fits"):
             if self.find({"filename": filename + ".fz"}):
-                raise RuntimeError(f"Tried to insert {filename} but a .fz version exists.")
+                raise DuplicateKeyError(f"Tried to insert {filename} but a .fz version exists.")
 
         elif filename.endswith(".fits.fz"):
             if self.find({"filename": filename.strip(".fz")}):
-                raise RuntimeError(f"Tried to insert {filename} but a .fits version exists.")
+                raise DuplicateKeyError(f"Tried to insert {filename} but a .fits version exists.")
 
         return super().insert_one(document, *args, **kwargs)
 
