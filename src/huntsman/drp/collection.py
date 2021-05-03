@@ -131,22 +131,38 @@ class Collection(HuntsmanBase):
         return documents[0]
 
     def insert_one(self, document):
-        """Insert a new document into the table after ensuring it is valid and unique.
+        """ Insert a new document into the table after ensuring it is valid and unique.
         Args:
             document (dict): The document to be inserted into the table.
         """
         # Check the required columns exist in the new document
-        document = self._document_type(document, copy=True, config=self.config)
-
-        # Prepare document to insert
-        document["date_created"] = current_date()
-        document["date_modified"] = current_date()
-        mongo_doc = document.to_mongo()
+        doc = self._prepare_doc_for_insert(document)
 
         # Insert the document
         # Uniqueness is verified implicitly
-        self.logger.debug(f"Inserting document into {self}: {document}.")
-        self._collection.insert_one(mongo_doc)
+        self.logger.debug(f"Inserting document into {self}: {doc}.")
+        self._collection.insert_one(doc.to_mongo())
+
+    def replace_one(self, document_filter, replacement, **kwargs):
+        """ Replace a matching document with a new one.
+        Args:
+            document_filter (Document): dictionary containing key, value pairs used to identify
+                the document to replace.
+            replacement (Document): The document to replace with.
+            **kwargs: Parsed to pymongo replace_one.
+        Raises:
+            RuntimeError: If document filter matches with more than one document.
+        """
+        document_filter = Document(document_filter)
+
+        # Make sure the filter matches with at most one doc
+        if self.count_documents(document_filter) > 1:
+            raise RuntimeError(f"Document filter {document_filter} matches with multiple documents"
+                               f" in {self}.")
+
+        doc = self._prepare_doc_for_insert(replacement)  # Implicit document validation
+
+        self._collection.replace_one(document_filter.to_mongo(), doc.to_mongo(), **kwargs)
 
     def update_one(self, document_filter, to_update, upsert=False):
         """ Update a single document in the table.
@@ -282,6 +298,21 @@ class Collection(HuntsmanBase):
     def _get_quality_filter(self):
         """ Return the Query object corresponding to quality cuts. """
         raise NotImplementedError
+
+    def _prepare_doc_for_insert(self, document):
+        """ Prepare a document to be inserted into the database.
+        Args:
+            document (Document or dict): The document to prepare.
+        Returns:
+            Document: The prepared document of the appropriate type for this collection.
+        """
+        doc = self._document_type(document, copy=True, config=self.config)
+
+        # Add date records
+        doc["date_created"] = current_date()
+        doc["date_modified"] = current_date()
+
+        return doc
 
 
 class RawExposureCollection(Collection):
