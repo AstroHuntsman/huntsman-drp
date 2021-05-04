@@ -1,6 +1,5 @@
 """Code to interface with the Huntsman mongo database."""
 from contextlib import suppress
-from collections import abc
 from datetime import timedelta
 from urllib.parse import quote_plus
 
@@ -141,7 +140,7 @@ class Collection(HuntsmanBase):
         # Insert the document
         # Uniqueness is verified implicitly
         self.logger.debug(f"Inserting document into {self}: {doc}.")
-        self._collection.insert_one(doc.to_mongo())
+        self._collection.insert_one(doc.to_mongo(flatten=False))
 
     def replace_one(self, document_filter, replacement, **kwargs):
         """ Replace a matching document with a new one.
@@ -290,10 +289,9 @@ class Collection(HuntsmanBase):
         cfg = self.config["mongodb"]["collections"].get(self.__class__.__name__, {})
 
         unique_keys = cfg.get("unique_keys", None)
-        if not unique_keys:
-            return
-
-        self._collection.create_index([(k, pymongo.ASCENDING) for k in unique_keys], unique=True)
+        if unique_keys:
+            self._collection.create_index([(k, pymongo.ASCENDING) for k in unique_keys],
+                                          unique=True)
 
     def _get_quality_filter(self):
         """ Return the Query object corresponding to quality cuts. """
