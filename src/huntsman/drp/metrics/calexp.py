@@ -9,7 +9,7 @@ from lsst.afw.geom.ellipses import Quadrupole, SeparableDistortionTraceRadius
 from huntsman.drp.utils.library import load_module
 
 
-METRICS = ("zeropoint", "psf")
+METRICS = ("zeropoint", "psf", "background")
 
 
 def calculate_metrics(task_result, metrics=METRICS):
