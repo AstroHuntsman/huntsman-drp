@@ -40,19 +40,18 @@ class HuntsmanProcessCcdTask(ProcessCcdTask):
             isrSuccess = False
 
         # Characterise image
-        charSuccess = None
+        charSuccess = True
         if isrSuccess:
             try:
                 charRes = self.charImage.runDataRef(dataRef=sensorRef, exposure=exposure,
                                                     doUnpersist=False)
                 exposure = charRes.exposure
                 background = charRes.background
-                charSuccess = True
             except Exception:
                 charSuccess = False
 
         # Do image calibration (astrometry + photometry)
-        calibSuccess = None
+        calibSuccess = False
         if self.config.doCalibrate and charSuccess:
             try:
                 calibRes = self.calibrate.runDataRef(
@@ -60,9 +59,8 @@ class HuntsmanProcessCcdTask(ProcessCcdTask):
                     doUnpersist=False, icSourceCat=charRes.sourceCat)
                 background = calibRes.background
                 calibSuccess = True
-
             except Exception:
-                calibSuccess = False
+                pass
 
         return pipeBase.Struct(
             charRes=charRes,

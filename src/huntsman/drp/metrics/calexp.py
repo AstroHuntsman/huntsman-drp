@@ -22,8 +22,13 @@ def calculate_metrics(task_result, metrics=METRICS):
     """
     result = {"charSucess": task_result["charSucess"],
               "isrSuccess": task_result["isrSuccess"],
-              "calibSuccess": task_result["calibSuccess"],
-              "psfSuccess": task_result["psfSuccess"]}
+              "calibSuccess": task_result["calibSuccess"]}
+
+    try:
+        psfSuccess = task_result["charRes"]["psfSuccess"]
+    except KeyError:
+        psfSuccess = False
+    result["psfSuccess"] = psfSuccess
 
     for metric in METRICS:
 
