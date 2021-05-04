@@ -25,18 +25,18 @@ def calculate_metrics(task_result, metrics=METRICS):
               "calibSuccess": task_result["calibSuccess"]}
 
     try:
-        psfSuccess = task_result["charRes"]["psfSuccess"]
-    except KeyError:
+        psfSuccess = task_result["charRes"].psfSuccess
+    except AttributeError:
         psfSuccess = False
     result["psfSuccess"] = psfSuccess
 
-    for metric in METRICS:
+    for func_name in metrics:
 
-        func = load_module(f"huntsman.drp.metrics.calexp.{metric}")
-        metrics = func(task_result)
+        func = load_module(f"huntsman.drp.metrics.calexp.{func_name}")
+        metric_dict = func(task_result)
 
-        for k, v in metrics.items():
-            if k in metrics:
+        for k, v in metric_dict.items():
+            if k in result:
                 raise KeyError(f"Key '{k}' already in metrics dict.")
             result[k] = v
 
