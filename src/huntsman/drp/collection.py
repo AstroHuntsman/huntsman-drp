@@ -248,6 +248,13 @@ class Collection(HuntsmanBase):
         date_start = date_now - timedelta(days=days, hours=hours, seconds=seconds)
         return self.find(date_start=date_start, **kwargs)
 
+    def delete_all(self, really=False):
+        """ Delete all documents from the collection. """
+        if not really:
+            raise RuntimeError("If you really want to do this, parse really=True.")
+        docs = self.find()
+        self.delete_many(docs, force=True)
+
     # Private methods
 
     def _connect(self):
