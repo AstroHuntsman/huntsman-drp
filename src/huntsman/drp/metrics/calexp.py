@@ -6,13 +6,14 @@ from astropy import units as u
 
 from lsst.afw.geom.ellipses import Quadrupole, SeparableDistortionTraceRadius
 
+from huntsman.drp.core import get_logger
 from huntsman.drp.utils.library import load_module
 
 
 METRICS = ("zeropoint", "psf", "background")
 
 
-def calculate_metrics(task_result, metrics=METRICS):
+def calculate_metrics(task_result, metrics=METRICS, logger=None):
     """ Evaluate metrics for a single calexp.
     Args:
         calexp: The LSST calexp object.
@@ -20,6 +21,9 @@ def calculate_metrics(task_result, metrics=METRICS):
     Returns:
         dict: A dictionary of metric name: value.
     """
+    if logger is None:
+        logger = get_logger()
+
     result = {"charSucess": task_result["charSucess"],
               "isrSuccess": task_result["isrSuccess"],
               "calibSuccess": task_result["calibSuccess"]}
@@ -33,7 +37,11 @@ def calculate_metrics(task_result, metrics=METRICS):
     for func_name in metrics:
 
         func = load_module(f"huntsman.drp.metrics.calexp.{func_name}")
-        metric_dict = func(task_result)
+
+        try:
+            metric_dict = func(task_result)
+        except Exception as err:
+            logger.error(f"Exception while calculation {func_name} metric: {err!r}")
 
         for k, v in metric_dict.items():
             if k in result:
@@ -50,6 +58,8 @@ def background(task_result):
     Returns:
         dict:
     """
+    if not task_result["charSucess"]:
+        return {}
     bg = task_result["background"].getImage().getArray()
     return {"bg_median": np.median(bg), "bg_std": bg.std()}
 
@@ -61,6 +71,9 @@ def zeropoint(task_result):
     Returns:
         dict: Dict containing the zeropoint in mags.
     """
+    if not task_result["calibSucess"]:
+        return {}
+
     calexp = task_result["exposure"]
     fluxzero = calexp.getPhotoCalib().getInstFluxAtZeroMagnitude()
 
@@ -77,6 +90,9 @@ def psf(task_result):
     Returns:
         dict: Dict containing the PSF FWHM in arcsec and ellipticity.
     """
+    if not task_result["charRes"].psfSuccess:
+        return {}
+
     calexp = task_result["exposure"]
 
     psf = calexp.getPsf()
