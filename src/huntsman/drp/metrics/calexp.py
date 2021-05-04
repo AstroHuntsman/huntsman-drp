@@ -38,6 +38,17 @@ def calculate_metrics(task_result, metrics=METRICS):
     return result
 
 
+def background(task_result):
+    """ Calculate sky background statistics.
+    Args:
+        task_result
+    Returns:
+        dict:
+    """
+    bg = task_result["background"].getImage().getArray()
+    return {"bg_median": np.median(bg), "bg_std": bg.std()}
+
+
 def zeropoint(task_result):
     """ Get the magnitude zero point of the raw data.
     Args:
