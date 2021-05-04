@@ -380,8 +380,8 @@ class ButlerRepository(HuntsmanBase):
 
         # Process the science frames
         for dataId in dataIds:
-            tasks.make_calexps(dataId, rerun=rerun, butler_dir=self.butler_dir,
-                               calib_dir=self.calib_dir, doReturnResults=False, **kwargs)
+            tasks.make_calexp(dataId, rerun=rerun, butler_dir=self.butler_dir,
+                              calib_dir=self.calib_dir, doReturnResults=False, **kwargs)
 
         # Check if we have the right number of calexps
         if not len(self.get_calexps(rerun=rerun)[0]) == len(dataIds):

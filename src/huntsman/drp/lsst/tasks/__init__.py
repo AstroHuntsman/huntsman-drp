@@ -2,6 +2,7 @@
 Eventually we should stop using these and call LSST functions directly.
 """
 import os
+from contextlib import suppress
 
 from lsst.pipe.tasks.ingest import IngestTask
 from lsst.utils import getPackageDir
@@ -137,7 +138,7 @@ def make_calexp(dataId, rerun, butler_dir, calib_dir, procs=1, clobber_config=Fa
             Override config values, by default False.
         **kwargs: Parsed to run_cmdline_task.
     Returns:
-        dict: The result of processCcd.py.
+        dict or None: The result of processCcd.py.
     """
     cmd = f"{butler_dir}"
     cmd += f" --rerun {rerun}"
@@ -151,7 +152,10 @@ def make_calexp(dataId, rerun, butler_dir, calib_dir, procs=1, clobber_config=Fa
 
     result = run_cmdline_task(HuntsmanProcessCcdTask, cmd.split(), **kwargs)
 
-    return result.resultList[0].result.getDict()
+    with suppress(AttributeError):  # If doReturnResults=True
+        return result.resultList[0].result.getDict()
+
+    return result
 
 
 def make_discrete_sky_map(butler_dir, calib_dir, rerun):
