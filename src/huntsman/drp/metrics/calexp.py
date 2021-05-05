@@ -98,12 +98,19 @@ def zeropoint(task_result):
     # Find number of sources used for photocal
     n_sources = sum(task_result["calibRes"].sourceCat["calib_photometry_used"])
 
-    # Get the magnitude zero point
     calexp = task_result["exposure"]
-    fluxzero = calexp.getPhotoCalib().getInstFluxAtZeroMagnitude()
-    zp_mag = 2.5 * np.log10(fluxzero) * u.mag  # Note the missing minus sign here...
+    pc = calexp.getPhotoCalib()
 
-    return {"zp_mag": zp_mag, "zp_n_src": n_sources}
+    # Get the magnitude zero point
+    zp_flux = pc.getInstFluxAtZeroMagnitude()
+    zp_mag = 2.5 * np.log10(zp_flux) * u.mag  # Note the missing minus sign here...
+
+    # Record calibration uncertainty
+    # See: https://hsc.mtk.nao.ac.jp/pipedoc/pipedoc_7_e/tips_e/mag_zeropoint.html
+    zp_flux_err = zp_flux * pc.getCalibrationErr() / pc.getCalibrationMean()
+
+    return {"zp_mag": zp_mag, "zp_flux": zp_flux, "zp_flux_err": zp_flux_err,
+            "zp_n_src": n_sources}
 
 
 def psf(task_result):
