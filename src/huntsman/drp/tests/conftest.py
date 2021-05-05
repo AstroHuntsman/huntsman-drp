@@ -123,8 +123,7 @@ def exposure_collection_real_data(config, fits_header_translator):
     raw data table.
     """
     # Populate the database
-    exposure_collection = testing.create_test_exposure_collection(config)
-    exposure_collection.delete_all(really=True)
+    exposure_collection = testing.create_test_exposure_collection(config, clear=True)
     assert not exposure_collection.find()
 
     yield exposure_collection
