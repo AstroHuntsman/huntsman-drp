@@ -6,7 +6,7 @@ from huntsman.drp.core import get_config
 from huntsman.drp.fitsutil import FitsHeaderTranslator
 from huntsman.drp.collection import RawExposureCollection
 from huntsman.drp import refcat as rc
-from huntsman.drp.lsst.butler import ButlerRepository, TemporaryButlerRepository
+from huntsman.drp.lsst.butler import ButlerRepository
 from huntsman.drp.utils import testing
 from huntsman.drp.services.calib import MasterCalibMaker
 
@@ -59,25 +59,6 @@ def testing_refcat_server(config, refcat_filename):
 
     # Shutdown the refcat server after we are done
     refcat_service.stop()
-
-# ===========================================================================
-# Butler repositories
-
-
-@pytest.fixture(scope="function")
-def temp_butler_repo(config):
-    return TemporaryButlerRepository(config=config)
-
-
-@pytest.fixture(scope="function")
-def fixed_butler_repo(config, tmp_path_factory):
-    dir = tmp_path_factory.mktemp("fixed_butler_repo")
-    return ButlerRepository(directory=str(dir), config=config)
-
-
-@pytest.fixture(scope="function")
-def butler_repos(fixed_butler_repo, temp_butler_repo):
-    return fixed_butler_repo, temp_butler_repo
 
 
 # ===========================================================================
