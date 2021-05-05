@@ -80,8 +80,25 @@ def test_make_master_calibs(exposure_collection, temp_butler_repo, config):
     n_dark = test_config["n_cameras"]
     n_flat = test_config["n_cameras"] * n_filters
 
+    # Specify subset of ingested files to process
+    doc = exposure_collection.find()[0]
+    doc_filter = {k: doc[k] for k in ["CAM-ID", "DATE-OBS"]}
+
+    filenames_bias = exposure_collection.find(doc_filter, key="filename")
+
+    # Make sure that matches the expected count
+    expected_count = 0
+    expected_count += test_config["n_bias"]
+    expected_count += test_config["n_dark"] * 2  # 2 exp times
+
+
     # Use the Butler repo to make the calibs
-    filenames = exposure_collection.find(key="filename")
+
+    date_obs =
+    cam_id = doc
+    filenames = exposure_collection.find(doc_filter, key="filename")
+
+
     with temp_butler_repo as br:
         br.ingest_raw_data(filenames)
 
