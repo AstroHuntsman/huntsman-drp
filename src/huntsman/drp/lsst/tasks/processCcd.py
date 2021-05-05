@@ -28,7 +28,6 @@ class HuntsmanProcessCcdTask(ProcessCcdTask):
 
         # Default return values
         exposure = None
-        background = None
         charRes = None
         calibRes = None
 
@@ -46,7 +45,6 @@ class HuntsmanProcessCcdTask(ProcessCcdTask):
                 charRes = self.charImage.runDataRef(dataRef=sensorRef, exposure=exposure,
                                                     doUnpersist=False)
                 exposure = charRes.exposure
-                background = charRes.background
             except Exception:
                 charSuccess = False
 
@@ -57,7 +55,6 @@ class HuntsmanProcessCcdTask(ProcessCcdTask):
                 calibRes = self.calibrate.runDataRef(
                     dataRef=sensorRef, exposure=charRes.exposure, background=charRes.background,
                     doUnpersist=False, icSourceCat=charRes.sourceCat)
-                background = calibRes.background
                 calibSuccess = True
             except Exception:
                 pass
@@ -66,7 +63,6 @@ class HuntsmanProcessCcdTask(ProcessCcdTask):
             charRes=charRes,
             calibRes=calibRes,
             exposure=exposure,
-            background=background,
             calibSuccess=calibSuccess,
             charSucess=charSuccess,
             isrSuccess=isrSuccess,

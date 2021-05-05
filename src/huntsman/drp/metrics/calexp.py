@@ -1,8 +1,6 @@
 """ Some parts of the code are adapted from the LSST stack club:
 https://nbviewer.jupyter.org/github/LSSTScienceCollaborations/StackClub/blob/rendered/Validation/image_quality_demo.nbconvert.ipynb
 """
-from contextlib import suppress
-
 import numpy as np
 from astropy import units as u
 
@@ -60,10 +58,21 @@ def background(task_result):
     Returns:
         dict: The dictionary of results
     """
-    if not task_result["charSucess"]:
-        return {}
-    bg = task_result["background"].getImage().getArray()
-    return {"bg_median": np.median(bg), "bg_std": bg.std()}
+    result = {}
+
+    # Background from image characterisation
+    if task_result["charSucess"]:
+        bg = task_result["charRes"].background.getImage().getArray()
+        result["bg_median_char"] = np.median(bg)
+        result["bg_std_char"] = bg.std()
+
+    # Background from final calibrated image
+    if task_result["calibSuccess"]:
+        bg = task_result["calibRes"].background.getImage().getArray()
+        result["bg_median"] = np.median(bg)
+        result["bg_std"] = bg.std()
+
+    return result
 
 
 def sourcecat(task_result):
@@ -74,13 +83,14 @@ def sourcecat(task_result):
         dict: The dictionary of results
     """
     result = {}
-    with suppress(KeyError, AttributeError):
 
-        # Count the number of sources used for image characterisation
+    # Count the number of sources used for image characterisation
+    if task_result["charSucess"]:
         result["n_src_char"] = len(task_result["charRes"].sourceCat)
 
-        # Count the number of sources in the final catalogue
-        result["n_src_calib"] = len(task_result["calibRes"].sourceCat)
+    # Count the number of sources in the final catalogue
+    if task_result["calibSucess"]:
+        result["n_src"] = len(task_result["calibRes"].sourceCat)
 
     return result
 
@@ -92,7 +102,7 @@ def zeropoint(task_result):
     Returns:
         dict: Dict containing the zeropoint in mags.
     """
-    if not task_result["calibSucess"]:
+    if not task_result["calibSuccess"]:
         return {}
 
     # Find number of sources used for photocal
