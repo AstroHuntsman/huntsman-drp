@@ -64,6 +64,6 @@ class HuntsmanProcessCcdTask(ProcessCcdTask):
             calibRes=calibRes,
             exposure=exposure,
             calibSuccess=calibSuccess,
-            charSucess=charSuccess,
+            charSuccess=charSuccess,
             isrSuccess=isrSuccess,
         )

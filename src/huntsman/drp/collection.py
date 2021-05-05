@@ -380,6 +380,14 @@ class RawExposureCollection(Collection):
 
         return documents
 
+    def clear_calexp_metrics(self):
+        """ Clear all calexp metrics from the collection.
+        This is useful e.g. to trigger them for reprocessing. """
+        for doc in self.find():
+            with suppress(KeyError):
+                del doc["metrics"]["calexp"]
+                self.replace_one(doc, doc)
+
     # Private methods
 
     def _get_quality_filter(self):
