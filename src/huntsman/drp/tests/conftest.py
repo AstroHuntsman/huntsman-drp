@@ -129,6 +129,7 @@ def exposure_collection_real_data(config, fits_header_translator):
     yield exposure_collection
 
     # Remove the metadata from the DB ready for other tests
+    exposure_collection.logger.info("Deleting all documents after test.")
     exposure_collection.delete_all(really=True)
     assert not exposure_collection.find()
 

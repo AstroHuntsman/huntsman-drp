@@ -114,6 +114,7 @@ def create_test_exposure_collection(config, name="real_data", clear=True):
     assert len(exposure_collection.find()) == len(filenames)
     assert set(exposure_collection.find(key="filename")) == set(filenames)
     assert len(exposure_collection.find(screen=True)) == len(filenames)
+    assert all(["metrics" in d for d in exposure_collection.find()])
 
     return exposure_collection
 

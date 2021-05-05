@@ -90,7 +90,8 @@ class Collection(HuntsmanBase):
         if date is not None:
             date_constraint.update({"equal": parse_date(date)})
 
-        document_filter.update({self._date_key: date_constraint})
+        if date_constraint:
+            document_filter.update({self._date_key: date_constraint})
 
         # Screen the results if necessary
         if screen:
@@ -140,7 +141,7 @@ class Collection(HuntsmanBase):
         # Insert the document
         # Uniqueness is verified implicitly
         self.logger.debug(f"Inserting document into {self}: {doc}.")
-        self._collection.insert_one(doc.to_mongo(flatten=False))
+        self._collection.insert_one(doc.to_mongo())
 
     def replace_one(self, document_filter, replacement, **kwargs):
         """ Replace a matching document with a new one.
@@ -194,10 +195,12 @@ class Collection(HuntsmanBase):
 
         to_update = Document(to_update)
         to_update["date_modified"] = current_date()
-        mongo_update = to_update.to_mongo()
+
+        # Use flattened version (dot notation) for nested updates to work properly
+        mongo_update = to_update.to_mongo(flatten=True)
 
         self.logger.debug(f"Updating document with: {mongo_update}")
-        self._collection.update_one(document_filter, {'$set': mongo_update}, upsert=upsert)
+        self._collection.update_one(document_filter, {'$set': mongo_update}, upsert=False)
 
     def delete_one(self, document_filter, force=False):
         """Delete one document from the table.
@@ -216,7 +219,12 @@ class Collection(HuntsmanBase):
                 raise RuntimeError(f"Multiple matches found for document in {self}:"
                                    f" {document_filter}.")
             elif (count == 0):
+                self.logger.info(f"HELLO {self.count_documents()}")
+                for doc in self.find():
+                    self.logger.info(f"{doc._document}")
                 raise RuntimeError(f"No matches found for document in {self}: {document_filter}.")
+
+        self.logger.debug(f"Deleting {document_filter} from {self}.")
 
         self._collection.delete_one(mongo_filter)
 
@@ -235,6 +243,8 @@ class Collection(HuntsmanBase):
             documents (list): List of dictionaries that specify documents to be deleted from the
                 table.
         """
+        self.logger.debug(f"Deleting {len(documents)} documents from {self}.")
+
         for d in documents:
             self.delete_one(d, **kwargs)
 
@@ -251,12 +261,12 @@ class Collection(HuntsmanBase):
         date_start = date_now - timedelta(days=days, hours=hours, seconds=seconds)
         return self.find(date_start=date_start, **kwargs)
 
-    def delete_all(self, really=False):
+    def delete_all(self, really=False, **kwargs):
         """ Delete all documents from the collection. """
         if not really:
             raise RuntimeError("If you really want to do this, parse really=True.")
         docs = self.find()
-        self.delete_many(docs, force=True)
+        self.delete_many(docs, **kwargs)
 
     # Private methods
 
@@ -386,10 +396,11 @@ class RawExposureCollection(Collection):
     def clear_calexp_metrics(self):
         """ Clear all calexp metrics from the collection.
         This is useful e.g. to trigger them for reprocessing. """
-        for doc in self.find():
-            with suppress(KeyError):
-                del doc["metrics"]["calexp"]
-                self.replace_one(doc, doc)
+
+        self.logger.info(f"Clearing all calexp metrics from {self}.")
+
+        # for doc in self.find():  # NO NEED TO USE FIND HERE
+        self._collection.update_many({}, {"$unset": {"metrics.calexp": ""}})
 
     # Private methods
 

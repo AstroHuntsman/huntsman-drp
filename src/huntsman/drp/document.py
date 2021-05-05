@@ -86,7 +86,7 @@ class Document(abc.Mapping):
     def update(self, d):
         self._document.update(d)
 
-    def to_mongo(self, flatten=True):
+    def to_mongo(self, flatten=False):
         """ Get the full mongo filter for the document """
         d = encode_mongo_filter(self._document)
         if not flatten:
