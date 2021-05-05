@@ -94,6 +94,7 @@ def create_test_exposure_collection(config, name="real_data", clear=True):
     exposure_collection = RawExposureCollection(config=config, collection_name=name)
     if clear:
         exposure_collection.delete_all(really=True)
+        assert not exposure_collection.find()
 
     # Make and start FileIngestor object
     ing = FileIngestor(directory=dir, config=config, exposure_collection=exposure_collection)

@@ -125,7 +125,6 @@ def exposure_collection_real_data(config, fits_header_translator):
     """
     # Populate the database
     exposure_collection = testing.create_test_exposure_collection(config, clear=True)
-    assert not exposure_collection.find()
 
     yield exposure_collection
 
@@ -158,12 +157,15 @@ def master_calib_collection_real_data(exposure_collection_real_data, config):
 
 
 @pytest.fixture(scope="function")
-def tempdir_and_exposure_collection_with_uningested_files(tmp_path_factory, config,
-                                                          exposure_collection):
+def tempdir_and_exposure_collection_with_uningested_files(
+        tmp_path_factory, config, exposure_collection, fits_header_translator):
     """
     Create a temporary directory populated with fake FITS images, then parse the images into the
     raw data table.
     """
+    # Clear the exposure collection of any existing documents
+    exposure_collection.delete_all(really=True)
+
     # Generate the fake data
     tempdir = tmp_path_factory.mktemp("dir_with_uningested_files")
     expseq = testing.FakeExposureSequence(config=config)
