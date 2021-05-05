@@ -24,7 +24,7 @@ def calculate_metrics(task_result, metrics=METRICS, logger=None):
     if logger is None:
         logger = get_logger()
 
-    result = {"charSucess": task_result["charSucess"],
+    result = {"charSuccess": task_result["charSuccess"],
               "isrSuccess": task_result["isrSuccess"],
               "calibSuccess": task_result["calibSuccess"]}
 
@@ -42,6 +42,7 @@ def calculate_metrics(task_result, metrics=METRICS, logger=None):
             metric_dict = func(task_result)
         except Exception as err:
             logger.error(f"Exception while calculation {func_name} metric: {err!r}")
+            continue
 
         for k, v in metric_dict.items():
             if k in result:
@@ -61,7 +62,7 @@ def background(task_result):
     result = {}
 
     # Background from image characterisation
-    if task_result["charSucess"]:
+    if task_result["charSuccess"]:
         bg = task_result["charRes"].background.getImage().getArray()
         result["bg_median_char"] = np.median(bg)
         result["bg_std_char"] = bg.std()
@@ -85,11 +86,11 @@ def sourcecat(task_result):
     result = {}
 
     # Count the number of sources used for image characterisation
-    if task_result["charSucess"]:
+    if task_result["charSuccess"]:
         result["n_src_char"] = len(task_result["charRes"].sourceCat)
 
     # Count the number of sources in the final catalogue
-    if task_result["calibSucess"]:
+    if task_result["calibSuccess"]:
         result["n_src"] = len(task_result["calibRes"].sourceCat)
 
     return result
