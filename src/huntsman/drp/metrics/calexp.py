@@ -7,6 +7,7 @@ from astropy import units as u
 from lsst.afw.geom.ellipses import Quadrupole, SeparableDistortionTraceRadius
 
 from huntsman.drp.core import get_logger
+from huntsman.drp.utils.date import current_date
 from huntsman.drp.utils.library import load_module
 
 
@@ -24,15 +25,11 @@ def calculate_metrics(task_result, metrics=METRICS, logger=None):
     if logger is None:
         logger = get_logger()
 
-    result = {"charSuccess": task_result["charSuccess"],
-              "isrSuccess": task_result["isrSuccess"],
-              "calibSuccess": task_result["calibSuccess"]}
+    # Record date of modification
+    result = {"date_modified": current_date()}
 
-    try:
-        psfSuccess = task_result["charRes"].psfSuccess
-    except AttributeError:
-        psfSuccess = False
-    result["psfSuccess"] = psfSuccess
+    for key in ("isrSuccess", "charSuccess", "calibSuccess"):
+        result[key] = task_result[key]
 
     for func_name in metrics:
 
@@ -133,8 +130,10 @@ def psf(task_result):
     Returns:
         dict: Dict containing the PSF FWHM in arcsec and ellipticity.
     """
-    if not task_result["charRes"].psfSuccess:
+    if not task_result["charSuccess"]:
         return {}
+    if not task_result["charRes"].psfSuccess:
+        return {"psfSuccess": False}
 
     # Find number of sources used to measure PSF
     n_sources = sum(task_result["charRes"].sourceCat["calib_psf_used"])
@@ -155,4 +154,5 @@ def psf(task_result):
     e1, e2 = s.getE1(), s.getE2()
     ell = np.sqrt(e1 ** 2 + e2 ** 2)
 
-    return {"psf_fwhm_arcsec": fwhm * u.arcsecond, "psf_ell": ell, "psf_n_src": n_sources}
+    return {"psf_fwhm_arcsec": fwhm * u.arcsecond, "psf_ell": ell, "psf_n_src": n_sources,
+            "psfSuccess": True}

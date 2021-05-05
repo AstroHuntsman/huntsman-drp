@@ -48,6 +48,11 @@ class HuntsmanProcessCcdTask(ProcessCcdTask):
             except Exception:
                 charSuccess = False
 
+        # The PSF code is wrapped in a try, except block so we can return the other results
+        # We need to explicitly indicate that the charImage task failed if the PSF failed
+        if not charRes.psfSuccess:
+            charSuccess = False
+
         # Do image calibration (astrometry + photometry)
         calibSuccess = False
         if self.config.doCalibrate and charSuccess:

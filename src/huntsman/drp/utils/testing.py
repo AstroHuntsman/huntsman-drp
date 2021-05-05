@@ -85,7 +85,7 @@ def create_test_bulter_repository(directory, config=None, **kwargs):
     return br
 
 
-def create_test_exposure_collection(config, name="real_data", clear=False):
+def create_test_exposure_collection(config, name="real_data", clear=True):
     """ Ingest real testing images into a RawExposureCollection
     """
     dir = get_testdata_dir(config)

@@ -159,9 +159,12 @@ class Collection(HuntsmanBase):
             raise RuntimeError(f"Document filter {document_filter} matches with multiple documents"
                                f" in {self}.")
 
-        doc = self._prepare_doc_for_insert(replacement)  # Implicit document validation
+        mongo_filter = document_filter.to_mongo()
+        mongo_doc = self._prepare_doc_for_insert(replacement).to_mongo()  # Implicit validation
 
-        self._collection.replace_one(document_filter.to_mongo(), doc.to_mongo(), **kwargs)
+        self.logger.debug(f"Replacing {mongo_filter} with {mongo_doc}")
+
+        self._collection.replace_one(mongo_filter, mongo_doc, **kwargs)
 
     def update_one(self, document_filter, to_update, upsert=False):
         """ Update a single document in the table.
@@ -311,7 +314,7 @@ class Collection(HuntsmanBase):
         Returns:
             Document: The prepared document of the appropriate type for this collection.
         """
-        doc = self._document_type(document, copy=True, config=self.config)
+        doc = self._document_type(document, copy=True, unflatten=True, config=self.config)
 
         # Add date records
         doc["date_created"] = current_date()
