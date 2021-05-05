@@ -1,5 +1,6 @@
 import pytest
 import time
+from copy import deepcopy
 
 from huntsman.drp.core import get_config
 from huntsman.drp.fitsutil import FitsHeaderTranslator
@@ -13,8 +14,10 @@ from huntsman.drp.services.calib import MasterCalibMaker
 # Config
 
 
-@pytest.fixture(scope="function")
-def config():
+@pytest.fixture(scope="module")
+def config_module():
+    """ Module scope config dict """
+
     config = get_config(ignore_local=True, testing=True)
 
     # Hack around so files pass screening and quality cuts
@@ -25,11 +28,17 @@ def config():
 
     return config
 
+
+@pytest.fixture(scope="function")
+def config(config_module):
+    """ Function scope version of config_module """
+    return deepcopy(config_module)
+
 # ===========================================================================
 # Reference catalogue
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def refcat_filename(config):
     return testing.get_refcat_filename(config)
 
