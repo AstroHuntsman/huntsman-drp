@@ -14,8 +14,8 @@ from huntsman.drp.services.calib import MasterCalibMaker
 # Config
 
 
-@pytest.fixture(scope="module")
-def config_module():
+@pytest.fixture(scope="session")
+def session_config():
     """ Module scope config dict """
 
     config = get_config(ignore_local=True, testing=True)
@@ -30,22 +30,17 @@ def config_module():
 
 
 @pytest.fixture(scope="function")
-def config(config_module):
+def config(session_config):
     """ Function scope version of config_module """
-    return deepcopy(config_module)
+    return deepcopy(session_config)
 
 # ===========================================================================
 # Reference catalogue
 
 
-@pytest.fixture(scope="module")
-def refcat_filename(config):
-    return testing.get_refcat_filename(config)
-
-
-@pytest.fixture(scope="function")
-def reference_catalogue(config):
-    return rc.TapReferenceCatalogue(config=config)
+@pytest.fixture(scope="session")
+def refcat_filename(session_config):
+    return testing.get_refcat_filename(config=session_config)
 
 
 @pytest.fixture(scope="function")
