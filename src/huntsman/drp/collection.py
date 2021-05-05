@@ -219,9 +219,6 @@ class Collection(HuntsmanBase):
                 raise RuntimeError(f"Multiple matches found for document in {self}:"
                                    f" {document_filter}.")
             elif (count == 0):
-                self.logger.info(f"HELLO {self.count_documents()}")
-                for doc in self.find():
-                    self.logger.info(f"{doc._document}")
                 raise RuntimeError(f"No matches found for document in {self}: {document_filter}.")
 
         self.logger.debug(f"Deleting {document_filter} from {self}.")
@@ -399,7 +396,6 @@ class RawExposureCollection(Collection):
 
         self.logger.info(f"Clearing all calexp metrics from {self}.")
 
-        # for doc in self.find():  # NO NEED TO USE FIND HERE
         self._collection.update_many({}, {"$unset": {"metrics.calexp": ""}})
 
     # Private methods

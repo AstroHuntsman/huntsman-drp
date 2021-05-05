@@ -20,57 +20,7 @@ class HuntsmanCharacterizeImageTask(CharacterizeImageTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    @pipeBase.timeMethod
-    def runDataRef(self, dataRef, exposure=None, background=None, doUnpersist=True):
-        """!Characterize a science image and, if wanted, persist the results
-
-        This simply unpacks the exposure and passes it to the characterize method to do the work.
-
-        @param[in] dataRef: butler data reference for science exposure
-        @param[in,out] exposure  exposure to characterize (an lsst.afw.image.ExposureF or similar).
-            If None then unpersist from "postISRCCD".
-            The following changes are made, depending on the config:
-            - set psf to the measured PSF
-            - set apCorrMap to the measured aperture correction
-            - subtract background
-            - interpolate over cosmic rays
-            - update detection and cosmic ray mask planes
-        @param[in,out] background  initial model of background already subtracted from exposure
-            (an lsst.afw.math.BackgroundList). May be None if no background has been subtracted,
-            which is typical for image characterization.
-            A refined background model is output.
-        @param[in] doUnpersist  if True the exposure is read from the repository
-            and the exposure and background arguments must be None;
-            if False the exposure must be provided.
-            True is intended for running as a command-line task, False for running as a subtask
-
-        @return same data as the characterize method
-        """
-        self._frame = self._initialFrame  # reset debug display frame
-        self.log.info("Processing %s" % (dataRef.dataId))
-
-        if doUnpersist:
-            if exposure is not None or background is not None:
-                raise RuntimeError("doUnpersist true; exposure and background must be None")
-            exposure = dataRef.get("postISRCCD", immediate=True)
-        elif exposure is None:
-            raise RuntimeError("doUnpersist false; exposure must be provided")
-
-        exposureIdInfo = dataRef.get("expIdInfo")
-
-        charRes = self.run(exposure=exposure, exposureIdInfo=exposureIdInfo, background=background)
-
-        if self.config.doWrite:
-            dataRef.put(charRes.sourceCat, "icSrc")
-            if self.config.doWriteExposure:
-                dataRef.put(charRes.exposure, "icExp")
-                dataRef.put(charRes.background, "icExpBackground")
-
-        if not charRes.psfSuccess:
-            raise RuntimeError("Unable to measure PSF. See logs for details.")
-
-        return charRes
-
+    # We need to override the run method in order to return the psfSuccess flag
     @pipeBase.timeMethod
     def run(self, exposure, exposureIdInfo=None, background=None):
         """!Characterize a science image
@@ -158,6 +108,7 @@ class HuntsmanCharacterizeImageTask(CharacterizeImageTask):
             psfSuccess=dmeRes.psfSuccess
         )
 
+    # Override this method to put the try except around PSF measurement and return success flag
     @pipeBase.timeMethod
     def detectMeasureAndEstimatePsf(self, exposure, exposureIdInfo, background):
         """!Perform one iteration of detect, measure and estimate PSF

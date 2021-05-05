@@ -1,4 +1,4 @@
-""" Class overrides for ProcessCcdTask. """
+""" Huntsman overrides for ProcessCcdTask. """
 import lsst.pipe.base as pipeBase
 from lsst.pipe.tasks.processCcd import ProcessCcdTask
 
@@ -8,6 +8,8 @@ class HuntsmanProcessCcdTask(ProcessCcdTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    # Override method to put try except block around each subtask so we can return as much
+    # info as possible even if one of the subtasks fails
     @pipeBase.timeMethod
     def runDataRef(self, sensorRef):
         """Process one CCD
