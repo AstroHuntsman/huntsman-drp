@@ -1,6 +1,8 @@
 """ Some parts of the code are adapted from the LSST stack club:
 https://nbviewer.jupyter.org/github/LSSTScienceCollaborations/StackClub/blob/rendered/Validation/image_quality_demo.nbconvert.ipynb
 """
+from contextlib import suppress
+
 import numpy as np
 from astropy import units as u
 
@@ -10,7 +12,7 @@ from huntsman.drp.core import get_logger
 from huntsman.drp.utils.library import load_module
 
 
-METRICS = ("zeropoint", "psf", "background")
+METRICS = ("zeropoint", "psf", "background", "sourcecat")
 
 
 def calculate_metrics(task_result, metrics=METRICS, logger=None):
@@ -54,14 +56,33 @@ def calculate_metrics(task_result, metrics=METRICS, logger=None):
 def background(task_result):
     """ Calculate sky background statistics.
     Args:
-        task_result
+        task_result (dict): The result of ProcessCcdTask.
     Returns:
-        dict:
+        dict: The dictionary of results
     """
     if not task_result["charSucess"]:
         return {}
     bg = task_result["background"].getImage().getArray()
     return {"bg_median": np.median(bg), "bg_std": bg.std()}
+
+
+def sourcecat(task_result):
+    """ Metadata from source catalogue.
+    Args:
+        task_result (dict): The result of ProcessCcdTask.
+    Returns:
+        dict: The dictionary of results
+    """
+    result = {}
+    with suppress(KeyError, AttributeError):
+
+        # Count the number of sources used for image characterisation
+        result["n_src_char"] = len(task_result["charRes"].sourceCat)
+
+        # Count the number of sources in the final catalogue
+        result["n_src_calib"] = len(task_result["calibRes"].sourceCat)
+
+    return result
 
 
 def zeropoint(task_result):
@@ -74,11 +95,15 @@ def zeropoint(task_result):
     if not task_result["calibSucess"]:
         return {}
 
+    # Find number of sources used for photocal
+    n_sources = sum(task_result["calibRes"].sourceCat["calib_photometry_used"])
+
+    # Get the magnitude zero point
     calexp = task_result["exposure"]
     fluxzero = calexp.getPhotoCalib().getInstFluxAtZeroMagnitude()
+    zp_mag = 2.5 * np.log10(fluxzero) * u.mag  # Note the missing minus sign here...
 
-    # Note the missing minus sign here...
-    return {"zp_mag": 2.5 * np.log10(fluxzero) * u.mag}
+    return {"zp_mag": zp_mag, "zp_n_src": n_sources}
 
 
 def psf(task_result):
@@ -93,20 +118,23 @@ def psf(task_result):
     if not task_result["charRes"].psfSuccess:
         return {}
 
+    # Find number of sources used to measure PSF
+    n_sources = sum(task_result["charRes"].sourceCat["calib_psf_used"])
+
     calexp = task_result["exposure"]
 
     psf = calexp.getPsf()
     shape = psf.computeShape()  # At the average position of the stars used to measure it
 
-    # FWHM (assumes Gaussian PSF)
+    # PSF FWHM (assumes Gaussian PSF)
     pixel_scale = calexp.getWcs().getPixelScale().asArcseconds()
     fwhm = 2 * np.sqrt(2. * np.log(2)) * shape.getTraceRadius() * pixel_scale
 
-    # Ellipticity
+    # PSF ellipticity
     i_xx, i_yy, i_xy = shape.getIxx(), shape.getIyy(), shape.getIxy()
     q = Quadrupole(i_xx, i_yy, i_xy)
     s = SeparableDistortionTraceRadius(q)
     e1, e2 = s.getE1(), s.getE2()
     ell = np.sqrt(e1 ** 2 + e2 ** 2)
 
-    return {"psf_fwhm_arcsec": fwhm * u.arcsecond, "psf_ell": ell}
+    return {"psf_fwhm_arcsec": fwhm * u.arcsecond, "psf_ell": ell, "psf_n_src": n_sources}
