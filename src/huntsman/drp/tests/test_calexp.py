@@ -40,5 +40,4 @@ def test_calexp_quality_monitor(exposure_collection_real_data, master_calib_coll
     # Test delete metrics
     exposure_collection_real_data.clear_calexp_metrics()
     for md in exposure_collection_real_data.find({"dataType": "science"}):
-        exposure_collection_real_data.logger.info(md._document)
         assert "calexp" not in md["metrics"].keys()
