@@ -108,10 +108,7 @@ class HuntsmanCharacterizeImageTask(CharacterizeImageTask):
             psfSuccess=dmeRes.psfSuccess
         )
 
-<<<<<<< HEAD
-=======
     # Override this method to put the try except around PSF measurement and return success flag
->>>>>>> 18dae8003647474eb6151b38e83f78e00bec473e
     @pipeBase.timeMethod
     def detectMeasureAndEstimatePsf(self, exposure, exposureIdInfo, background):
         """!Perform one iteration of detect, measure and estimate PSF
