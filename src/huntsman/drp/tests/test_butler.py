@@ -1,9 +1,9 @@
 import os
+from collections import defaultdict
 
 from huntsman.drp.utils.date import current_date
 from huntsman.drp.collection import MasterCalibCollection
 from huntsman.drp.lsst.butler import ButlerRepository, TemporaryButlerRepository
-from huntsman.drp.utils.testing import create_test_bulter_repository
 
 
 def test_initialise(config, tmp_path_factory):
@@ -94,15 +94,32 @@ def test_make_master_calibs(exposure_collection, config):
     # Specify subset of ingested files to process
     # Here we process a single night for a single camera
     doc = exposure_collection.find()[0]
-    doc_filter = {k: doc[k] for k in ["CAM-ID", "DATE-OBS"]}
-    filenames = exposure_collection.find(doc_filter, key="filename")
+    doc_filter = {k: doc[k] for k in ["CAM-ID", "dateObs"]}
+    docs = exposure_collection.find(doc_filter)
+
+    n_cameras = 1
+    n_days = 1
+    n_filters = len(test_config["filters"])
+
+    # Check we have the expected number of raw calib files
+    # n_bias = n_cameras * n_days * n_bias_per_day
+    n_raw_bias = n_cameras * n_days * test_config["n_bias"]
+    assert n_raw_bias == len([d for d in docs if d["dataType"] == "bias"])
+
+    # n_dark = n_cameras * n_days * n_dark_per_day * n_unique_exptimes
+    n_raw_dark = n_cameras * n_days * test_config["n_dark"] * 2
+    assert n_raw_dark == len([d for d in docs if d["dataType"] == "dark"])
+
+    # n_flat = n_cameras * n_days * n_flat_per_day * n_filters
+    n_raw_flat = n_cameras * n_days * test_config["n_flat"] * n_filters
+    assert n_raw_flat == len([d for d in docs if d["dataType"] == "flat"])
 
     # Specify the expected number of output master calibs
-    n_cameras = 1
-    n_filters = len(test_config["filters"])
     n_bias = n_cameras
     n_dark = n_cameras
     n_flat = n_cameras * n_filters
+
+    filenames = [d["filename"] for d in docs]
 
     with TemporaryButlerRepository(config=config) as br:
 
@@ -154,16 +171,39 @@ def test_make_master_calibs(exposure_collection, config):
             assert os.path.isfile(filename)
 
 
-def test_make_coadd(tmpdir):
+def test_make_coadd(exposure_collection_real_data, master_calib_collection_real_data,
+                    refcat_filename, config):
     """ Test that we can make coadds """
-    br = create_test_bulter_repository(str(tmpdir))
 
-    br.make_master_calibs(validity=1000)
+    # Identify science files to process
+    docs = exposure_collection_real_data.find({"dataType": "science"})
+    assert len(docs) > 0
 
-    br.make_calexps()
+    # Get corresponding calibs
+    calib_filenames = defaultdict(list)
+    for doc in docs:
+        calibs = master_calib_collection_real_data.get_matching_calibs(doc)
+        for datasetType, calib_doc in calibs.items():
+            calib_filenames[datasetType].append(calib_doc["filename"])
 
-    br.make_coadd()  # Implicit verification
+    with TemporaryButlerRepository(config=config) as br:
 
-    calexps, data_ids = br.get_calexps()
-    assert len(calexps) == 1
-    assert len(data_ids) == 1
+        # Ingest raw data
+        br.ingest_raw_data([d["filename"] for d in docs])
+
+        # Ingest raw calibs
+        for datasetType, filenames in calib_filenames.items():
+            br.ingest_master_calibs(datasetType, filenames)
+
+        # Ingest refcat
+        br.ingest_reference_catalogue([refcat_filename])
+
+        # Make the calexp
+        br.make_calexps()
+
+        # Assemble coadd
+        br.make_coadd()  # Implicit verification
+
+        calexps, data_ids = br.get_calexps()
+        assert len(calexps) == 1
+        assert len(data_ids) == 1

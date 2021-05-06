@@ -6,7 +6,6 @@ from huntsman.drp.core import get_config
 from huntsman.drp.fitsutil import FitsHeaderTranslator
 from huntsman.drp.collection import RawExposureCollection
 from huntsman.drp import refcat as rc
-from huntsman.drp.lsst.butler import ButlerRepository
 from huntsman.drp.utils import testing
 from huntsman.drp.services.calib import MasterCalibMaker
 
@@ -16,7 +15,7 @@ from huntsman.drp.services.calib import MasterCalibMaker
 
 @pytest.fixture(scope="session")
 def session_config():
-    """ Module scope config dict """
+    """ Session scope config dict to be used for creating shared fixtures """
 
     config = get_config(ignore_local=True, testing=True)
 
@@ -31,7 +30,7 @@ def session_config():
 
 @pytest.fixture(scope="function")
 def config(session_config):
-    """ Function scope version of config_module """
+    """ Function scope version of config_module that should be used in tests """
     return deepcopy(session_config)
 
 # ===========================================================================
@@ -43,8 +42,8 @@ def refcat_filename(session_config):
     return testing.get_refcat_filename(config=session_config)
 
 
-@pytest.fixture(scope="function")
-def testing_refcat_server(config, refcat_filename):
+@pytest.fixture(scope="session")
+def testing_refcat_server(session_config, refcat_filename):
     """ A testing refcat server that loads the refcat from file rather than downloading it.
     """
     refcat_kwargs = dict(refcat_filename=refcat_filename)
@@ -52,7 +51,7 @@ def testing_refcat_server(config, refcat_filename):
     # Yield the refcat server process
     refcat_service = rc.create_refcat_service(refcat_type=rc.TestingTapReferenceCatalogue,
                                               refcat_kwargs=refcat_kwargs,
-                                              config=config)
+                                              config=session_config)
     refcat_service.start()
     time.sleep(5)  # Allow some startup time
     yield refcat_service
@@ -66,16 +65,13 @@ def testing_refcat_server(config, refcat_filename):
 
 
 @pytest.fixture(scope="function")
-def fits_header_translator(config):
-    return FitsHeaderTranslator(config=config)
-
-
-@pytest.fixture(scope="function")
-def exposure_collection(tmp_path_factory, config, fits_header_translator):
+def exposure_collection(tmp_path_factory, config):
     """
     Create a temporary directory populated with fake FITS images, then parse the images into the
     raw data table.
     """
+    fits_header_translator = FitsHeaderTranslator(config=config)
+
     # Generate the fake data
     tempdir = tmp_path_factory.mktemp("test_exposure_sequence")
     expseq = testing.FakeExposureSequence(config=config)
@@ -102,14 +98,14 @@ def exposure_collection(tmp_path_factory, config, fits_header_translator):
     exposure_collection.delete_all(really=True)
 
 
-@pytest.fixture(scope="function")
-def exposure_collection_real_data(config, fits_header_translator):
+@pytest.fixture(scope="session")
+def exposure_collection_real_data(session_config):
     """
     Create a temporary directory populated with fake FITS images, then parse the images into the
     raw data table.
     """
     # Populate the database
-    exposure_collection = testing.create_test_exposure_collection(config, clear=True)
+    exposure_collection = testing.create_test_exposure_collection(session_config, clear=True)
 
     yield exposure_collection
 
@@ -119,12 +115,13 @@ def exposure_collection_real_data(config, fits_header_translator):
     assert not exposure_collection.find()
 
 
-@pytest.fixture(scope="function")
-def master_calib_collection_real_data(exposure_collection_real_data, config):
+@pytest.fixture(scope="session")
+def master_calib_collection_real_data(exposure_collection_real_data, session_config):
     """ Make a master calib table by reducing real calib data.
     TODO: Store created files so they can be copied in for quicker tests.
     """
-    calib_maker = MasterCalibMaker(exposure_collection=exposure_collection_real_data, config=config)
+    calib_maker = MasterCalibMaker(exposure_collection=exposure_collection_real_data,
+                                   config=session_config)
     calib_maker.logger.info("Creating master calibs for tests.")
 
     # Make master calibs
@@ -143,12 +140,14 @@ def master_calib_collection_real_data(exposure_collection_real_data, config):
 
 
 @pytest.fixture(scope="function")
-def tempdir_and_exposure_collection_with_uningested_files(
-        tmp_path_factory, config, exposure_collection, fits_header_translator):
+def tempdir_and_exposure_collection_with_uningested_files(tmp_path_factory, config,
+                                                          exposure_collection):
     """
     Create a temporary directory populated with fake FITS images, then parse the images into the
     raw data table.
     """
+    fits_header_translator = FitsHeaderTranslator(config=config)
+
     # Clear the exposure collection of any existing documents
     exposure_collection.delete_all(really=True)
 
