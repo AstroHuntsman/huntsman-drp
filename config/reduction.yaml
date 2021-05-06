@@ -1,0 +1,8 @@
+type: huntsman.drp.reduction.lsst.LsstDataReduction
+directory: ${HUNTSMAN_ARCHIVE}/reductions/test
+document_filter:
+  dataType: science
+  field: DoradoGroup-p0p0
+  filter:
+    in:
+      - g_band
