@@ -2,24 +2,29 @@ import os
 from collections import defaultdict
 
 from huntsman.drp.utils import normalise_path
-from huntsman.drp.base import HuntsmanBase
+from huntsman.drp.base import HuntsmanCollectionBase
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
-from huntsman.drp.document import Document
 from huntsman.drp.refcat import RefcatClient
 
 
-class DataReductionBase(HuntsmanBase):
+class DataReductionBase(HuntsmanCollectionBase):
     """ Generic class for data reductions """
 
-    def __init__(self, directory, document_filter, exposure_collection=None, calib_collection=None,
+    def __init__(self, name, query, directory=None, exposure_collection=None, calib_collection=None,
                  initialise=True, **kwargs):
 
         super().__init__(**kwargs)
 
-        self.directory = normalise_path(directory)
-        self._refcat_filename = os.path.join(self.directory, "refcat.csv")
+        # Specify directory for reduction
+        if directory:
+            directory = normalise_path(directory)
+        else:
+            directory = self.config["directories"]["reductions"]
+        self.directory = os.path.join(directory, name)
 
-        self._document_filter = Document(document_filter)
+        self._query = query
+
+        self._refcat_filename = os.path.join(self.directory, "refcat.csv")
 
         if not exposure_collection:
             exposure_collection = RawExposureCollection(config=self.config)
@@ -39,7 +44,7 @@ class DataReductionBase(HuntsmanBase):
 
     # Methods
 
-    def prepare(self):
+    def prepare(self, **kwargs):
         """ Prepare the data to reduce.
         This method is responsible for querying the database, ingesting the files and producing
         the reference catalogue.
@@ -49,8 +54,7 @@ class DataReductionBase(HuntsmanBase):
             self.logger.warning("dataType=science not specified in document filter.")
 
         # Identify science docs
-        self.science_docs = self._exposure_collection.find(self._document_filter, screen=True,
-                                                           quality_filter=True)
+        self.science_docs = self._exposure_collection.find(**self._query)
 
         # Get matching master calibs
         self.calib_docs = self._get_calibs(self.science_docs)
