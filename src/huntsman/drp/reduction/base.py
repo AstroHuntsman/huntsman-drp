@@ -2,12 +2,12 @@ import os
 from collections import defaultdict
 
 from huntsman.drp.utils import normalise_path
-from huntsman.drp.base import HuntsmanCollectionBase
+from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
 from huntsman.drp.refcat import RefcatClient
 
 
-class DataReductionBase(HuntsmanCollectionBase):
+class DataReductionBase(HuntsmanBase):
     """ Generic class for data reductions """
 
     def __init__(self, name, query, directory=None, exposure_collection=None, calib_collection=None,
@@ -49,10 +49,6 @@ class DataReductionBase(HuntsmanCollectionBase):
         This method is responsible for querying the database, ingesting the files and producing
         the reference catalogue.
         """
-        dataType = self._document_filter.get("dataType", None)
-        if dataType != "science":
-            self.logger.warning("dataType=science not specified in document filter.")
-
         # Identify science docs
         self.science_docs = self._exposure_collection.find(**self._query)
 
