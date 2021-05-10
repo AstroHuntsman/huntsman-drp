@@ -9,4 +9,4 @@ query:
         - g_band
   screen: true
   quality_filter: true
-  limit: 2
+  limit: 1

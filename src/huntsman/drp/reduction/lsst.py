@@ -19,6 +19,7 @@ class LsstDataReduction(DataReductionBase):
     # Methods
 
     def prepare(self):
+        """ Override the prepare method to ingest the files into the butler repository. """
         super().prepare()
 
         # Ingest raw files into butler repository
@@ -32,18 +33,17 @@ class LsstDataReduction(DataReductionBase):
         self._butler_repo.ingest_reference_catalogue([self._refcat_filename])
 
     def reduce(self, nproc=None):
-
+        """ Use the LSST stack to calibrate and stack exposures. """
         nproc = nproc if nproc else self.nproc
 
         self._butler_repo.make_calexps(procs=nproc)
 
         self._butler_repo.make_coadd()
 
-        # Ta da
-
     # Private methods
 
     def _initialise(self):
+        """ Override method to create the butler repository. """
         super()._initialise()
 
         # Initialise the butler repository

@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 
-def plot_wcs_box(document, ax, **kwargs):
+def plot_wcs_box(document, ax, linestyle="-", color="k", linewidth=1, **kwargs):
     """ Plot the boundaries of the image in WCS coordinates.
     Args:
         documents (RawExposureDocument: The document to plot.
@@ -17,14 +17,24 @@ def plot_wcs_box(document, ax, **kwargs):
     tr = wcs.pixel_to_world(document["NAXIS1"], document["NAXIS2"])
     tl = wcs.pixel_to_world(0, document["NAXIS2"])
 
+    plot_kwargs = dict(linestyle=linestyle, color=color, linewidth=linewidth)
+    plot_kwargs.update(kwargs)
+
     # Plot box
-    ax.plot(*[[bl[i], tl[i]] for i in range(2)])
-    ax.plot(*[[tl[i], tr[i]] for i in range(2)])
-    ax.plot(*[[tr[i], br[i]] for i in range(2)])
-    ax.plot(*[[br[i], bl[i]] for i in range(2)])
+    ax.plot([_.ra.to_value("deg") for _ in (bl, tl)],
+            [_.dec.to_value("deg") for _ in (bl, tl)], **plot_kwargs)
+
+    ax.plot([_.ra.to_value("deg") for _ in (tl, tr)],
+            [_.dec.to_value("deg") for _ in (tl, tr)], **plot_kwargs)
+
+    ax.plot([_.ra.to_value("deg") for _ in (tr, br)],
+            [_.dec.to_value("deg") for _ in (tr, br)], **plot_kwargs)
+
+    ax.plot([_.ra.to_value("deg") for _ in (br, bl)],
+            [_.dec.to_value("deg") for _ in (br, bl)], **plot_kwargs)
 
 
-def plot_wcs_boxes(documents, color="k", linewidth=1, **kwargs):
+def plot_wcs_boxes(documents, **kwargs):
     """ Plot the boundaries of the images in WCS coordinates.
     Args:
         documents (list of RawExposureDocument): The documents to plot.
@@ -35,7 +45,7 @@ def plot_wcs_boxes(documents, color="k", linewidth=1, **kwargs):
     fig, ax = plt.subplots()
 
     for document in documents:
-        plot_wcs_box(document, ax, color=color, linewidth=linewidth, **kwargs)
+        plot_wcs_box(document, ax, **kwargs)
 
     ax.set_xlabel("RA [deg]")
     ax.set_ylabel("Dec [deg]")

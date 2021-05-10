@@ -11,7 +11,7 @@ from huntsman.drp.refcat import RefcatClient
 
 
 class DataReductionBase(HuntsmanBase):
-    """ Generic class for data reductions """
+    """ Generic class for data reductions. """
 
     def __init__(self, name, query, directory=None, exposure_collection=None, calib_collection=None,
                  initialise=True, nproc=1, **kwargs):
@@ -83,11 +83,14 @@ class DataReductionBase(HuntsmanBase):
     # Plotting methods
 
     def make_prepare_plots(self, dpi=150):
-
+        """ Make summary plots after the preparation stage.
+        Args:
+            dpi (int): Dots per inch for the saved figure.
+        """
         fig, ax = plotting.plot_wcs_boxes(self.science_docs)
 
         ra_key = self.config["refcat"]["ra_key"]
-        dec_key = self.config["refcat"]["ra_key"]
+        dec_key = self.config["refcat"]["dec_key"]
 
         df = pd.read_csv(self._refcat_filename)
         ax.plot(df[ra_key].values, df[dec_key].values, "bo", markersize=1)
@@ -96,6 +99,7 @@ class DataReductionBase(HuntsmanBase):
                     dpi=dpi)
 
     def make_reduce_plots(self):
+        """ Make summary plots after the reduction stage. """
         pass
 
     # Private methods
