@@ -1,7 +1,10 @@
 import os
 from collections import defaultdict
 
-from huntsman.drp.utils import normalise_path
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from huntsman.drp.utils import normalise_path, plotting
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
 from huntsman.drp.refcat import RefcatClient
@@ -11,9 +14,11 @@ class DataReductionBase(HuntsmanBase):
     """ Generic class for data reductions """
 
     def __init__(self, name, query, directory=None, exposure_collection=None, calib_collection=None,
-                 initialise=True, **kwargs):
+                 initialise=True, nproc=1, **kwargs):
 
         super().__init__(**kwargs)
+
+        self.nproc = int(nproc)
 
         # Specify directory for reduction
         if directory:
@@ -44,7 +49,7 @@ class DataReductionBase(HuntsmanBase):
 
     # Methods
 
-    def prepare(self, **kwargs):
+    def prepare(self):
         """ Prepare the data to reduce.
         This method is responsible for querying the database, ingesting the files and producing
         the reference catalogue.
@@ -63,12 +68,43 @@ class DataReductionBase(HuntsmanBase):
         """
         raise NotImplementedError
 
+    def run(self, makeplots=True, **kwargs):
+        """ Convenience method to run the whole thing. """
+        self.prepare()
+
+        if makeplots:
+            self.make_prepare_plots()
+
+        self.reduce(**kwargs)
+
+        if makeplots:
+            self.make_reduce_plots()
+
+    # Plotting methods
+
+    def make_prepare_plots(self, dpi=150):
+
+        fig, ax = plotting.plot_wcs_boxes(self.science_docs)
+
+        ra_key = self.config["refcat"]["ra_key"]
+        dec_key = self.config["refcat"]["ra_key"]
+
+        df = pd.read_csv(self._refcat_filename)
+        ax.plot(df[ra_key].values, df[dec_key].values, "bo", markersize=1)
+
+        plt.savefig(os.path.join(self.directory, "plots", "refobjs.png"), bbox_inches="tight",
+                    dpi=dpi)
+
+    def make_reduce_plots(self):
+        pass
+
     # Private methods
 
     def _initialise(self):
         """ Abstract instance method responsible for initialising the data reduction.
         """
         os.makedirs(self.directory, exist_ok=True)
+        os.makedirs(os.path.join(self.directory, "plots"), exist_ok=True)
 
     def _get_calibs(self, science_docs):
         """ Get matching calib docs for a set of science docs.

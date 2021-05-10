@@ -16,6 +16,8 @@ class LsstDataReduction(DataReductionBase):
 
         self._initialise()
 
+    # Methods
+
     def prepare(self):
         super().prepare()
 
@@ -23,19 +25,23 @@ class LsstDataReduction(DataReductionBase):
         self._butler_repo.ingest_raw_data([d["filename"] for d in self.science_docs])
 
         # Ingest master calibs into butler repository
-        for datasetType, docs in self.calib_docs:
+        for datasetType, docs in self.calib_docs.items():
             self._butler_repo.ingest_master_calibs(datasetType, [d["filename"] for d in docs])
 
         # Ingest reference catalogue
         self._butler_repo.ingest_reference_catalogue([self._refcat_filename])
 
-    def reduce(self):
+    def reduce(self, nproc=None):
 
-        self._butler_repo.make_calexps()
+        nproc = nproc if nproc else self.nproc
+
+        self._butler_repo.make_calexps(procs=nproc)
 
         self._butler_repo.make_coadd()
 
         # Ta da
+
+    # Private methods
 
     def _initialise(self):
         super()._initialise()
