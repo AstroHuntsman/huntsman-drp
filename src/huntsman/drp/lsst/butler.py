@@ -108,12 +108,15 @@ class ButlerRepository(HuntsmanBase):
             return self._butlers[rerun]
         except KeyError:
             self.logger.debug(f"Creating new butler object for rerun={rerun}.")
+
             if rerun is None:
                 butler_dir = self.butler_dir
             else:
                 butler_dir = os.path.join(self.butler_dir, "rerun", rerun)
             os.makedirs(butler_dir, exist_ok=True)
+
             self._butlers[rerun] = dafPersist.Butler(inputs=butler_dir)
+
         return self._butlers[rerun]
 
     def get(self, datasetType, dataId=None, rerun=None, **kwargs):

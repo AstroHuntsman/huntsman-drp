@@ -37,7 +37,7 @@ def run_cmdline_task_subprocess(cmd, logger=None, timeout=None):
     return
 
 
-def run_cmdline_task(Task, args, config=None, log=None, doReturnResults=True):
+def run_cmdline_task(Task, args, config=None, log=None, doReturnResults=True, **kwargs):
     """ Run a command line task and return results.
     Args:
         Task (class): The LSST Task to run.
@@ -49,6 +49,7 @@ def run_cmdline_task(Task, args, config=None, log=None, doReturnResults=True):
     Returns:
         lsst.pipe.base.struct.Struct: The task results.
     """
-    results = Task.parseAndRun(args=args, config=config, log=log, doReturnResults=doReturnResults)
+    results = Task.parseAndRun(args=args, config=config, log=log, doReturnResults=doReturnResults,
+                               **kwargs)
 
     return results
