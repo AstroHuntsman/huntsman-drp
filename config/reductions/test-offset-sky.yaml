@@ -1,0 +1,29 @@
+type: huntsman.drp.reduction.offset_sky.OffsetSkyDataReduction
+name: example-offsetsky-reduction
+
+query:
+  document_filter:
+    dataType: science
+    field: DoradoGroup-p0p0
+    filter:
+      in:
+        - g_band
+  screen: true
+  quality_filter: true
+  limit: 1
+
+sky_query:
+  document_filter:
+  document_filter:
+    dataType: science
+    field: DoradoGroup-p0p0_sky
+    filter:
+      in:
+        - g_band
+  screen: true
+  quality_filter: true
+  limit: 1
+
+calexp_kwargs:
+  extra_config:
+    charImage.background.algorithm: CONSTANT
