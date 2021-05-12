@@ -53,6 +53,8 @@ class HuntsmanCharacterizeImageTask(CharacterizeImageTask):
         # Use the butler to obtain a ready-made offset sky background image
         if self.config.useOffsetSky:
             offset_sky_background = dataRef.get("offsetBackground")
+        else:
+            offset_sky_background = None
 
         # Parse the offset sky background to the run method
         charRes = self.run(exposure=exposure, exposureIdInfo=exposureIdInfo, background=background,

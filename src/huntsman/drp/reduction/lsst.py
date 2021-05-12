@@ -1,10 +1,10 @@
 import os
 
-from huntsman.drp.reduction.base import DataReductionBase
+from huntsman.drp.reduction.base import ReductionBase
 from huntsman.drp.lsst.butler import ButlerRepository
 
 
-class LsstDataReduction(DataReductionBase):
+class LsstReduction(ReductionBase):
 
     """ Data reduction using LSST stack. """
 

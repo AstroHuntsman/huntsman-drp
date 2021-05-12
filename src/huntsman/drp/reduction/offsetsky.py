@@ -3,12 +3,6 @@ https://github.com/lsst/meas_algorithms/blob/master/python/lsst/meas/algorithms/
 https://github.com/lsst/afw/blob/master/python/lsst/afw/math/_backgroundList.py
 https://github.com/lsst/meas_algorithms/blob/master/python/lsst/meas/algorithms/detection.py
 
-TODO:
-  - Check if backgrounds are in counts / s
-  - Figure out how to provide a background image to processCcd
-  - Check if the background input bug exists in Docker image
-  - reEstimateBackground parameter in lsst.meas.algorithms.detection.SourceDetectionTask
-
 NOTES:
   - RMS level used in source detection is measured from the image *not* the sky background
 """
@@ -19,17 +13,17 @@ import numpy as np
 
 import lsst.afw.image
 
-from huntsman.drp.reduction.base import DataReductionBase
-from huntsman.drp.reduction.lsst import LsstDataReduction
+from huntsman.drp.reduction.base import ReductionBase
+from huntsman.drp.reduction.lsst import LsstReduction
 
-EXTRA_CALEXP_CONFIG = {"charIamge.useOffsetSky": True,
-                       "charIamge.detect.reEstimateBackground": False,
-                       "calibrate.detect.reEstimateBackground": False}
+EXTRA_CALEXP_CONFIG = {"charImage.useOffsetSky": True,
+                       "charImage.detection.reEstimateBackground": False,
+                       "calibrate.detection.reEstimateBackground": False}
 
 EXTRA_CALEXP_CONFIG_SKY = {"calibrate.doPhotoCal": False}
 
 
-class SkyOffsetReduction(LsstDataReduction):
+class OffsetSkyReduction(LsstReduction):
     """ Data reduction using offset sky frames to estimate background for science images. """
 
     def __init__(self, sky_query, timedelta_minutes, *args, **kwargs):
@@ -40,32 +34,30 @@ class SkyOffsetReduction(LsstDataReduction):
 
         self.sky_docs = {}
 
-        # Make sure required reduction kwargs are set for science calexps
-        extra_config = self._calexp_kwargs.get("extra_config", {})
-        extra_config.update(EXTRA_CALEXP_CONFIG)
-        self._calexp_kwargs_sky["extra_config"] = extra_config
-
         # Make sure required reduction kwargs are set for sky calexps
-        self._calexp_kwargs_sky = deepcopy(self.calexp_kwargs)
+        self._calexp_kwargs_sky = deepcopy(self._calexp_kwargs)
         extra_config_sky = deepcopy(self._calexp_kwargs_sky.get("extra_config", {}))
         extra_config_sky.update(EXTRA_CALEXP_CONFIG_SKY)
         self._calexp_kwargs_sky["extra_config"] = extra_config_sky
+
+        # Make sure required reduction kwargs are set for science calexps
+        extra_config = self._calexp_kwargs.get("extra_config", {})
+        extra_config.update(EXTRA_CALEXP_CONFIG)
+        self._calexp_kwargs["extra_config"] = extra_config
 
     def prepare(self):
         """ Override method to get matching sky offset docs and their associated calibs.
         """
         # Use base prepare method to set science docs, calibs and make reference catalogue
-        DataReductionBase.prepare(self)
+        ReductionBase.prepare(self)
 
         for doc in self.science_docs:
             # Get background docs
             self.sky_docs[doc] = self._get_matching_sky_docs(doc)
 
-            # Update set of calibs so we can reduce the background docs
-            all_sky_docs = set()
-            for sky_docs in self.sky_docs.values():
-                all_sky_docs.update(sky_docs)
+            all_sky_docs = self._get_call_sky_docs()  # List rather than dict
 
+            # Update set of calibs so we can reduce the background docs
             calib_docs = self._get_calibs(all_sky_docs)
             for datasetType, docs in calib_docs.items():
                 self.calib_docs[datasetType].update(docs)
@@ -93,21 +85,19 @@ class SkyOffsetReduction(LsstDataReduction):
         """ Measure background for each sky image. """
 
         # Get dataIds to reduce
-        dataIds = [doc.to_lsst() for doc in self.background_docs]
+        dataIds = [self._butler_repo.document_to_dataId(doc) for doc in self._get_call_sky_docs()]
 
         # Process the dataIds
         self._butler_repo.make_calexps(dataIds=dataIds, **self._calexp_kwargs_sky)
 
-    def make_master_background(self, document, rerun="default"):
+    def make_master_background(self, document, matching_sky_docs, rerun="default"):
         """ Get a master background image for the specific document and persist using butler. """
-
-        # Identify matching sky documents
-        matching_sky_docs = self._get_matching_sky_docs(document)
 
         # Get background images from LSST
         bg_list = []
         for doc in matching_sky_docs:
-            bg = self._butler_repo.get("calexpBackground", dataId=doc.to_lsst(), rerun=rerun)
+            dataId = self._butler_repo.document_to_dataId(doc)
+            bg = self._butler_repo.get("calexpBackground", dataId=dataId, rerun=rerun)
             bg_list.append(bg)
 
         # Combine the sky images
@@ -118,7 +108,7 @@ class SkyOffsetReduction(LsstDataReduction):
         exposure = lsst.afw.image.ExposureF(image)
 
         # Use butler to persist the image using a custom datasetType (specified in policy)
-        dataId = document.to_lsst()
+        dataId = self._butler_repo.document_to_dataId(document)
         butler = self._butler_repo.get_butler(rerun=rerun)
         dataRef = butler.dataRef(datasetType="raw", dataId=dataId)
         dataRef.put("offsetBackground", exposure)
@@ -143,3 +133,11 @@ class SkyOffsetReduction(LsstDataReduction):
         self.logger.debug(f"Found {len(matches)} matching offset sky images for {document}.")
 
         return matches
+
+    def _get_call_sky_docs(self):
+        """
+        """
+        all_sky_docs = set()
+        for sky_docs in self.sky_docs.values():
+            all_sky_docs.update(sky_docs)
+        return all_sky_docs
