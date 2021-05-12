@@ -30,6 +30,7 @@ EXTRA_CALEXP_CONFIG_SKY = {"calibrate.doPhotoCal": False}
 
 
 class SkyOffsetReduction(LsstDataReduction):
+    """ Data reduction using offset sky frames to estimate background for science images. """
 
     def __init__(self, sky_query, timedelta_minutes, *args, **kwargs):
         super().__init__(*args, **kwargs)
