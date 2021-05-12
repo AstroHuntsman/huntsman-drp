@@ -98,10 +98,12 @@ class OffsetSkyReduction(LsstReduction):
         for doc in matching_sky_docs:
             dataId = self._butler_repo.document_to_dataId(doc)
             bg = self._butler_repo.get("calexpBackground", dataId=dataId, rerun=rerun)
-            bg_list.append(bg)
+
+            # Get the full-sized BG image as a np.array
+            bg_list.append(bg.getImage().getArray())
 
         # Combine the sky images
-        bg_master = np.median(bg_list)
+        bg_master = np.median(bg_list, axis=1)
 
         # Package into an LSST-friendly object
         image = lsst.afw.image.ImageF(bg_master)
