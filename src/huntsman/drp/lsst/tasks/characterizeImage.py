@@ -7,16 +7,26 @@ Changes:
 """
 import numpy as np
 
-
 import lsst.pipe.base as pipeBase
+import lsst.pex.config as pexConfig
 from lsst.obs.base import ExposureIdInfo
 from lsst.afw.math import BackgroundList
 from lsst.afw.table import SourceTable, IdFactory
 from lsst.pex.exceptions import LengthError
-from lsst.pipe.tasks.characterizeImage import CharacterizeImageTask
+from lsst.pipe.tasks.characterizeImage import CharacterizeImageTask, CharacterizeImageConfig
+
+
+class HuntsmanCharacterizeImageConfig(CharacterizeImageConfig):
+    """ Override task config to add offset sky functionality. """
+
+    useOffsetSky = pexConfig.Field(dtype=bool,
+                                   default=False,
+                                   doc="Use offset sky for initial sky estiamte")
 
 
 class HuntsmanCharacterizeImageTask(CharacterizeImageTask):
+
+    ConfigClass = HuntsmanCharacterizeImageConfig  # Set as default config class
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -24,7 +24,7 @@ from huntsman.drp.reduction.lsst import LsstDataReduction
 
 EXTRA_CALEXP_CONFIG = {"charIamge.useOffsetSky": True,
                        "charIamge.detect.reEstimateBackground": False,
-                       "calexp.detect.reEstimateBackground": False}
+                       "calibrate.detect.reEstimateBackground": False}
 
 EXTRA_CALEXP_CONFIG_SKY = {"calibrate.doPhotoCal": False}
 
