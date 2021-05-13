@@ -186,7 +186,7 @@ def make_discrete_sky_map(butler_dir, calib_dir, rerun, dataIds):
     return utils.run_cmdline_task_subprocess(cmd)
 
 
-def make_coadd_temp_exp(butler_dir, calib_dir, rerun, skymapIds, dataIds):
+def make_coadd_temp_exp(butler_dir, calib_dir, rerun, skymapIds, dataIds, filter_name):
     """ Warp exposures onto the skymap.
     Args:
         butler_dir (str): The butler directory.
@@ -194,22 +194,24 @@ def make_coadd_temp_exp(butler_dir, calib_dir, rerun, skymapIds, dataIds):
         rerun (str): The rerun name.
         skymapIds (list of dict): The skymapIds to process.
         dataIds (list of dict): The list of dataIds to process.
+        filter_name (str): The filter name.
     """
     cmd = f"makeCoaddTempExp.py {butler_dir} --calib {calib_dir} --rerun {rerun}"
     cmd += utils.get_dataId_argstr(dataIds, selectId=True)
-    cmd += utils.get_skymapId_argstr(skymapIds)
+    cmd += utils.get_skymapId_argstr(skymapIds, filter_name=filter_name)
     return utils.run_cmdline_task_subprocess(cmd)
 
 
-def assemble_coadd(butler_dir, calib_dir, rerun, skymapIds, dataIds):
+def assemble_coadd(butler_dir, calib_dir, rerun, skymapIds, dataIds, filter_name):
     """ Assemble the coadd from warped exposures.
     Args:
         butler_dir (str): The butler directory.
         rerun (str): The rerun name.
         skymapIds (list of dict): The skymapIds to process.
         dataIds (list of dict): The list of dataIds to process.
+        filter_name (str): The filter name.
     """
     cmd = f"assembleCoadd.py {butler_dir} --calib {calib_dir} --rerun {rerun}"
     cmd += utils.get_dataId_argstr(dataIds, selectId=True)
-    cmd += utils.get_skymapId_argstr(skymapIds)
+    cmd += utils.get_skymapId_argstr(skymapIds, filter_name=filter_name)
     return utils.run_cmdline_task_subprocess(cmd)

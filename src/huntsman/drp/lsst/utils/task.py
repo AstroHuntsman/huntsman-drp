@@ -19,19 +19,20 @@ def get_dataId_argstr(dataIds, selectId=False):
     return s
 
 
-def get_skymapId_argstr(skymapIds):
+def get_skymapId_argstr(skymapIds, filter_name):
     """ Get command line task argument string for a list of dataIds.
     Args:
         skymapIds (list of dict): The list of skymapIds.
+        filter_name (str): The filter name.
     Returns:
         str: The skymapId argument string.
     """
     s = ""
     for skymapId in skymapIds:
         s += " --id"
-        for tractId, patchIds in skymapId.items():
-            s += f" tract={tractId}"
-            s += " patch=" + "^".join(patchIds)
+        s += f" tract={skymapId['tractId']}"
+        s += " patch=" + "^".join(skymapId['patchIds'])
+        s += f" filter={filter_name}"
     return s
 
 

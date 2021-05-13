@@ -447,24 +447,24 @@ class ButlerRepository(HuntsmanBase):
         self.logger.info(f"Creating coadd in {len(filter_names)} filter(s).")
 
         for filter_name in filter_names:
+
+            self.logger.info(f"Creating coadd in {filter_name} filter from"
+                             f" {len(skymapIds)} tracts.")
+
             dataIds_filter = [d for d in dataIds if d["filter"] == filter_name]
 
-            # Process each patch separately
-            for skymapId in skymapIds:  # TODO: Use multiprocessing
+            task_kwargs = dict(butler_dir=self.butler_dir, calib_dir=self.calib_dir,
+                               rerun=rerun_out, skymapIds=skymapIds, dataIds=dataIds_filter,
+                               filter_name=filter_name)
 
-                self.logger.debug(f"Warping calexps for {skymapId} in {filter_name} filter.")
+            # Warp the calexps onto skymap
+            tasks.make_coadd_temp_exp(**task_kwargs)
 
-                task_kwargs = dict(butler_dir=self.butler_dir, calib_dir=self.calib_dir,
-                                   rerun=rerun_out, skymapIds=[skymapId], dataIds=dataIds_filter)
-
-                # Warp the calexps onto skymap
-                tasks.make_coadd_temp_exp(**task_kwargs)
-
-                # Combine the warped calexps
-                tasks.assemble_coadd(**task_kwargs)
+            # Combine the warped calexps
+            tasks.assemble_coadd(**task_kwargs)
 
         # Check all tracts and patches exist in each filter
-        self._verify_coadd(rerun=rerun_out, filter_names=filter_names)
+        self._verify_coadd(rerun=rerun_out, filter_names=filter_names, skymapIds=skymapIds)
 
         self.logger.info("Successfully created coadd.")
 
@@ -571,7 +571,7 @@ class ButlerRepository(HuntsmanBase):
         skymap = self.get("deepCoadd_skyMap", rerun=rerun)
         return get_skymap_ids(skymap)
 
-    def _verify_coadd(self, filter_names, rerun):
+    def _verify_coadd(self, skymapIds, filter_names, rerun):
         """ Verify all the coadd patches exist and can be found by the Butler.
         Args:
             rerun (str): The rerun name.
@@ -582,12 +582,14 @@ class ButlerRepository(HuntsmanBase):
         self.logger.info("Verifying coadd.")
 
         butler = self.get_butler(rerun=rerun)
-        skymap_ids = self._get_skymap_ids(rerun=rerun)
 
         for filter_name in filter_names:
-            for tractId, patchIds in skymap_ids.items():
-                for patchId in patchIds:
+            for skymapId in skymapIds:
 
+                tractId = skymapId["tractId"]
+                patchIds = skymapId["patchIds"]
+
+                for patchId in patchIds:
                     dataId = {"tract": tractId, "patch": patchId, "filter": filter_name}
                     try:
                         butler.get("deepCoadd", dataId=dataId)
