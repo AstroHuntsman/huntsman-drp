@@ -3,6 +3,38 @@ import subprocess
 from huntsman.drp.core import get_logger
 
 
+def get_dataId_argstr(dataIds, selectId=False):
+    """ Get command line task argument string for a list of dataIds.
+    Args:
+        dataIds (list of dict): The list of dataIds.
+        selectId (bool): If True, use the --selectId flag instead of --id. Default False.
+    Returns:
+        str: The dataId argument string.
+    """
+    s = ""
+    for dataId in dataIds:
+        s += " --selectId" if selectId else " --id"
+        for k, v in dataId.items():
+            s += f" {k}={v}"
+    return s
+
+
+def get_skymapId_argstr(skymapIds):
+    """ Get command line task argument string for a list of dataIds.
+    Args:
+        skymapIds (list of dict): The list of skymapIds.
+    Returns:
+        str: The skymapId argument string.
+    """
+    s = ""
+    for skymapId in skymapIds:
+        s += " --id"
+        for tractId, patchIds in skymapId.items():
+            s += f" tract={tractId}"
+            s += " patch=" + "^".join(patchIds)
+    return s
+
+
 def run_cmdline_task_subprocess(cmd, logger=None, timeout=None):
     """Run an LSST command line task.
     Args:

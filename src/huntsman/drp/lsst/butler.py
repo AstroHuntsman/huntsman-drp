@@ -1,3 +1,8 @@
+"""
+NOTES:
+ -  The correct way to create a Butler instance:
+    https://github.com/lsst/pipe_base/blob/master/python/lsst/pipe/base/argumentParser.py#L678
+"""
 import os
 import shutil
 from contextlib import suppress
@@ -97,6 +102,7 @@ class ButlerRepository(HuntsmanBase):
 
     def get_butler(self, rerun=None):
         """ Get a butler object for a given rerun.
+        We cache created butlers to avoid the overhead of having to re-create them each time.
         Args:
             rerun (str, optional): The rerun name. If None, the butler is created for the root
                 butler directory.
@@ -114,7 +120,14 @@ class ButlerRepository(HuntsmanBase):
                 butler_dir = os.path.join(self.butler_dir, "rerun", rerun)
             os.makedirs(butler_dir, exist_ok=True)
 
-            self._butlers[rerun] = dafPersist.Butler(inputs=butler_dir)
+            inputs = {"root": butler_dir}
+            outputs = {'root': butler_dir, 'mode': 'rw'}
+
+            butler_kwargs = {"mapperArgs": {"calibRoot": self._calib_dir}}
+            inputs.update(butler_kwargs)
+            outputs.update(butler_kwargs)
+
+            self._butlers[rerun] = dafPersist.Butler(inputs=inputs, outputs=outputs)
 
         return self._butlers[rerun]
 
@@ -400,23 +413,31 @@ class ButlerRepository(HuntsmanBase):
         if not len(self.get_calexps(rerun=rerun, dataIds=dataIds)[0]) == len(dataIds):
             raise RuntimeError("Number of calexps does not match the number of dataIds.")
 
-    def make_coadd(self, filter_names=None, rerun="default:coadd", **kwargs):
+    def make_coadd(self, dataIds=None, filter_names=None, rerun="default:coadd", **kwargs):
         """ Make a coadd from all the calexps in this repository.
         See: https://pipelines.lsst.io/getting-started/coaddition.html
         Args:
             filter_names (list, optional): The list of filter names to process. If not given,
-                all filters will be processed.
+                all filters will be independently processed.
             rerun (str, optional): The rerun name. Default is "default:coadd".
+            dataIds (list, optional): The list of dataIds to process. If None (default), all files
+                will be processed.
         """
+        if dataIds is None:
+            dataIds = self.get_dataIds("raw")
+
         # Make the skymap in a chained rerun
+        # The skymap is a discretisation of the sky and defines the shapes and sizes of coadd tiles
         self.logger.info(f"Creating sky map with rerun: {rerun}.")
-        tasks.make_discrete_sky_map(self.butler_dir, calib_dir=self.calib_dir, rerun=rerun)
+        tasks.make_discrete_sky_map(self.butler_dir, calib_dir=self.calib_dir, rerun=rerun,
+                                    dataIds=dataIds)
 
         # Get the output rerun
         rerun_out = rerun.split(":")[-1]
 
         # Get the tract / patch indices from the skymap
-        skymap_ids = self._get_skymap_ids(rerun=rerun_out)
+        # A skymap ID consists of a tractId and associated patchIds
+        skymapIds = self._get_skymap_ids(rerun=rerun_out)
 
         # Process all filters if filter_names is not provided
         if filter_names is None:
@@ -426,13 +447,15 @@ class ButlerRepository(HuntsmanBase):
         self.logger.info(f"Creating coadd in {len(filter_names)} filter(s).")
 
         for filter_name in filter_names:
-            for tract_id, patch_ids in skymap_ids.items():  # TODO: Use multiprocessing
+            dataIds_filter = [d for d in dataIds if d["filter"] == filter_name]
 
-                self.logger.debug(f"Warping calexps for tract {tract_id} in {filter_name} filter.")
+            # Process each patch separately
+            for skymapId in skymapIds:  # TODO: Use multiprocessing
+
+                self.logger.debug(f"Warping calexps for {skymapId} in {filter_name} filter.")
 
                 task_kwargs = dict(butler_dir=self.butler_dir, calib_dir=self.calib_dir,
-                                   rerun=rerun_out, tract_id=tract_id,
-                                   patch_ids=patch_ids, filter_name=filter_name)
+                                   rerun=rerun_out, skymapIds=[skymapId], dataIds=dataIds_filter)
 
                 # Warp the calexps onto skymap
                 tasks.make_coadd_temp_exp(**task_kwargs)
@@ -543,7 +566,7 @@ class ButlerRepository(HuntsmanBase):
         Args:
             rerun (str): The rerun name.
         Returns:
-            dict: A dict of tract_id: [patch_ids].
+            dict: A dict of tractId: [patchIds].
         """
         skymap = self.get("deepCoadd_skyMap", rerun=rerun)
         return get_skymap_ids(skymap)
@@ -562,10 +585,10 @@ class ButlerRepository(HuntsmanBase):
         skymap_ids = self._get_skymap_ids(rerun=rerun)
 
         for filter_name in filter_names:
-            for tract_id, patch_ids in skymap_ids.items():
-                for patch_id in patch_ids:
+            for tractId, patchIds in skymap_ids.items():
+                for patchId in patchIds:
 
-                    dataId = {"tract": tract_id, "patch": patch_id, "filter": filter_name}
+                    dataId = {"tract": tractId, "patch": patchId, "filter": filter_name}
                     try:
                         butler.get("deepCoadd", dataId=dataId)
                     except Exception as err:

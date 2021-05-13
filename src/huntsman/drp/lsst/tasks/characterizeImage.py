@@ -97,13 +97,20 @@ class HuntsmanCharacterizeImageTask(CharacterizeImageTask):
         # Detect sources and measure the PSF
         psfIterations = self.config.psfIterations if self.config.doMeasurePsf else 1
         for i in range(psfIterations):
+
             dmeRes = self.detectMeasureAndEstimatePsf(
                 exposure=exposure, exposureIdInfo=exposureIdInfo, background=background)
 
+            # Get summary statistics for this iteration
             psf = dmeRes.exposure.getPsf()
             psfSigma = psf.computeShape().getDeterminantRadius()
             psfDimensions = psf.computeImage().getDimensions()
-            medBackground = np.median(dmeRes.background.getImage().getArray())
+
+            if offset_sky_background:
+                medBackground = np.median(offset_sky_background.getImage().getArray())
+            else:
+                medBackground = np.median(dmeRes.background.getImage().getArray())
+
             self.log.info("iter %s; PSF sigma=%0.2f, dimensions=%s; median background=%0.2f" %
                           (i + 1, psfSigma, psfDimensions, medBackground))
 

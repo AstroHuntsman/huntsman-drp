@@ -45,6 +45,9 @@ class OffsetSkyReduction(LsstReduction):
         extra_config.update(EXTRA_CALEXP_CONFIG)
         self._calexp_kwargs["extra_config"] = extra_config
 
+        # We need to allow LSST to overwrite the existing config file
+        self._calexp_kwargs["clobber_config"] = True
+
     def prepare(self):
         """ Override method to get matching sky offset docs and their associated calibs.
         """
@@ -55,7 +58,7 @@ class OffsetSkyReduction(LsstReduction):
             # Get background docs
             self.sky_docs[doc] = self._get_matching_sky_docs(doc)
 
-            all_sky_docs = self._get_call_sky_docs()  # List rather than dict
+            all_sky_docs = self._get_all_sky_docs()  # List rather than dict
 
             # Update set of calibs so we can reduce the background docs
             calib_docs = self._get_calibs(all_sky_docs)
@@ -85,7 +88,7 @@ class OffsetSkyReduction(LsstReduction):
         """ Measure background for each sky image. """
 
         # Get dataIds to reduce
-        dataIds = [self._butler_repo.document_to_dataId(doc) for doc in self._get_call_sky_docs()]
+        dataIds = [self._butler_repo.document_to_dataId(doc) for doc in self._get_all_sky_docs()]
 
         # Process the dataIds
         self._butler_repo.make_calexps(dataIds=dataIds, **self._calexp_kwargs_sky)
@@ -107,13 +110,14 @@ class OffsetSkyReduction(LsstReduction):
 
         # Package into an LSST-friendly object
         image = lsst.afw.image.ImageF(bg_master)
-        exposure = lsst.afw.image.ExposureF(image)
+        exposure = lsst.afw.image.ExposureF(image.getBBox())
+        exposure.setImage(image)
 
         # Use butler to persist the image using a custom datasetType (specified in policy)
         dataId = self._butler_repo.document_to_dataId(document)
         butler = self._butler_repo.get_butler(rerun=rerun)
         dataRef = butler.dataRef(datasetType="raw", dataId=dataId)
-        dataRef.put("offsetBackground", exposure)
+        dataRef.put(exposure, "offsetBackground")
 
     def _get_matching_sky_docs(self, document):
         """ Get list of documents to measure the offset sky background with.
@@ -136,9 +140,8 @@ class OffsetSkyReduction(LsstReduction):
 
         return matches
 
-    def _get_call_sky_docs(self):
-        """
-        """
+    def _get_all_sky_docs(self):
+        """ Get all sky documents in a set rather than a nested dictionary. """
         all_sky_docs = set()
         for sky_docs in self.sky_docs.values():
             all_sky_docs.update(sky_docs)
