@@ -108,7 +108,7 @@ def make_master_calib(datasetType, calibId, dataIds, butler_dir, calib_dir, reru
     # Make the command to run the LSST task
     cmd = f"{MASTER_CALIB_SCRIPTS[datasetType]} {butler_dir} --rerun {rerun}"
     cmd += f" --calib {calib_dir}"
-    cmd += get_dataId_argstr(dataIds)
+    cmd += utils.get_dataId_argstr(dataIds)
     cmd += " --calibId " + " ".join([f"{k}={v}" for k, v in calibId.items()])
     cmd += f" --nodes {nodes} --procs {procs}"
     cmd += " --doraise"  # We want the code to raise an error if there is a problem

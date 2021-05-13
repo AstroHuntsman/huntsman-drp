@@ -10,7 +10,6 @@ from huntsman.drp.utils.date import date_to_ymd, parse_date
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.document import CalibDocument
-from huntsman.drp.utils.calib import get_calib_filename
 
 
 class MasterCalibMaker(HuntsmanBase):
@@ -94,38 +93,42 @@ class MasterCalibMaker(HuntsmanBase):
         self.logger.info(f"Found {len(calib_ids_all)} unique calib IDs for"
                          f" calib_date={calib_date}.")
 
-        # Figure out which calib IDs need processing
-        calib_docs_to_process = [c for c in calib_ids_all if self._should_process(c, raw_docs)]
-        self.logger.info(f"{len(calib_docs_to_process)} calib IDs require processing for"
+        # Figure out which calib IDs need processing and which ones we can ingest
+        calibs_to_process = set()
+        raw_docs_to_process = set()
+        calibs_to_ingest = set()
+
+        for datasetType in ("bias", "dark", "flat"):  # Order is important
+
+            calib_ids_type = [c for c in calib_ids_all if c["datasetType"] == datasetType]
+
+            for calib_id in calib_ids_type:
+
+                # Check if this document needs to be processed
+                calib_doc, should_process, matching_raw_docs = self._should_process(
+                    calib_id, calib_date)
+
+            if should_process:
+                calibs_to_process.add(calib_doc)
+            else:
+                calibs_to_ingest.add(calib_doc)
+
+            # Update the list of docs used to make the master calibs
+            if matching_raw_docs:
+                raw_docs_to_process.update(matching_raw_docs)
+
+        self.logger.info(f"{len(calibs_to_process)} calib IDs require processing for"
                          f" calib_date={calib_date}.")
 
-        if not calib_docs_to_process:
+        self.logger.info(f"Found {len(calibs_to_ingest)} master calibs to ingest for"
+                         f" calib_date={calib_date}.")
+
+        self.logger.info(f"Found {len(raw_docs_to_process)} raw calibs that require processing"
+                         f" for calib_date={calib_date}.")
+
+        if not calibs_to_process:
             self.logger.warning(f"No calibIds require processing for calibDate={calib_date}.")
             return
-
-        # Identify raw exposures to process based on calib IDs
-        raw_docs_to_process = []
-        for calib_doc in calib_docs_to_process:
-            docs = self._exposure_collection.get_matching_raw_calibs(calib_doc, calib_date)
-            if docs:
-                raw_docs_to_process.extend(docs)
-            else:
-                self.logger.warning(f"No raw calibs found for {calib_doc}.")
-        self.logger.info(f"Found {len(raw_docs_to_process)} raw calibs that require processing"
-                         f" for {calib_date}.")
-
-        # Identify existing calibs that need ingesting
-        calibs_to_ingest = [c for c in calib_ids_all if c not in calib_docs_to_process]
-
-        # Figure out if we can skip any of the calibs
-        datasetTypes_to_skip = []
-
-        if not any([_["datasetType"] == "bias" for _ in calib_docs_to_process]):
-            datasetTypes_to_skip.append("bias")
-
-            # Only skip darks if we are also skipping biases
-            if not any([_["datasetType"] == "dark" for _ in calib_docs_to_process]):
-                datasetTypes_to_skip.append("dark")
 
         # Process data in a temporary butler repo
         with TemporaryButlerRepository(calib_collection=self._calib_collection) as br:
@@ -133,22 +136,14 @@ class MasterCalibMaker(HuntsmanBase):
             # Ingest raw exposures
             br.ingest_raw_data([_["filename"] for _ in raw_docs_to_process])
 
-            # Ingest any existing master calibs
+            # Ingest existing master calibs
             for calib_type in self._calib_types:
+                fns = [c["filename"] for c in calibs_to_ingest if c["datasetType"] == calib_type]
+                if fns:
+                    br.ingest_master_calibs(calib_type, filenames=fns, validity=self._validity.days)
 
-                filenames = [
-                    c["filename"] for c in calibs_to_ingest if c["datasetType"] == calib_type]
-                if filenames:
-                    br.ingest_master_calibs(calib_type, filenames=filenames,
-                                            validity=self._validity.days)
-
-                # Check if there is sufficient data to proceed
-                elif calib_type in datasetTypes_to_skip:
-                    self.logger.warning(f"No {calib_type} frames available for {calib_date}."
-                                        " Skipping.")
-                    return
-
-            # Make master calibs without raising errors (implicit error handling)
+            # Make master calibs
+            # NOTE: Implicit error handling
             br.make_master_calibs(calib_date=calib_date, datasetTypes_to_skip=datasetTypes_to_skip,
                                   validity=self._validity.days, procs=self._nproc)
 
@@ -188,25 +183,44 @@ class MasterCalibMaker(HuntsmanBase):
                     return
                 time.sleep(1)
 
-    def _should_process(self, calib_id, raw_data_ids):
+    def _should_process(self, calib_id, calib_date, calib_ids_to_process):
         """ Check if the given calib_id should be processed based on existing raw data.
         Args:
             calib_id (CalibDocument): The calib ID.
-            raw_data_ids (list of DataId): The raw exposure dataIDs.
         Returns:
+            CalibDocument (CalibDocument): The calib document in the DB if it exists, else None.
             bool: True if the calib ID requires processing, else False.
+            list of RawExposureDocument: The list of raw docs required to make the calib, or None
+                if the calib does not require processing.
         """
-        query_result = self._calib_collection.find_one(document_filter=calib_id)
+        # Get the calib doc from the DB if it exists
+        calib_doc = self._calib_collection.find_one(document_filter=calib_id)
 
-        # If the calib does not already exist, return True
-        if not query_result:
-            return True
+        # Find matching raw data IDs for this particular calib
+        matching_raw_docs = self.exposure_collection.get_matching_raw_calibs(calib_doc,
+                                                                             calib_date=calib_date)
+        if not matching_raw_docs:
+            self.logger.warning(f"No raw calibs found for {calib_id}.")
 
-        # If there are new files for this calib, return True
-        if any([r["date_modified"] >= query_result["date_modified"] for r in raw_data_ids]):
-            return True
+        # If the calib does not already exist, we need to make it
+        if not calib_doc:
+            return calib_id, True, matching_raw_docs
 
-        return False
+        # If there are new files for this calib, we need to make it again
+        elif any([r["date_modified"] >= calib_doc["date_modified"] for r in matching_raw_docs]):
+            return calib_id, True, matching_raw_docs
+
+        # If the lower-level calibs are being modified, then we need to make it again
+        # The order in which datasetTypes are processed in the calling function is important here
+        calib_docs_all = self._raw_doc_to_calib_docs(calib_doc, calib_date)
+        del calib_docs_all[calib_doc["datasetType"]]
+        if any([c in calib_ids_to_process for c in calib_docs_all]):
+            return calib_id, True, matching_raw_docs
+
+        # If there are no new files contributing to this existing calib, we can skip it
+        # We need to return the calib doc so we know the filename to ingest
+        else:
+            return calib_doc, False, None
 
     def _find_raw_calibs(self, calib_date):
         """ Find all valid raw calibs in the raw exposure collection given a calib date.
@@ -234,10 +248,10 @@ class MasterCalibMaker(HuntsmanBase):
         return docs
 
     def _get_unique_calib_docs(self, calib_date, documents):
-        """ Get all possible CalibDocuments from a set of documents.
+        """ Get all possible CalibDocuments from a set of RawExposureDocuments.
         Args:
             calib_date (object): The calib date.
-            documents (list): The list of documents.
+            documents (iterable of RawExposureDocument): The raw exposure documents.
         Returns:
             list of CalibDocument: The calb documents.
         """
@@ -252,16 +266,8 @@ class MasterCalibMaker(HuntsmanBase):
             if calib_type not in calib_types:
                 continue
 
-            keys = self.config["calibs"]["matching_columns"][calib_type]
-            calib_dict = {k: document[k] for k in keys}
-            calib_dict["calibDate"] = calib_date
-            calib_dict["datasetType"] = calib_type
+            calib_id = self._raw_doc_to_calib_docs(document, calib_date)
 
-            # Get the filename of the archived calib
-            filename = get_calib_filename(config=self.config, **calib_dict)
-            calib_dict["filename"] = filename
-
-            calib_id = CalibDocument(calib_dict)
             if calib_id not in unique_calib_ids:
                 unique_calib_ids.append(calib_id)
 
@@ -276,3 +282,24 @@ class MasterCalibMaker(HuntsmanBase):
             [date_to_ymd(d) for d in self._exposure_collection.find(key="date", screen=True,
              quality_filter=True)])
         return list(dates)
+
+    def _raw_doc_to_calib_docs(self, document, calib_date):
+        """ Get calib docs for each datasetType that match a RawExposureDocument.
+        Args:
+            document (RawExposureDocument): The document.
+            calib_date (object): The date object.
+        Returns:
+            dict: A dict of datasetType: CalibDocument pairs.
+        """
+        calib_docs = {}
+
+        for calib_type in self._calib_types:
+
+            keys = self.config["calibs"]["matching_columns"][calib_type]
+            calib_dict = {k: document[k] for k in keys}
+            calib_dict["calibDate"] = date_to_ymd(calib_date)
+            calib_dict["datasetType"] = calib_type
+
+            calib_docs[calib_type] = CalibDocument(calib_dict)
+
+        return calib_docs
