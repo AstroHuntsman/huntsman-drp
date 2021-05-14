@@ -123,6 +123,9 @@ class ButlerRepository(HuntsmanBase):
             inputs = {"root": butler_dir}
             outputs = {'root': butler_dir, 'mode': 'rw'}
 
+            if rerun:
+                outputs["cfgRoot"] = self.butler_dir
+
             butler_kwargs = {"mapperArgs": {"calibRoot": self._calib_dir}}
             inputs.update(butler_kwargs)
             outputs.update(butler_kwargs)
@@ -412,6 +415,8 @@ class ButlerRepository(HuntsmanBase):
         # Check if we have the right number of calexps
         if not len(self.get_calexps(rerun=rerun, dataIds=dataIds)[0]) == len(dataIds):
             raise RuntimeError("Number of calexps does not match the number of dataIds.")
+
+        self.logger.debug("Finished making calexps.")
 
     def make_coadd(self, dataIds=None, filter_names=None, rerun="default:coadd", **kwargs):
         """ Make a coadd from all the calexps in this repository.
