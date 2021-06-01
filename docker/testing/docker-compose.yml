@@ -21,8 +21,6 @@ services:
       - ${HUNTSMAN_DRP}:/opt/lsst/software/stack/huntsman-drp
       - ${HUNTSMAN_LOG_DIR}:/opt/lsst/software/stack/huntsman-logs
     environment:
-      - OBS_HUNTSMAN=/opt/lsst/software/stack/obs_huntsman
-      - HUNTSMAN_DRP=/opt/lsst/software/stack/huntsman-drp
       - HUNTSMAN_ARCHIVE=/home/lsst/huntsman-archive
     command: /opt/lsst/software/stack/huntsman-drp/scripts/pyro/start-pyro-services.sh
 
@@ -42,7 +40,5 @@ services:
       - ${HUNTSMAN_DRP}:/opt/lsst/software/stack/huntsman-drp
       - ${HUNTSMAN_LOG_DIR}:/opt/lsst/software/stack/huntsman-logs
     environment:
-      - OBS_HUNTSMAN=/opt/lsst/software/stack/obs_huntsman
-      - HUNTSMAN_DRP=/opt/lsst/software/stack/huntsman-drp
       - HUNTSMAN_ARCHIVE=/home/lsst/huntsman-archive
     command: /opt/lsst/software/stack/huntsman-drp/scripts/testing/run-docker-tests.sh
