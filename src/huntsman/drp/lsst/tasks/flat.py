@@ -16,6 +16,8 @@ class HuntsmanFlatConfig(FlatConfig):
 
 class HuntsmanFlatTask(FlatTask):
 
+    ConfigClass = HuntsmanFlatConfig
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.makeSubtask("maskObjects")
