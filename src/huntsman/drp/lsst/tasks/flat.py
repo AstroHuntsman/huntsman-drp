@@ -30,6 +30,7 @@ class MaskMultiscaleObjectsTask(MaskObjectsTask):
         mask = exposure.maskedImage.mask.clone()
 
         # This loop is added for the multiscale functionality
+        self.log.info(f"Running findObjects with {len(self.config.detectSigmas)} sigma values.")
         for detectSigma in self.config.detectSigmas:
 
             for _ in range(self.config.nIter):
@@ -45,6 +46,9 @@ class MaskMultiscaleObjectsTask(MaskObjectsTask):
 
             # Add the contribution from this sigma to the total mask
             mask |= exposure.mask
+
+        mask_frac = (mask.getArray() > 0).mean()
+        self.log.info(f"Final mask fraction: {mask_frac:.2f}.")
 
         # Finally, set the exposure mask to the combined mask
         exposure.setMask(mask)
