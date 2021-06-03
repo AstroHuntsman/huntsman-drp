@@ -18,7 +18,8 @@ INGEST_CALIB_CONFIGS = {"bias": "ingestBias.py",
 
 MASTER_CALIB_SCRIPTS = {"bias": "constructBias.py",
                         "dark": "constructDark.py",
-                        "flat": "constructFlat.py"}
+                        "flat": os.path.join(os.environ["HUNTSMAN_DRP"], "scripts", "lsst",
+                                             "constructFlat.py")}
 
 
 def ingest_raw_data(filenames, butler_dir, mode="link", ignore_ingested=True):
