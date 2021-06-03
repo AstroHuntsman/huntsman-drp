@@ -114,6 +114,9 @@ def make_master_calib(datasetType, calibId, dataIds, butler_dir, calib_dir, reru
     cmd += f" --nodes {nodes} --procs {procs}"
     cmd += " --doraise"  # We want the code to raise an error if there is a problem
 
+    # For some reason we need to clobber the config for Huntsman task overrides to work
+    cmd += " --clobber-config"
+
     # Run the LSST script
     return utils.run_cmdline_task_subprocess(cmd)
 

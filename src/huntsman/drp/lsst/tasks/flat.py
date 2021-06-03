@@ -2,15 +2,57 @@
 - Adds multiscale source masking to remove potentially out of focus stars.
 """
 from lsst.pex.config import ConfigurableField, ListField
-from lsst.pipe.drivers.background import MaskObjectsTask
+from lsst.pipe.drivers.background import MaskObjectsTask, MaskObjectsConfig
 from lsst.pipe.drivers.constructCalibs import FlatConfig, FlatTask
+
+
+# Annoyingly "frozen" configs can't be modified
+# This means that we cannot change the "detectSigma" config item at runtime
+# Therefore we have to override the class...
+class MaskMultiscaleObjectsConfig(MaskObjectsConfig):
+    detectSigmas = ListField(dtype=float, default=[1, 3, 5, 10],
+                             doc="Gaussian kernal widths to use for multiscale filtering.")
+
+
+class MaskMultiscaleObjectsTask(MaskObjectsTask):
+
+    ConfigClass = MaskMultiscaleObjectsConfig
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def findObjects(self, exposure):
+        """Iteratively find multi-scale objects on an exposure.
+        Objects are masked with the ``DETECTED`` mask plane.
+        Args:
+            exposure (lsst.afw.image.Exposure): Exposure on which to mask objects.
+        """
+        mask = exposure.maskedImage.mask.clone()
+
+        # This loop is added for the multiscale functionality
+        for detectSigma in self.config.detectSigmas:
+
+            for _ in range(self.config.nIter):
+
+                # Subtract a local background estimate
+                bg = self.subtractBackground.run(exposure).background
+
+                # Do source detection and create a new source mask
+                self.detection.detectFootprints(exposure, sigma=detectSigma, clearMask=True)
+
+                # Replace the subtracted background
+                exposure.maskedImage += bg.getImage()
+
+            # Add the contribution from this sigma to the total mask
+            mask |= exposure.mask
+
+        # Finally, set the exposure mask to the combined mask
+        exposure.setMask(mask)
 
 
 # Override the config to add extra fields
 class HuntsmanFlatConfig(FlatConfig):
-    multiscaleSigmas = ListField(dtype=float, default=[1, 3, 5, 10],
-                                 doc="Gaussian kernal widths to use for multiscale filtering.")
-    maskObjects = ConfigurableField(target=MaskObjectsTask,
+    maskObjects = ConfigurableField(target=MaskMultiscaleObjectsTask,
                                     doc="Configuration for masking objects aggressively")
 
 
@@ -26,12 +68,7 @@ class HuntsmanFlatTask(FlatTask):
         """ Override method to apply multiscale filter source masking. """
         exposure = super().processSingle(dataRef)
 
-        for sigma in self.config.multiscaleSigmas:
-
-            # Set the smoothing scale
-            self.maskObjects.config.detectSigma = sigma
-
-            # Mask detections
-            self.maskObjects.run(exposure)
+        # Mask detections over multiple spatial scales
+        self.maskObjects.run(exposure)
 
         return exposure
