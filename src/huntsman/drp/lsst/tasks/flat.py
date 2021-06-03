@@ -28,6 +28,8 @@ class MaskMultiscaleObjectsTask(MaskObjectsTask):
             exposure (lsst.afw.image.Exposure): Exposure on which to mask objects.
         """
         mask = exposure.maskedImage.mask.clone()
+        mask_frac = (mask.getArray() > 0).mean()
+        self.log.info(f"Initial mask fraction: {mask_frac:.2f}.")
 
         # This loop is added for the multiscale functionality
         self.log.info(f"Running findObjects with {len(self.config.detectSigmas)} sigma values.")
@@ -43,6 +45,9 @@ class MaskMultiscaleObjectsTask(MaskObjectsTask):
 
                 # Replace the subtracted background
                 exposure.maskedImage += bg.getImage()
+
+            mask_frac = (exposure.mask.getArray() > 0).mean()
+            self.log.info(f"Mask fraction for detectSigma={detectSigma}: {mask_frac:.2f}.")
 
             # Add the contribution from this sigma to the total mask
             mask |= exposure.mask
