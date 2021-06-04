@@ -28,14 +28,15 @@ class MaskMultiscaleObjectsTask(MaskObjectsTask):
             exposure (lsst.afw.image.Exposure): Exposure on which to mask objects.
         """
         mask = exposure.maskedImage.mask.clone()
-        mask_frac = (mask.getArray() > 0).mean()
-        self.log.info(f"Initial mask fraction: {mask_frac:.2f}.")
+        mask_arr = mask.getArray()
+
+        # Get the mask bit value for detected objects
+        maskBitDet = mask.getPlaneBitMask("DETECTED")
 
         # This loop is added for the multiscale functionality
-        self.log.info(f"Running findObjects with {len(self.config.detectSigmas)} sigma values.")
         for detectSigma in self.config.detectSigmas:
 
-            for _ in range(self.config.nIter):
+            for _ in range(self.config.nIter):  # This block copied from super method
 
                 # Subtract a local background estimate
                 bg = self.subtractBackground.run(exposure).background
@@ -46,17 +47,19 @@ class MaskMultiscaleObjectsTask(MaskObjectsTask):
                 # Replace the subtracted background
                 exposure.maskedImage += bg.getImage()
 
-            mask_frac = (exposure.mask.getArray() > 0).mean()
-            self.log.info(f"Mask fraction for detectSigma={detectSigma}: {mask_frac:.2f}.")
+            # Add detected footprints to combined mask
+            detection_mask = exposure.maskedImage.mask.getArray() & maskBitDet > 0
+            mask_arr[detection_mask] |= maskBitDet
 
-            # Add the contribution from this sigma to the total mask
-            mask |= exposure.mask
+            self.log.info(f"Detected fraction for detectSigma={detectSigma}: "
+                          f"{detection_mask.mean():.2f}.")
 
-        mask_frac = (mask.getArray() > 0).mean()
-        self.log.info(f"Final mask fraction: {mask_frac:.2f}.")
+            self.log.info(f"Total detected fraction: {(mask.getArray() > 0).mean():.2f}.")
 
         # Finally, set the exposure mask to the combined mask
         exposure.setMask(mask)
+        maskfrac = (exposure.maskedImage.mask.getArray() > 0).mean()
+        self.logger.info(f"Final masked fraction: {maskfrac:.2f}")
 
 
 # Override the config to add extra fields
