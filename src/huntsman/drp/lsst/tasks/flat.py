@@ -59,7 +59,7 @@ class MaskMultiscaleObjectsTask(MaskObjectsTask):
         # Finally, set the exposure mask to the combined mask
         exposure.setMask(mask)
         maskfrac = (exposure.maskedImage.mask.getArray() > 0).mean()
-        self.logger.info(f"Final masked fraction: {maskfrac:.2f}")
+        self.log.info(f"Final masked fraction: {maskfrac:.2f}")
 
 
 # Override the config to add extra fields
