@@ -228,14 +228,14 @@ class MasterCalibMaker(HuntsmanBase):
             list of RawExposureDocument: The documents.
         """
         parsed_date = parse_date(calib_date)
-        date_start = parsed_date - self._validity
-        date_end = parsed_date + self._validity
+        date_min = parsed_date - self._validity
+        date_max = parsed_date + self._validity
 
         docs = []
         for calib_type in self._ordered_calib_types:
 
             docs_of_type = self._exposure_collection.find(
-                {"dataType": calib_type}, date_start=date_start, date_end=date_end, screen=True,
+                {"dataType": calib_type}, date_min=date_min, date_max=date_max, screen=True,
                 quality_filter=True)
 
             self.logger.info(f"Found {len(docs_of_type)} raw {calib_type} calibs for"

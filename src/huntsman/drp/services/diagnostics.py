@@ -1,6 +1,6 @@
 import os
-from contextlib import suppress
 
+import numpy as np
 import matplotlib.pyplot as plt
 
 from huntsman.drp.base import HuntsmanBase
@@ -36,8 +36,8 @@ class DiagnosticPlotter(HuntsmanBase):
     # Public methods
 
     def makeplots(self):
-        """
-        """
+        """ Make all plots and write them to the images directory. """
+
         for key in self._hist_by_camera_keys:
             self.plot_hist_by_camera(key)
 
@@ -48,7 +48,12 @@ class DiagnosticPlotter(HuntsmanBase):
         """ Plot histograms of quantities by camera.
         Args:
             key (str): Flattened name of the document field to plot.
+            basename (str, optional): The file basename. If not provided, key is used.
+            docs (list of Document, optional): A list of documents to plot. If None, will use
+                self._rawdocs.
         """
+        basename = basename if basename is not None else key
+
         if docs is None:
             docs = self._rawdocs
 
@@ -56,23 +61,37 @@ class DiagnosticPlotter(HuntsmanBase):
 
         # Get dict of values organised by camera name
         values_by_camera = {}
+        vmax = -np.inf
+        vmin = np.inf
         for cam_name, docs in docs_by_camera.items():
-            values = [d.get(key) for d in docs]   # Some measurements may be missing
-            values_by_camera[cam_name] = [v for v in values if v is not None]
+
+            # Some measurements may be missing and get will return None
+            values = [v for v in [d.get(key) for d in docs] if v is not None]
+            values_by_camera[cam_name] = values
+
+            # Update min / max for common range
+            if values:
+                vmin = min(np.nanmin(values), vmin)
+                vmax = max(np.nanmax(values), vmax)
+
+        if not any([_ for _ in values_by_camera.values()]):
+            self.logger.warning(f"No data to make hist for {basename}.")
+            return
 
         # Make the plot
         fig, axes = self._make_fig_by_camera(n_cameras=len(values_by_camera))
 
         for (ax, (cam_name, values)) in zip(axes, values_by_camera.items()):
-            ax.hist(values)
+            ax.hist(values, range=(vmin, vmax))
             ax.set_title(f"{cam_name}")
-        fig.suptitle(key)
+        fig.suptitle(basename)
 
-        basename = basename if basename is not None else key
         self._savefig(fig, basename=basename)
 
     def plot_hist_by_camera_filter(self, key):
         """ Plot histograms of quantities by camera separately for each filter.
+        Args:
+            key (str): The flattened key to plot.
         """
         filter_names = set([d["filter"] for d in self._rawdocs])
 
@@ -85,7 +104,11 @@ class DiagnosticPlotter(HuntsmanBase):
         """ Make a figure with subplots for each camera.
         Args:
             n_cameras (int): The number of cameras.
-            n_col (int): The number of columns in the figure.
+            n_col (int, optional): The number of columns in the figure.
+            figsize (int, optional): The size of each panel. Default: 3.
+        Returns:
+            matplotlib.pyplot.Figure: The figure object.
+            list of matplotlib.pyplot.Axes: The axes for each subplot.
         """
         n_row = int((n_cameras - 1) / n_col) + 1
         fig = plt.figure(figsize=(n_col * figsize, n_row * figsize))
@@ -127,6 +150,7 @@ class DiagnosticPlotter(HuntsmanBase):
         Args:
             fig (matplotlib.pyplot.Figure): The figure to save.
             basename (str): The basename of the file to save the image to.
+            tight_layout (bool, optional): If True (default), use tight layout for figure.
             **kwargs: Parsed to fig.savefig.
         """
         basename = basename.replace(".", "-") + ".png"  # Remove nested dict dot notation
