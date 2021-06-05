@@ -1,6 +1,7 @@
 directories:
   archive: ${HUNTSMAN_ARCHIVE}
   reductions: ${HUNTSMAN_ARCHIVE}/reductions
+  diagnostics: ${HUNTSMAN_ARCHIVE}/diagnostics
 
 fits_header:
   date_key: "DATE-OBS"

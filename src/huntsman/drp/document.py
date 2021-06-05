@@ -1,4 +1,5 @@
 """ Classes to represent dataIds. """
+from functools import reduce
 from collections import abc
 from contextlib import suppress
 
@@ -87,6 +88,15 @@ class Document(abc.Mapping):
 
     def update(self, d):
         self._document.update(d)
+
+    def get(self, key, default=None):
+        """ Override get method to allow nested key searches.
+        Args:
+            key (str): The key name. Use dot notation for nested keys.
+            default (optional): Return this object if no match. Default: None.
+        """
+        return reduce(lambda d, k: d.get(k, default) if isinstance(d, abc.Mapping) else default,
+                      key.split("."), self._document)
 
     def to_mongo(self, flatten=False):
         """ Get the full mongo filter for the document """
