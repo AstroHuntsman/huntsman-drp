@@ -38,11 +38,59 @@ class DiagnosticPlotter(HuntsmanBase):
     def makeplots(self):
         """ Make all plots and write them to the images directory. """
 
+        for key in self._plot_by_camera_keys:
+            self.plot_by_camera(key)
+
+        for key in self._plot_by_camera_filter_keys:
+            self.plot_by_camera_filter(key)
+
         for key in self._hist_by_camera_keys:
             self.plot_hist_by_camera(key)
 
         for key in self._hist_by_camera_filter_keys:
             self.plot_hist_by_camera_filter(key)
+
+    def plot_by_camera(self, x_key, y_key, basename=None, docs=None, linestyle=None,
+                       marker="o", markersize=1, **kwargs):
+        """
+        """
+        basename = basename if basename is not None else f"{x_key}_{y_key}"
+
+        if docs is None:
+            docs = self._rawdocs
+
+        # Filter documents that have both data for x key and y key
+        docs = [d for d in docs if (x_key in d) and (y_key in d)]
+
+        docs_by_camera = self._get_docs_by_camera(docs)
+
+        # Get dict of values organised by camera name
+        x_values_by_camera, xmin, xmax = self._get_values_by_camera(x_key, docs_by_camera)
+        y_values_by_camera, ymin, ymax = self._get_values_by_camera(y_key, docs_by_camera)
+
+        if not any([_ for _ in x_values_by_camera.values()]):
+            self.logger.warning(f"No {x_key} data to make plot for {basename}.")
+            return
+        if not any([_ for _ in y_values_by_camera.values()]):
+            self.logger.warning(f"No {y_key} data to make plot for {basename}.")
+            return
+
+        # Make the plot
+        fig, axes = self._make_fig_by_camera(n_cameras=len(x_values_by_camera))
+
+        for (ax, cam_name) in zip(axes, x_values_by_camera.keys()):
+
+            x_values = x_values_by_camera[cam_name]
+            y_values = y_values_by_camera[cam_name]
+
+            ax.plot(x_values, y_values, linestyle=linestyle, marker=marker, markersize=markersize,
+                    **kwargs)
+
+            ax.set_xlim(xmin, xmax)
+            ax.set_ylim(ymin, ymax)
+            ax.set_title(f"{cam_name}")
+
+        fig.suptitle(basename)
 
     def plot_hist_by_camera(self, key, basename=None, docs=None):
         """ Plot histograms of quantities by camera.
@@ -56,26 +104,13 @@ class DiagnosticPlotter(HuntsmanBase):
 
         if docs is None:
             docs = self._rawdocs
-
         docs_by_camera = self._get_docs_by_camera(docs)
 
         # Get dict of values organised by camera name
-        values_by_camera = {}
-        vmax = -np.inf
-        vmin = np.inf
-        for cam_name, docs in docs_by_camera.items():
-
-            # Some measurements may be missing and get will return None
-            values = [v for v in [d.get(key) for d in docs] if v is not None]
-            values_by_camera[cam_name] = values
-
-            # Update min / max for common range
-            if values:
-                vmin = min(np.nanmin(values), vmin)
-                vmax = max(np.nanmax(values), vmax)
+        values_by_camera, vmin, vmax = self._get_values_by_camera(key, docs_by_camera)
 
         if not any([_ for _ in values_by_camera.values()]):
-            self.logger.warning(f"No data to make hist for {basename}.")
+            self.logger.warning(f"No {key} data to make hist for {basename}.")
             return
 
         # Make the plot
@@ -100,25 +135,17 @@ class DiagnosticPlotter(HuntsmanBase):
             basename = f"{key}-{filter_name}"
             self.plot_hist_by_camera(key, basename=basename, docs=docs)
 
-    def _make_fig_by_camera(self, n_cameras, n_col=5, figsize=3):
-        """ Make a figure with subplots for each camera.
+    def plot_by_camera_filter(self, x_key, y_key):
+        """ Plot histograms of quantities by camera separately for each filter.
         Args:
-            n_cameras (int): The number of cameras.
-            n_col (int, optional): The number of columns in the figure.
-            figsize (int, optional): The size of each panel. Default: 3.
-        Returns:
-            matplotlib.pyplot.Figure: The figure object.
-            list of matplotlib.pyplot.Axes: The axes for each subplot.
+            key (str): The flattened key to plot.
         """
-        n_row = int((n_cameras - 1) / n_col) + 1
-        fig = plt.figure(figsize=(n_col * figsize, n_row * figsize))
+        filter_names = set([d["filter"] for d in self._rawdocs])
 
-        axes = []
-        for i in range(n_row):
-            for j in range(n_col):
-                axes.append(fig.add_subplot(n_row, n_col, i * n_col + j + 1))
-
-        return fig, axes
+        for filter_name in filter_names:
+            docs = [d for d in self._rawdocs if d["filter"] == filter_name]
+            basename = f"{x_key}_{x_key}-{filter_name}"
+            self.plot__by_camera(x_key, y_key, basename=basename, docs=docs)
 
     def _get_docs_by_camera(self, docs):
         """ Return dict of documents with keys of camera name.
@@ -144,6 +171,46 @@ class DiagnosticPlotter(HuntsmanBase):
             docs_by_camera[cam_name] = camera_docs
 
         return docs_by_camera
+
+    def _get_values_by_camera(self, key, docs_by_camera):
+        """
+        """
+        # Get dict of values organised by camera name
+        values_by_camera = {}
+        vmax = -np.inf
+        vmin = np.inf
+        for cam_name, docs in docs_by_camera.items():
+
+            # Some measurements may be missing and get will return None
+            values = [v for v in [d.get(key) for d in docs] if v is not None]
+            values_by_camera[cam_name] = values
+
+            # Update min / max for common range
+            if values:
+                vmin = min(np.nanmin(values), vmin)
+                vmax = max(np.nanmax(values), vmax)
+
+        return values_by_camera, vmin, vmax
+
+    def _make_fig_by_camera(self, n_cameras, n_col=5, figsize=3):
+        """ Make a figure with subplots for each camera.
+        Args:
+            n_cameras (int): The number of cameras.
+            n_col (int, optional): The number of columns in the figure.
+            figsize (int, optional): The size of each panel. Default: 3.
+        Returns:
+            matplotlib.pyplot.Figure: The figure object.
+            list of matplotlib.pyplot.Axes: The axes for each subplot.
+        """
+        n_row = int((n_cameras - 1) / n_col) + 1
+        fig = plt.figure(figsize=(n_col * figsize, n_row * figsize))
+
+        axes = []
+        for i in range(n_row):
+            for j in range(n_col):
+                axes.append(fig.add_subplot(n_row, n_col, i * n_col + j + 1))
+
+        return fig, axes
 
     def _savefig(self, fig, basename, dpi=150, tight_layout=True):
         """ Save figure to images directory.
