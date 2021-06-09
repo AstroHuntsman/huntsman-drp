@@ -13,6 +13,7 @@ import lsst.daf.persistence as dafPersist
 from lsst.daf.persistence.policy import Policy
 
 from huntsman.drp.base import HuntsmanBase
+from huntsman.drp.utils.date import parse_date
 from huntsman.drp.lsst import tasks
 from huntsman.drp.collection import MasterCalibCollection
 from huntsman.drp.utils.date import date_to_ymd, current_date_ymd
@@ -558,11 +559,16 @@ class ButlerRepository(HuntsmanBase):
         # Limit the number of dataIds per calib
         if limit:
             if len(dataIds) >= self._max_dataIds_per_calib:
+
                 self.logger.warning(
                     f"Number of {datasetType} dataIds for calibId={calibId} ({len(dataIds)})"
                     f" exceeds allowed maximum ({self._max_dataIds_per_calib}). Using first"
                     f" {self._max_dataIds_per_calib} matches.")
-                dataIds = dataIds[:self._max_dataIds_per_calib]
+
+                # First sort the dataIds by time delta
+                calib_date = parse_date(calibId["calibDate"])
+                tds = [abs(parse_date(d["dateObs"]) - calib_date) for d in dataIds]
+                dataIds = [x for _, x in sorted(zip(tds, dataIds))[:self._max_dataIds_per_calib]]
 
         return dataIds
 

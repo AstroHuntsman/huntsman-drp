@@ -108,11 +108,12 @@ class Collection(HuntsmanBase):
 
         self.logger.debug(f"Performing mongo find operation with filter: {mongo_filter}.")
 
-        documents = list(self._collection.find(mongo_filter, {"_id": False}))
+        if limit is None:
+            limit = 0
+        cursor = self._collection.find(mongo_filter, {"_id": False}).limit(limit)
+        documents = list(cursor)
 
         self.logger.debug(f"Find operation returned {len(documents)} results.")
-        if limit:
-            documents = documents[:limit]
 
         if key is not None:
             return [d[key] for d in documents]
