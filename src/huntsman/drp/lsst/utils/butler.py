@@ -45,7 +45,7 @@ def get_files_of_type(datasetType, directory, policy):
     return dataIds, filenames
 
 
-def get_all_calibIds(datasetType, dataIds, calibDate, butler):
+def dataIds_to_calibIds(datasetType, dataIds, calibDate, butler):
     """ Get calibIds given a set of dataIds and datasetType.
     Args:
         datasetType (str): The calib type, e.g. flat, bias.

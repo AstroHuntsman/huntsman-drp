@@ -372,7 +372,7 @@ class RawExposureCollection(Collection):
             calib_document (CalibDocument): The calib document to match with.
             calib_date (object): An object that can be interpreted as a date.
         Returns:
-            list of RawExposureDocument: The matching raw calibs.
+            list of RawExposureDocument: The matching raw calibs ordered by increasing time diff.
         """
         # Make the document filter
         dataset_type = calib_document["datasetType"]
@@ -393,6 +393,11 @@ class RawExposureCollection(Collection):
         documents = self.find(doc_filter, date_start=date_start, date_end=date_end)
         self.logger.debug(f"Found {len(documents)} matching raw calib documents for"
                           f" {calib_document} at {calib_date}.")
+
+        # Sort by time difference in increasing order
+        # This makes it easy to select only the nearest matches using indexing
+        timedeltas = [abs(d["date"] - calib_date) for d in documents]
+        documents = [x for _, x in sorted(zip(timedeltas, documents))]
 
         return documents
 

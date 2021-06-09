@@ -13,7 +13,6 @@ import lsst.daf.persistence as dafPersist
 from lsst.daf.persistence.policy import Policy
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.utils.date import parse_date
 from huntsman.drp.lsst import tasks
 from huntsman.drp.collection import MasterCalibCollection
 from huntsman.drp.utils.date import date_to_ymd, current_date_ymd
@@ -28,8 +27,7 @@ class ButlerRepository(HuntsmanBase):
                                                 relativePath="policy")
 
     def __init__(self, directory, calib_dir=None, initialise=True, calib_collection=None,
-                 min_dataIds_per_calib=1, max_dataIds_per_calib=50, calib_validity=1000,
-                 **kwargs):
+                 calib_validity=1000, **kwargs):
         """
         Args:
             directory (str): The path of the butler reposity.
@@ -38,11 +36,6 @@ class ButlerRepository(HuntsmanBase):
             initialise (bool, optional): If True (default), initialise the butler reposity
                 with required files.
             calib_collection (MasterCalibCollection, optional): The master calib collection.
-            min_dataIds_per_calib (int, optional): Limit the minimum number of dataIds that can
-                contribute to a single calib to this number. Default 1.
-            max_dataIds_per_calib (int, optional): Limit the maximum number of dataIds that can
-                contribute to a single calib to this number. If None, no upper limit is applied.
-                Default 50.
         """
         super().__init__(**kwargs)
 
@@ -55,8 +48,6 @@ class ButlerRepository(HuntsmanBase):
         self._calib_dir = calib_dir
 
         self._calib_validity = calib_validity
-        self._min_dataIds_per_calib = min_dataIds_per_calib
-        self._max_dataIds_per_calib = max_dataIds_per_calib
 
         if self.butler_dir is None:
             self._refcat_filename = None
@@ -98,8 +89,6 @@ class ButlerRepository(HuntsmanBase):
             dict: The corresponding dataId.
         """
         return {k: document[k] for k in self.get_keys("raw")}
-
-    # Getters
 
     def get_butler(self, rerun=None):
         """ Get a butler object for a given rerun.
@@ -262,8 +251,6 @@ class ButlerRepository(HuntsmanBase):
 
         return calexps, dataIds
 
-    # Ingesting
-
     def ingest_raw_data(self, filenames, **kwargs):
         """ Ingest raw data into the repository.
         Args:
@@ -304,84 +291,52 @@ class ButlerRepository(HuntsmanBase):
         tasks.ingest_master_calibs(datasetType, filenames, butler_dir=self.butler_dir,
                                    calib_dir=self.calib_dir, validity=validity)
 
-    # Making
-
-    def make_master_calibs(self, calib_date=None, rerun="default", datasetTypes_to_skip=None,
-                           validity=None, **kwargs):
-        """ Make master calibs from ingested raw calib data for a given calibDate.
+    def make_master_calib(self, calib_doc, rerun="default", validity=None, **kwargs):
+        """ Make a master calib from ingested raw exposures.
         Args:
-            calib_date (object, optional): The calib date to assign to the master calibs. If None
-                (default), will use the current date.
-            rerun (str, optional): The name of the rerun. If None (default), use default rerun.
-            skip_bias (bool, optional): Skip creation of master biases? Default False.
-            skip_dark (bool, optional): Skip creation of master darks? Default False.
-            datasetTypes_to_skip (list, optional):
+            datasetType (str): The calib datasetType (e.g. bias, dark, flat).
+            calib_doc (CalibDocument): The calib document of the calib to make.
+            rerun (str, optional): The name of the rerun. Default is "default".
+            validity (int, optional): The calib validity in days.
+            **kwargs: Parsed to tasks.make_master_calib.
         """
-        butler_kwargs = dict(butler_dir=self.butler_dir, calib_dir=self.calib_dir, rerun=rerun)
-        butler_kwargs.update(kwargs)
+        datasetType = calib_doc["datasetType"]
+        calibId = self._calib_doc_to_calibId(calib_doc)
 
-        if datasetTypes_to_skip is None:
-            datasetTypes_to_skip = []
+        # Get dataIds applicable to this calibId
+        dataIds = self.calibId_to_dataIds(datasetType, calibId, with_calib_date=True)
 
-        if calib_date is None:
-            calibDate = current_date_ymd()
-        else:
-            calibDate = date_to_ymd(calib_date)
-        self.logger.info(f"Making master calibs for calib_date={calibDate}.")
+        self.logger.info(f"Making master calib for calibId={calibId} from {len(dataIds)} dataIds.")
 
+        # Make the master calib
+        tasks.make_master_calib(datasetType, calibId, dataIds, butler_dir=self.butler_dir,
+                                calib_dir=self.calib_dir, rerun=rerun, **kwargs)
+
+        # Check the calib exists
+        fname_template = utils.get_filename_template(f"calibrations.{datasetType}", self._policy)
+        filename = os.path.join(self.butler_dir, "rerun", rerun, fname_template % calibId)
+        if not os.path.isfile(filename):
+            raise FileNotFoundError(f"Master calib not found: {calibId}, filename={filename}")
+
+        # Ingest the calib
+        self.ingest_master_calibs(datasetType, [filename], validity=validity)
+
+        # TODO: Return filename for archiving
+
+    def make_master_calibs(self, calib_docs, **kwargs):
+        """ Make master calibs for a list of calib documents.
+        Args:
+            calib_docs (list of CalibDocument): The list of calib documents to make.
+            **kwargs: Parsed to tasks.make_master_calib.
+        """
         for datasetType in ("bias", "dark", "flat"):  # Order is important
+        # TODO: Get order from config
 
-            if datasetType in datasetTypes_to_skip:
-                self.logger.debug(f"Skipping {datasetType} frames for calibDate={calibDate}.")
-                continue
-
-            # Get the unique set of calibIds defined by the set of all ingested dataIds
-            # Each calibId will have at least one corresponding raw dataId
-            calibIds = self._get_all_calibIds(datasetType, calibDate)
-
-            self.logger.info(f"Making {len(calibIds)} master {datasetType} frame(s) for"
-                             f" calibDate={calibDate}.")
-
-            filenames_to_ingest = set()
-            calib_dir = os.path.join(self.butler_dir, "rerun", rerun)
-
-            for calibId in calibIds:  # Process each calibId separately
-
-                # Get dataIds that correspond to this calibId
-                dataIds = self._calibId_to_dataIds(datasetType, calibId, limit=True)
-                if len(dataIds) < self._min_dataIds_per_calib:
-                    self.logger.warning(
-                        f"Skipping master {datasetType} for calibId={calibId} because number of"
-                        f" matching dataIds ({len(dataIds)}) is less than required minimum"
-                        f" ({self._min_dataIds_per_calib}).")
-                    continue
-
-                self.logger.info(f"Making master {datasetType} frame for calibId={calibId} using"
-                                 f" {len(dataIds)} dataIds.")
-
-                # For some reason the dataIds also need to contain the calibDate
-                # TODO: Figure out why and remove
-                for dataId in dataIds:
-                    dataId["calibDate"] = calibDate
-
-                # Run the LSST command
+            for calib_doc in [c for c in calib_docs if c["datasetType"] == datasetType]:
                 try:
-                    tasks.make_master_calib(datasetType, calibId, dataIds, **butler_kwargs)
+                    self.make_master_calib(calib_doc, **kwargs)
                 except Exception as err:
-                    self.logger.error(f"Problem making master {datasetType} frame for"
-                                      f" calibId={calibId}: {err!r}")
-
-                # We are not able to catch errors in the LSST masterCalib task yet
-                # Therefore, we need to check if the file actually exists
-                filenames = utils.get_files_of_type(
-                    f"calibrations.{datasetType}", directory=calib_dir, policy=self._policy)[1]
-                if len(filenames) != len(filenames_to_ingest) + 1:
-                    self.logger.error(f"Missing master {datasetType} for calibId={calibId}.")
-
-                filenames_to_ingest.update(filenames)
-
-            # Ingest the master calibs for this datasetType
-            self.ingest_master_calibs(datasetType, filenames_to_ingest, validity=validity)
+                    self.logger.error(f"Problem making calib for calibId={calib_doc}: {err!r}")
 
     def make_calexp(self, dataId, rerun="default", **kwargs):
         """ Make calibrated exposure using the LSST stack.
@@ -474,8 +429,6 @@ class ButlerRepository(HuntsmanBase):
 
         self.logger.info("Successfully created coadd.")
 
-    # Archiving
-
     def archive_master_calibs(self, directory=None):
         """ Copy the master calibs from this Butler repository into the calib archive directory
         and insert the metadata into the master calib metadatabase.
@@ -516,6 +469,24 @@ class ButlerRepository(HuntsmanBase):
                 document_filter = {"filename": archived_filename}
                 self._calib_collection.replace_one(document_filter, metadata, upsert=True)
 
+    def calibId_to_dataIds(self, datasetType, calibId, limit=False, with_calib_date=False):
+        """ Find all matching dataIds given a calibId.
+        Args:
+            calibId (dict): The calibId.
+            limit (bool): If True, limit the number of returned dataIds to a maximum value
+                indicated by self._max_dataIds_per_calib. This avoids long processing times and
+                apparently also segfaults. Default: False.
+        Returns:
+            list of dict: All matching dataIds.
+        """
+        dataIds = utils.calibId_to_dataIds(datasetType, calibId, butler=self.get_butler())
+
+        if with_calib_date:
+            for dataId in dataIds:
+                dataId["calibDate"] = calibId["calibDate"]
+
+        return dataIds
+
     # Private methods
 
     def _initialise(self):
@@ -531,46 +502,6 @@ class ButlerRepository(HuntsmanBase):
             filename_mapper = os.path.join(dir, "_mapper")
             with open(filename_mapper, "w") as f:
                 f.write(self._mapper)
-
-    def _get_all_calibIds(self, datasetType, calibDate):
-        """ Get the full set of calibIds from all the ingested dataIds.
-        Args:
-            datasetType (str): The datasetType (e.g. bias).
-            calibDate (str): The calibDate.
-        Returns:
-            list of dict: All possible calibIds.
-        """
-        dataIds = self.get_dataIds(datasetType="raw")
-        return utils.get_all_calibIds(datasetType, dataIds, calibDate, butler=self.get_butler())
-
-    def _calibId_to_dataIds(self, datasetType, calibId, limit=False):
-        """ Find all matching dataIds given a calibId.
-        Args:
-            datasetType (str): The datasetType (e.g. bias).
-            calibId (dict): The calibId.
-            limit (bool): If True, limit the number of returned dataIds to a maximum value
-                indicated by self._max_dataIds_per_calib. This avoids long processing times and
-                apparently also segfaults. Default: False.
-        Returns:
-            list of dict: All matching dataIds.
-        """
-        dataIds = utils.calibId_to_dataIds(datasetType, calibId, butler=self.get_butler())
-
-        # Limit the number of dataIds per calib
-        if limit:
-            if len(dataIds) >= self._max_dataIds_per_calib:
-
-                self.logger.warning(
-                    f"Number of {datasetType} dataIds for calibId={calibId} ({len(dataIds)})"
-                    f" exceeds allowed maximum ({self._max_dataIds_per_calib}). Using first"
-                    f" {self._max_dataIds_per_calib} matches.")
-
-                # First sort the dataIds by time delta
-                calib_date = parse_date(calibId["calibDate"])
-                tds = [abs(parse_date(d["dateObs"]) - calib_date) for d in dataIds]
-                dataIds = [x for _, x in sorted(zip(tds, dataIds))[:self._max_dataIds_per_calib]]
-
-        return dataIds
 
     def _get_skymap_ids(self, rerun):
         """ Get the sky map IDs, which consist of a tract ID and associated patch IDs.
@@ -607,6 +538,17 @@ class ButlerRepository(HuntsmanBase):
                     except Exception as err:
                         self.logger.error(f"Error encountered while verifying coadd: {err!r}")
                         raise err
+
+    def _calib_doc_to_calibId(self, calib_doc, **kwargs):
+        """ Convert a CalibDocument into a LSST-style calibId.
+        Args:
+            calib_doc (CalibDocument): The calib document.
+        Returns:
+            dict: The calibId.
+        """
+        datasetType = calib_doc["datasetType"]
+        required_keys = self.get_keys(datasetType, **kwargs)
+        return {k: calib_doc[k] for k in required_keys}
 
 
 class TemporaryButlerRepository(ButlerRepository):
