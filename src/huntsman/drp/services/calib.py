@@ -194,6 +194,9 @@ class MasterCalibMaker(HuntsmanBase):
         """ Identify which calib IDs need processing and which should be ingested.
         Args:
             calib_docs (list of CalibDocument): The list of calib docs to check.
+        Returns:
+            Set of CalibDocument: Calib documents that need to be processed.
+            Set of CalibDocument: Calib documents that need to be ingested.
         """
         calibs_to_process = set()
         calibs_to_ingest = set()
