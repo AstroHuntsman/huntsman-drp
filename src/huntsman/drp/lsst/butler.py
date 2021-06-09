@@ -291,7 +291,7 @@ class ButlerRepository(HuntsmanBase):
         """
         filenames = set([os.path.abspath(os.path.realpath(_)) for _ in filenames])
 
-        if len(filenames) == 0:
+        if not filenames:
             self.logger.warning(f"No master {datasetType} files to ingest.")
             return
 

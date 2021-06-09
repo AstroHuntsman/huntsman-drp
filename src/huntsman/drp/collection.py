@@ -376,6 +376,7 @@ class RawExposureCollection(Collection):
         # Make the document filter
         dataset_type = calib_document["datasetType"]
         matching_keys = self.config["calibs"]["matching_columns"][dataset_type]
+
         doc_filter = {k: calib_document[k] for k in matching_keys}
 
         # Add dataType to doc filter
