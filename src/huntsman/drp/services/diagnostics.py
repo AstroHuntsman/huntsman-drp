@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
 
+PLOT_BY_CAMERA = []
+PLOT_BY_CAMERA_FILTER = [{"x_key": "AIRMASS", "y_key": "metrics.calexp.zp_mag"}]
+
 # Metrics to plot histograms per camera
 HIST_BY_CAMERA = ("metrics.calexp.psf_fwhm_arcsec",)
 
@@ -16,6 +19,8 @@ HIST_BY_CAMERA_FILTER = ("metrics.calexp.zp_mag",)
 class DiagnosticPlotter(HuntsmanBase):
     """
     """
+    _plot_by_camera_keys = PLOT_BY_CAMERA
+    _plot_by_camera_filter_keys = PLOT_BY_CAMERA_FILTER
     _hist_by_camera_keys = HIST_BY_CAMERA
     _hist_by_camera_filter_keys = HIST_BY_CAMERA_FILTER
 
@@ -38,11 +43,15 @@ class DiagnosticPlotter(HuntsmanBase):
     def makeplots(self):
         """ Make all plots and write them to the images directory. """
 
-        for key in self._plot_by_camera_keys:
-            self.plot_by_camera(key)
+        for d in self._plot_by_camera_keys:
+            x_key = d.pop("x_key")
+            y_key = d.pop("y_key")
+            self.plot_by_camera(x_key, y_key, **d)
 
-        for key in self._plot_by_camera_filter_keys:
-            self.plot_by_camera_filter(key)
+        for d in self._plot_by_camera_filter_keys:
+            x_key = d.pop("x_key")
+            y_key = d.pop("y_key")
+            self.plot_by_camera_filter(x_key, y_key, **d)
 
         for key in self._hist_by_camera_keys:
             self.plot_hist_by_camera(key)
@@ -51,7 +60,7 @@ class DiagnosticPlotter(HuntsmanBase):
             self.plot_hist_by_camera_filter(key)
 
     def plot_by_camera(self, x_key, y_key, basename=None, docs=None, linestyle=None,
-                       marker="o", markersize=1, **kwargs):
+                       marker="o", markersize=1, linewidth=0, **kwargs):
         """
         """
         basename = basename if basename is not None else f"{x_key}_{y_key}"
@@ -60,7 +69,7 @@ class DiagnosticPlotter(HuntsmanBase):
             docs = self._rawdocs
 
         # Filter documents that have both data for x key and y key
-        docs = [d for d in docs if (x_key in d) and (y_key in d)]
+        docs = [d for d in docs if (d.get(x_key) is not None) and (d.get(y_key) is not None)]
 
         docs_by_camera = self._get_docs_by_camera(docs)
 
@@ -84,13 +93,14 @@ class DiagnosticPlotter(HuntsmanBase):
             y_values = y_values_by_camera[cam_name]
 
             ax.plot(x_values, y_values, linestyle=linestyle, marker=marker, markersize=markersize,
-                    **kwargs)
+                    linewidth=linewidth, **kwargs)
 
             ax.set_xlim(xmin, xmax)
             ax.set_ylim(ymin, ymax)
             ax.set_title(f"{cam_name}")
 
         fig.suptitle(basename)
+        self._savefig(fig, basename=basename)
 
     def plot_hist_by_camera(self, key, basename=None, docs=None):
         """ Plot histograms of quantities by camera.
@@ -144,8 +154,8 @@ class DiagnosticPlotter(HuntsmanBase):
 
         for filter_name in filter_names:
             docs = [d for d in self._rawdocs if d["filter"] == filter_name]
-            basename = f"{x_key}_{x_key}-{filter_name}"
-            self.plot__by_camera(x_key, y_key, basename=basename, docs=docs)
+            basename = f"{x_key}_{y_key}-{filter_name}"
+            self.plot_by_camera(x_key, y_key, basename=basename, docs=docs)
 
     def _get_docs_by_camera(self, docs):
         """ Return dict of documents with keys of camera name.
