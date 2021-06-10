@@ -7,14 +7,10 @@ from threading import Thread
 
 from panoptes.utils.time import CountdownTimer
 
-from lsst.obs.huntsman import HuntsmanMapper
-
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.utils.date import date_to_ymd, parse_date
+from huntsman.drp.utils.date import date_to_ymd
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
-from huntsman.drp.document import CalibDocument
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
-from huntsman.drp.lsst.utils.calib import get_calib_filename
 
 
 class MasterCalibMaker(HuntsmanBase):
@@ -30,17 +26,12 @@ class MasterCalibMaker(HuntsmanBase):
         super().__init__(**kwargs)
 
         self._ordered_calib_types = self.config["calibs"]["types"]
+        self._validity = datetime.timedelta(days=self.config["calibs"]["validity"])
 
         calib_maker_config = self.config.get("calib-maker", {})
         self._min_docs_per_calib = calib_maker_config.get("min_docs_per_calib", 1)
         self._max_docs_per_calib = calib_maker_config.get("max_docs_per_calib", None)
         self._nproc = int(nproc if nproc else calib_maker_config.get("nproc", 1))
-
-        validity = self.config["calibs"]["validity"]
-        self._validity = datetime.timedelta(days=validity)
-
-        # Create mapper used to get calib filenames
-        self._mapper = HuntsmanMapper()
 
         # Create collection client objects
         if exposure_collection is None:
@@ -91,8 +82,8 @@ class MasterCalibMaker(HuntsmanBase):
             calib_date (object): The calib date.
         """
         # Get set of all unique calib IDs from the raw calibs
-        calib_docs = self._get_unique_calib_docs(calib_date=calib_date)
-
+        calib_docs = self._exposure_collection.get_calib_docs(calib_date=calib_date,
+                                                              validity=self._validity)
         # Figure out which calib IDs need processing and which ones we can ingest
         calibs_to_process, calibs_to_ingest = self._get_calib_sets(calib_docs)
         if not calibs_to_process:
@@ -224,30 +215,6 @@ class MasterCalibMaker(HuntsmanBase):
 
         return docs
 
-    def _get_unique_calib_docs(self, calib_date):
-        """ Get all possible CalibDocuments from a set of RawExposureDocuments.
-        Args:
-            calib_date (object): The calib date.
-        Returns:
-            set of CalibDocument: The calb documents.
-        """
-        calib_date = parse_date(calib_date)
-        date_start = calib_date - self._validity
-        date_end = calib_date + self._validity
-
-        # Get metadata for all raw calibs that are valid for this date
-        raw_docs = self._exposure_collection.find(
-            {"dataType": {"in": self._ordered_calib_types}},
-            date_start=date_start, date_end=date_end, screen=True, quality_filter=True)
-
-        unique_calib_docs = set()
-        for document in raw_docs:
-            unique_calib_docs.add(self._raw_doc_to_calib_doc(document, calib_date))
-
-        self.logger.info(f"Found {len(unique_calib_docs)} calibIds for calib_date={calib_date}.")
-
-        return unique_calib_docs
-
     def _get_unique_dates(self):
         """ Get all calib dates specified by files in the raw data table.
         Returns:
@@ -255,29 +222,6 @@ class MasterCalibMaker(HuntsmanBase):
         """
         dates = self._exposure_collection.find(key="date", screen=True, quality_filter=True)
         return set([date_to_ymd(d) for d in dates])
-
-    def _raw_doc_to_calib_doc(self, document, calib_date):
-        """ Get the matching calib document given a raw exposure calib document.
-        Args:
-            document (RawExposureDocument): The raw calib document.
-            calib_date (object): The calib date.
-        Returns:
-            CalibDocument: The matching calib document.
-        """
-        calib_type = document["dataType"]
-
-        # Get minimal LSST-style calib dataId
-        keys = self.config["calibs"]["matching_columns"][calib_type]
-        calib_dict = {k: document[k] for k in keys}
-        calib_dict["calibDate"] = date_to_ymd(calib_date)
-
-        # Get archived filename for this calib
-        calib_dict["filename"] = get_calib_filename(datasetType=calib_type, dataId=calib_dict,
-                                                    config=self.config, mapper=self._mapper)
-
-        # Create the calib document
-        calib_dict["datasetType"] = calib_type
-        return CalibDocument(calib_dict)
 
     def _get_dependent_calibs(self, calib_doc):
         """ Get all dependent calibs for a calib doc.

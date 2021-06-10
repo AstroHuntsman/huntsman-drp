@@ -401,6 +401,36 @@ class RawExposureCollection(Collection):
 
         return documents
 
+    def get_calib_docs(self, calib_date, documents=None, validity=None):
+        """ Get all possible CalibDocuments from a set of RawExposureDocuments.
+        Args:
+            calib_date (object): The calib date.
+            documents (list of RawExposureDocument, optional): The list of documents to process.
+                If not provided, will lookup the appropriate documents from the collection.
+            validity (datetime.timedelta): The validity of the calibs.
+        Returns:
+            set of CalibDocument: The calb documents.
+        """
+        data_types = self.config["calibs"]["types"]
+        if validity is None:
+            validity = timedelta(days=self.config["calibs"]["validity"])
+
+        calib_date = parse_date(calib_date)
+        date_start = calib_date - validity
+        date_end = calib_date + validity
+
+        # Get metadata for all raw calibs that are valid for this date
+        if documents is None:
+            documents = self._exposure_collection.find(
+                {"dataType": {"in": data_types}},
+                date_start=date_start, date_end=date_end, screen=True, quality_filter=True)
+
+        calib_docs = set([self._raw_doc_to_calib_doc(d, calib_date) for d in documents])
+
+        self.logger.info(f"Found {len(calib_docs)} calibIds for calib_date={calib_date}.")
+
+        return calib_docs
+
     def clear_calexp_metrics(self):
         """ Clear all calexp metrics from the collection.
         This is useful e.g. to trigger them for reprocessing. """

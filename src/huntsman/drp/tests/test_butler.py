@@ -96,6 +96,7 @@ def test_make_master_calibs(exposure_collection, config):
     doc = exposure_collection.find()[0]
     doc_filter = {k: doc[k] for k in ["CAM-ID", "dateObs"]}
     docs = exposure_collection.find(doc_filter)
+    calib_docs = exposure_collection.get_calib_docs(current_date(), documents=docs)
 
     n_cameras = 1
     n_days = 1
@@ -121,18 +122,19 @@ def test_make_master_calibs(exposure_collection, config):
 
     filenames = [d["filename"] for d in docs]
 
+    rerun = "test_rerun"
     with TemporaryButlerRepository(config=config) as br:
 
         br.ingest_raw_data(filenames)
 
         # Make the calibs
-        br.make_master_calibs(calib_date=current_date(), rerun="test_rerun")
+        br.make_master_calibs(calib_docs, rerun=rerun)
 
         # Archive the calibs
         br.archive_master_calibs()
 
         # Check the biases in the butler dir
-        metadata_bias = br.get_calib_metadata(datasetType="bias")
+        metadata_bias = br.get_metadata(datasetType="bias", rerun=rerun)
         assert len(metadata_bias) == n_bias
         ccds = set()
         for md in metadata_bias:
