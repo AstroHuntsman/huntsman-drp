@@ -1,6 +1,7 @@
 """ Continually produce, update and archive master calibs. """
 import os
 import time
+import shutil
 import datetime
 from threading import Thread
 
@@ -320,9 +321,13 @@ class MasterCalibMaker(HuntsmanBase):
 
     def _process_documents(self, raw_docs_to_process, calibs_to_process, calibs_to_ingest):
         """ Make the new master calibs using the LSST code stack.
+        Args:
+            raw_docs_to_process (set of RawExposureDocument): Documents to use to create calibs.
+            calibs_to_process (set of CalibDocument): Calib documents to create.
+            calibs_to_ingest (set of calibDocument): Calib documents to ingest.
         """
         # Process data in a temporary butler repo
-        with TemporaryButlerRepository(calib_collection=self._calib_collection) as br:
+        with TemporaryButlerRepository() as br:
 
             # Ingest raw exposures
             br.ingest_raw_data([_["filename"] for _ in raw_docs_to_process])
@@ -334,13 +339,37 @@ class MasterCalibMaker(HuntsmanBase):
 
             # Make master calibs
             # NOTE: Implicit error handling
-            br.make_master_calibs(calib_docs=calibs_to_process, validity=self._validity.days,
-                                  procs=self._nproc)
+            filenames_by_type = br.make_master_calibs(
+                calib_docs=calibs_to_process, validity=self._validity.days, procs=self._nproc)
 
             # Archive the master calibs
-            try:
-                self.logger.info("Archiving master calibs.")
-                br.archive_master_calibs()
+            self._archive_master_calibs(filenames_by_type)
 
-            except Exception as err:
-                self.logger.warning(f"Unable to archive master calibs: {err!r}")
+    def _archive_master_calibs(self, metadata_list):
+        """ Copy the FITS files into the archive directory and update the entry in the DB.
+        Args:
+            metadata_list (list): List of abc.Mapping, normally CalibDocument.
+        """
+        archive_dir = self.config["directories"]["archive"]
+
+        for metadata in metadata_list:
+
+            basename = metadata["basename"]
+            filename = metadata["filename"]
+
+            # Use the archived filename for the mongo document
+            archived_filename = os.path.join(archive_dir, basename)
+
+            # Copy the file into the calib archive, overwriting if necessary
+            self.logger.debug(f"Copying {filename} to {archived_filename}.")
+            os.makedirs(os.path.dirname(archived_filename), exist_ok=True)
+            shutil.copy(filename, archived_filename)
+
+            # Update the md before archiving
+            del metadata["basename"]
+            metadata["filename"] = archived_filename
+
+            # Insert the metadata into the calib database
+            # Use replace operation with upsert because old document may already exist
+            document_filter = {"filename": archived_filename}
+            self._calib_collection.replace_one(document_filter, metadata, upsert=True)

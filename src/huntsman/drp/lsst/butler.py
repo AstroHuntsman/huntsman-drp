@@ -4,7 +4,6 @@ NOTES:
     https://github.com/lsst/pipe_base/blob/master/python/lsst/pipe/base/argumentParser.py#L678
 """
 import os
-import shutil
 from contextlib import suppress
 from tempfile import TemporaryDirectory
 import sqlite3
@@ -14,8 +13,6 @@ from lsst.daf.persistence.policy import Policy
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.lsst import tasks
-from huntsman.drp.collection import MasterCalibCollection
-from huntsman.drp.utils.date import date_to_ymd, current_date_ymd
 import huntsman.drp.lsst.utils.butler as utils
 from huntsman.drp.lsst.utils.coadd import get_skymap_ids
 
@@ -26,8 +23,7 @@ class ButlerRepository(HuntsmanBase):
     _policy_filename = Policy.defaultPolicyFile("obs_huntsman", "HuntsmanMapper.yaml",
                                                 relativePath="policy")
 
-    def __init__(self, directory, calib_dir=None, initialise=True, calib_collection=None,
-                 calib_validity=1000, **kwargs):
+    def __init__(self, directory, calib_dir=None, initialise=True, calib_validity=1000, **kwargs):
         """
         Args:
             directory (str): The path of the butler reposity.
@@ -35,9 +31,10 @@ class ButlerRepository(HuntsmanBase):
                 will create a new CALIB directory under the butler repository root.
             initialise (bool, optional): If True (default), initialise the butler reposity
                 with required files.
-            calib_collection (MasterCalibCollection, optional): The master calib collection.
         """
         super().__init__(**kwargs)
+
+        self._ordered_calib_types = self.config["calibs"]["types"]
 
         if directory is not None:
             directory = os.path.abspath(directory)
@@ -53,10 +50,6 @@ class ButlerRepository(HuntsmanBase):
             self._refcat_filename = None
         else:
             self._refcat_filename = os.path.join(self.butler_dir, "refcat_raw", "refcat_raw.csv")
-
-        if calib_collection is None:
-            calib_collection = MasterCalibCollection(config=self.config, logger=self.logger)
-        self._calib_collection = calib_collection
 
         # Load the policy file
         self._policy = Policy(self._policy_filename)
@@ -299,6 +292,8 @@ class ButlerRepository(HuntsmanBase):
             rerun (str, optional): The name of the rerun. Default is "default".
             validity (int, optional): The calib validity in days.
             **kwargs: Parsed to tasks.make_master_calib.
+        Returns:
+            str: The filename of the newly created master calib.
         """
         datasetType = calib_doc["datasetType"]
         calibId = self._calib_doc_to_calibId(calib_doc)
@@ -312,31 +307,45 @@ class ButlerRepository(HuntsmanBase):
         tasks.make_master_calib(datasetType, calibId, dataIds, butler_dir=self.butler_dir,
                                 calib_dir=self.calib_dir, rerun=rerun, **kwargs)
 
-        # Check the calib exists
+        # Get the filename template from the LSST policy
         fname_template = utils.get_filename_template(f"calibrations.{datasetType}", self._policy)
-        filename = os.path.join(self.butler_dir, "rerun", rerun, fname_template % calibId)
+        basename = fname_template % calibId
+
+        # Check the calib exists
+        filename = os.path.join(self.butler_dir, "rerun", rerun, basename)
         if not os.path.isfile(filename):
             raise FileNotFoundError(f"Master calib not found: {calibId}, filename={filename}")
 
         # Ingest the calib
         self.ingest_master_calibs(datasetType, [filename], validity=validity)
 
-        # TODO: Return filename for archiving
+        # Return metadata
+        md = calib_doc.copy()
+        md["filename"] = filename
+        md["basename"] = basename
+
+        return md
 
     def make_master_calibs(self, calib_docs, **kwargs):
         """ Make master calibs for a list of calib documents.
         Args:
             calib_docs (list of CalibDocument): The list of calib documents to make.
             **kwargs: Parsed to tasks.make_master_calib.
+        Returns:
+            dict: Dictionay containing lists of filename for each datasetType.
         """
-        for datasetType in ("bias", "dark", "flat"):  # Order is important
-        # TODO: Get order from config
+        metadata = []
+        for datasetType in self._ordered_calib_types:  # Order is important
 
             for calib_doc in [c for c in calib_docs if c["datasetType"] == datasetType]:
                 try:
-                    self.make_master_calib(calib_doc, **kwargs)
+                    md = self.make_master_calib(calib_doc, **kwargs)
+                    metadata.append(md)
+
                 except Exception as err:
                     self.logger.error(f"Problem making calib for calibId={calib_doc}: {err!r}")
+
+        return metadata
 
     def make_calexp(self, dataId, rerun="default", **kwargs):
         """ Make calibrated exposure using the LSST stack.
@@ -428,46 +437,6 @@ class ButlerRepository(HuntsmanBase):
         self._verify_coadd(rerun=rerun_out, filter_names=filter_names, skymapIds=skymapIds)
 
         self.logger.info("Successfully created coadd.")
-
-    def archive_master_calibs(self, directory=None):
-        """ Copy the master calibs from this Butler repository into the calib archive directory
-        and insert the metadata into the master calib metadatabase.
-        TODO: Move this functionality out of the ButlerRepository class.
-        """
-        if not directory:
-            directory = self.calib_dir
-
-        archive_dir = self.config["directories"]["archive"]
-
-        for datasetType in self.config["calibs"]["types"]:
-
-            # Retrieve filenames and dataIds for all files of this type
-            dataIds, filenames = utils.get_files_of_type(f"calibrations.{datasetType}",
-                                                         directory=directory,
-                                                         policy=self._policy)
-
-            self.logger.info(f"Archiving {len(filenames)} master {datasetType} files.")
-
-            for metadata, filename in zip(dataIds, filenames):
-
-                # Create the filename for the archived copy using LSST policy
-                # Strip off the dirname of the butler calib dir (+1 for /)
-                basename = filename[len(directory) + 1:]
-                archived_filename = os.path.join(archive_dir, basename)
-
-                # Copy the file into the calib archive, overwriting if necessary
-                self.logger.debug(f"Copying {filename} to {archived_filename}.")
-                os.makedirs(os.path.dirname(archived_filename), exist_ok=True)
-                shutil.copy(filename, archived_filename)
-
-                # Add extra keys to metadata for archiving
-                metadata["datasetType"] = datasetType
-                metadata["filename"] = archived_filename
-
-                # Insert the metadata into the calib database
-                # Use replace operation with upsert because old document may already exist
-                document_filter = {"filename": archived_filename}
-                self._calib_collection.replace_one(document_filter, metadata, upsert=True)
 
     def calibId_to_dataIds(self, datasetType, calibId, limit=False, with_calib_date=False):
         """ Find all matching dataIds given a calibId.

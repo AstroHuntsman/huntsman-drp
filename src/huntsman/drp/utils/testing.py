@@ -128,7 +128,7 @@ def create_test_calib_collection(config=None):
 
     dir = os.path.join(config["directories"]["root"], "tests", "data")
 
-    with TemporaryButlerRepository(calib_collection=calib_collection) as br:
+    with TemporaryButlerRepository() as br:
         br.archive_master_calibs(directory=dir)
 
     assert calib_collection.find()
