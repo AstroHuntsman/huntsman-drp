@@ -147,13 +147,17 @@ class ButlerRepository(HuntsmanBase):
         """
         return self.get(datasetType + "_filename", dataId=dataId, **kwargs)[0]
 
-    def get_metadata(self, datasetType, keys, dataId=None, **kwargs):
+    def get_metadata(self, datasetType, keys=None, dataId=None, **kwargs):
         """ Get metadata for a dataset.
         Args:
             datasetType (str): The dataset type (e.g. raw, flat, calexp).
-            keys (list of str): The keys contained in the metadata.
+            keys (list of str, optional): The keys contained in the metadata. If not provided,
+                will use default keys for datasetType.
             dataId (optional): A list of dataIds to query on.
         """
+        if keys is None:
+            keys = self.get_keys(datasetType, **kwargs)
+
         butler = self.get_butler(**kwargs)
         md = butler.queryMetadata(datasetType, format=keys, dataId=dataId)
 
