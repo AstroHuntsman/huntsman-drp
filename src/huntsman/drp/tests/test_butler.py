@@ -131,9 +131,6 @@ def test_make_master_calibs(exposure_collection, config):
         # Make the calibs
         br.make_master_calibs(calib_docs, rerun=rerun)
 
-        # Archive the calibs
-        br.archive_master_calibs()
-
         # Check the biases in the butler dir
         metadata_bias = br.get_metadata(datasetType="bias", rerun=rerun)
         assert len(metadata_bias) == n_bias
@@ -160,18 +157,6 @@ def test_make_master_calibs(exposure_collection, config):
             ccds.update([md["ccd"]])
         assert len(filters) == n_filters
         assert len(ccds) == n_cameras
-
-        # Check the calibs in the archive
-        master_calib_collection = MasterCalibCollection(config=config)
-        calib_metadata = master_calib_collection.find()
-        filenames = [c["filename"] for c in calib_metadata]
-        datasettypes = [c["datasetType"] for c in calib_metadata]
-        assert len(calib_metadata) == n_flat + n_bias + n_dark
-        assert sum([c == "flat" for c in datasettypes]) == n_flat
-        assert sum([c == "bias" for c in datasettypes]) == n_bias
-        assert sum([c == "dark" for c in datasettypes]) == n_dark
-        for filename in filenames:
-            assert os.path.isfile(filename)
 
 
 def test_make_coadd(exposure_collection_real_data, master_calib_collection_real_data,
