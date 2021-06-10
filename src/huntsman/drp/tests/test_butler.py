@@ -2,7 +2,6 @@ import os
 from collections import defaultdict
 
 from huntsman.drp.utils.date import current_date
-from huntsman.drp.collection import MasterCalibCollection
 from huntsman.drp.lsst.butler import ButlerRepository, TemporaryButlerRepository
 
 
@@ -132,7 +131,7 @@ def test_make_master_calibs(exposure_collection, config):
         br.make_master_calibs(calib_docs, rerun=rerun)
 
         # Check the biases in the butler dir
-        metadata_bias = br.get_dataIds(datasetType="bias", rerun=rerun)
+        metadata_bias = br.get_dataIds(datasetType="bias")
         assert len(metadata_bias) == n_bias
         ccds = set()
         for md in metadata_bias:

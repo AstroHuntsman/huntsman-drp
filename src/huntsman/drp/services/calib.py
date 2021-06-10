@@ -285,34 +285,10 @@ class MasterCalibMaker(HuntsmanBase):
 
             # Make master calibs
             # NOTE: Implicit error handling
-            filenames_by_type = br.make_master_calibs(
+            calib_docs = br.make_master_calibs(
                 calib_docs=calibs_to_process, validity=self._validity.days, procs=self._nproc)
 
             # Archive the master calibs
-            self._archive_master_calibs(filenames_by_type)
-
-    def _archive_master_calibs(self, calib_docs):
-        """ Copy the FITS files into the archive directory and update the entry in the DB.
-        Args:
-            metadata_list (list): List of abc.Mapping, normally CalibDocument.
-        """
-        for calib_doc in calib_docs:
-
-            filename = calib_doc["filename"]
-
-            # Use the archived filename for the mongo document
-            archived_filename = get_calib_filename(calib_doc, config=self.config)
-
-            # Copy the file into the calib archive, overwriting if necessary
-            self.logger.debug(f"Copying {filename} to {archived_filename}.")
-            os.makedirs(os.path.dirname(archived_filename), exist_ok=True)
-            shutil.copy(filename, archived_filename)
-
-            # Update the document before archiving
-            calib_doc = calib_doc.copy()
-            calib_doc["filename"] = archived_filename
-
-            # Insert the metadata into the calib database
-            # Use replace operation with upsert because old document may already exist
-            document_filter = {"filename": archived_filename}
-            self._calib_collection.replace_one(document_filter, calib_doc, upsert=True)
+            for calib_doc in calib_docs:
+                self._calib_collection.archive_master_calib(filename=calib_doc["filename"],
+                                                            metadata=calib_doc)

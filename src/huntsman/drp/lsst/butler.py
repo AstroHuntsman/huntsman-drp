@@ -4,6 +4,7 @@ NOTES:
     https://github.com/lsst/pipe_base/blob/master/python/lsst/pipe/base/argumentParser.py#L678
 """
 import os
+import sqlite3
 from contextlib import suppress
 from tempfile import TemporaryDirectory
 
@@ -180,6 +181,19 @@ class ButlerRepository(HuntsmanBase):
         keys = list(butler.getKeys(datasetType).keys())
         if extra_keys is not None:
             keys.extend(extra_keys)
+
+        # Work-around to have consistent query behaviour for calibs
+        # TODO: Figure out how to do this properly with butler
+        if datasetType in self._ordered_calib_types:
+            results = []
+            for md in self._get_calib_metadata(datasetType):
+                if dataId is not None:
+                    if not all([k in md for k in dataId.keys()]):
+                        continue
+                    elif not all(md[k] == dataId[k] for k in dataId.keys()):
+                        continue
+                results.append({k: md[k] for k in keys})
+            return results
 
         return self.get_metadata(datasetType, keys=keys, dataId=dataId)
 
@@ -481,6 +495,36 @@ class ButlerRepository(HuntsmanBase):
         datasetType = calib_doc["datasetType"]
         required_keys = self.get_keys(datasetType, **kwargs)
         return {k: calib_doc[k] for k in required_keys}
+
+    def _get_calib_metadata(self, datasetType, keys_ignore=None):
+        """ Query the ingested calibs.
+        TODO: Figure out how to do this properly with Butler.
+        Args:
+            datasetType (str): The dataset type (e.g. bias, dark, flat).
+            keys_ignore (list of str, optional): If provided, drop these keys from result.
+        Returns:
+            list of dict: The query result in column: value.
+        """
+        # Access the sqlite DB
+        conn = sqlite3.connect(os.path.join(self.calib_dir, "calibRegistry.sqlite3"))
+        c = conn.cursor()
+
+        # Query the calibs
+        result = c.execute(f"SELECT * from {datasetType}")
+        metadata_list = []
+
+        for row in result:
+            d = {}
+            for idx, col in enumerate(c.description):
+                d[col[0]] = row[idx]
+            metadata_list.append(d)
+        c.close()
+
+        if keys_ignore is not None:
+            keys_keep = [k for k in metadata_list[0].keys() if k not in keys_ignore]
+            metadata_list = [{k: _[k] for k in keys_keep} for _ in metadata_list]
+
+        return metadata_list
 
 
 class TemporaryButlerRepository(ButlerRepository):

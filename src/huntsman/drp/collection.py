@@ -1,4 +1,6 @@
 """Code to interface with the Huntsman mongo database."""
+import os
+import shutil
 from contextlib import suppress
 from datetime import timedelta
 from urllib.parse import quote_plus
@@ -543,3 +545,26 @@ class MasterCalibCollection(Collection):
             best_calibs[calib_type] = calib_docs[np.argmin(timediffs)]
 
         return best_calibs
+
+    def archive_master_calib(self, filename, metadata):
+        """ Copy the FITS files into the archive directory and update the entry in the DB.
+        Args:
+            filename (str): The filename of the calib to archive, which is copied into the archive
+                dir.
+            metadata (abc.Mapping): The calib metadata to be stored in the document.
+        """
+        # Use the archived filename for the mongo document
+        archived_filename = get_calib_filename(metadata, config=self.config)
+
+        # Copy the file into the calib archive, overwriting if necessary
+        self.logger.debug(f"Copying {filename} to {archived_filename}.")
+        os.makedirs(os.path.dirname(archived_filename), exist_ok=True)
+        shutil.copy(filename, archived_filename)
+
+        # Update the document before archiving
+        metadata = metadata.copy()
+        metadata["filename"] = archived_filename
+
+        # Insert the metadata into the calib database
+        # Use replace operation with upsert because old document may already exist
+        self.replace_one({"filename": archived_filename}, metadata, upsert=True)
