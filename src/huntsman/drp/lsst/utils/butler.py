@@ -30,34 +30,6 @@ def get_filename_template(datasetType):
     return template
 
 
-def dataIds_to_calibIds(datasetType, dataIds, calibDate, butler):
-    """ Get calibIds given a set of dataIds and datasetType.
-    Args:
-        datasetType (str): The calib type, e.g. flat, bias.
-        dataIds (list of dict): The data ids.
-        butler (lsst.daf.persistence.butler.Butler): The butler object.
-    Returns:
-        list of dict: The set of unique calibIds associated with the dataIds.
-    """
-    # Get required keys
-    calib_keys = [k for k in butler.getKeys(datasetType).keys() if k != "calibDate"]
-
-    # Get key values for each dataId
-    calib_key_values = []
-    for dataId in dataIds:
-        calib_key_values.append(tuple([dataId[k] for k in calib_keys]))
-
-    # Get unique sets of calibIds
-    unique_calib_values = set(calib_key_values)
-    calibIds = [{k: v for k, v in zip(calib_keys, vs)} for vs in unique_calib_values]
-
-    # Add calibDate to calibIds
-    for calibId in calibIds:
-        calibId["calibDate"] = calibDate
-
-    return calibIds
-
-
 def calibId_to_dataIds(datasetType, calibId, butler):
     """ Get ingested dataIds that match a calibId of a given datasetType.
     Args:

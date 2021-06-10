@@ -248,7 +248,7 @@ class MasterCalibMaker(HuntsmanBase):
             pass
 
         # If dataset type is dark, need to add all dependent flats
-        elif dataset_type in ("bias", "dark"):
+        if dataset_type in ("bias", "dark"):
             query = matching_dict.copy()
             query["datasetType"] = "flat"
             new_docs = self._calib_collection.find(query)
@@ -256,7 +256,7 @@ class MasterCalibMaker(HuntsmanBase):
                 calib_docs.update(new_docs)
 
         # If dataset type is dark, need to add all dependent biases and darks
-        elif dataset_type == "bias":
+        if dataset_type == "bias":
             query = matching_dict.copy()
             query["datasetType"] = {"in": ["dark", "flat"]}
             new_docs = self._calib_collection.find(query)
