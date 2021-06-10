@@ -6,7 +6,6 @@ NOTES:
 import os
 from contextlib import suppress
 from tempfile import TemporaryDirectory
-import sqlite3
 
 import lsst.daf.persistence as dafPersist
 from lsst.daf.persistence.policy import Policy
@@ -164,35 +163,6 @@ class ButlerRepository(HuntsmanBase):
             return [{keys[0]: _} for _ in md]
 
         return [{k: v for k, v in zip(keys, _)} for _ in md]
-
-    def get_calib_metadata(self, datasetType, keys_ignore=None):
-        """ Query the ingested calibs. TODO: Replace with the "official" Butler version.
-        Args:
-            datasetType (str): The dataset type (e.g. bias, dark, flat).
-            keys_ignore (list of str, optional): If provided, drop these keys from result.
-        Returns:
-            list of dict: The query result in column: value.
-        """
-        # Access the sqlite DB
-        conn = sqlite3.connect(os.path.join(self.calib_dir, "calibRegistry.sqlite3"))
-        c = conn.cursor()
-
-        # Query the calibs
-        result = c.execute(f"SELECT * from {datasetType}")
-        metadata_list = []
-
-        for row in result:
-            d = {}
-            for idx, col in enumerate(c.description):
-                d[col[0]] = row[idx]
-            metadata_list.append(d)
-        c.close()
-
-        if keys_ignore is not None:
-            keys_keep = [k for k in metadata_list[0].keys() if k not in keys_ignore]
-            metadata_list = [{k: _[k] for k in keys_keep} for _ in metadata_list]
-
-        return metadata_list
 
     def get_dataIds(self, datasetType, dataId=None, extra_keys=None, **kwargs):
         """ Get ingested dataIds for a given datasetType.
