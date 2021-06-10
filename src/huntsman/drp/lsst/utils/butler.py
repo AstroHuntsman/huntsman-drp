@@ -1,19 +1,32 @@
+from lsst.daf.persistence.policy import Policy
 
-def get_filename_template(datasetType, policy):
+
+def load_policy():
+    """ Load the LSST policy.
+    Returns:
+        lsst.daf.persistence.policy.Policy: The policy object.
+    """
+    policy_filename = Policy.defaultPolicyFile("obs_huntsman", "HuntsmanMapper.yaml",
+                                               relativePath="policy")
+    return Policy(policy_filename)
+
+
+def get_filename_template(datasetType):
     """ Get the filename template for a specific datatype.
     Args:
         datasetType (str):
             The dataset type as specified in the policy file. e.g. `exposures.raw`
             or `calibrations.flat`.
-        policy (`lsst.daf.persistence.Policy`):
-            The Policy object.
     Returns:
         str: The filename template.
     """
+    policy = load_policy()
     policy_key = datasetType + ".template"
+
     template = policy[policy_key]
     if template is None:
         raise KeyError(f"Template not found for {datasetType}.")
+
     return template
 
 

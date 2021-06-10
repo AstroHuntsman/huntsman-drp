@@ -8,10 +8,11 @@ import pymongo
 from pymongo.errors import ServerSelectionTimeoutError, DuplicateKeyError
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.utils.date import current_date, parse_date
+from huntsman.drp.utils.date import current_date, parse_date, date_to_ymd
 from huntsman.drp.document import Document, RawExposureDocument, CalibDocument
 from huntsman.drp.utils.mongo import encode_mongo_filter, mongo_logical_or, mongo_logical_and
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
+from huntsman.drp.lsst.utils.calib import get_calib_filename
 
 
 class Collection(HuntsmanBase):
@@ -366,14 +367,18 @@ class RawExposureCollection(Collection):
 
         return super().insert_one(document, *args, **kwargs)
 
-    def get_matching_raw_calibs(self, calib_document, calib_date):
+    def get_matching_raw_calibs(self, calib_document, calib_date, validity=None):
         """ Return matching set of calib IDs for a given data_id and calib_date.
         Args:
             calib_document (CalibDocument): The calib document to match with.
             calib_date (object): An object that can be interpreted as a date.
+            validity (datetime.timedelta): The validity of the calibs.
         Returns:
             list of RawExposureDocument: The matching raw calibs ordered by increasing time diff.
         """
+        if validity is None:
+            validity = timedelta(days=self.config["calibs"]["validity"])
+
         # Make the document filter
         dataset_type = calib_document["datasetType"]
         matching_keys = self.config["calibs"]["matching_columns"][dataset_type]
@@ -384,7 +389,6 @@ class RawExposureCollection(Collection):
         doc_filter["dataType"] = dataset_type
 
         # Add valid date range to query
-        validity = timedelta(days=self.config["calibs"]["validity"])
         calib_date = parse_date(calib_date)
         date_start = calib_date - validity
         date_end = calib_date + validity
@@ -424,12 +428,35 @@ class RawExposureCollection(Collection):
             documents = self._exposure_collection.find(
                 {"dataType": {"in": data_types}},
                 date_start=date_start, date_end=date_end, screen=True, quality_filter=True)
+        else:
+            documents = [d for d in documents if d["dataType"] in data_types]
 
-        calib_docs = set([self._raw_doc_to_calib_doc(d, calib_date) for d in documents])
+        calib_docs = set([self.raw_doc_to_calib_doc(d, calib_date) for d in documents])
 
         self.logger.info(f"Found {len(calib_docs)} calibIds for calib_date={calib_date}.")
 
         return calib_docs
+
+    def raw_doc_to_calib_doc(self, document, calib_date):
+        """ Convert a RawExposureDocument into its corresponding CalibDocument.
+        Args:
+            document (RawExposureDocument): The raw calib document.
+            calib_date (object): The calib date.
+        Returns:
+            CalibDocument: The matching calib document.
+        """
+        calib_type = document["dataType"]
+
+        # Get minimal calib metadata
+        keys = self.config["calibs"]["matching_columns"][calib_type]
+        calib_dict = {k: document[k] for k in keys}
+
+        # Add extra required metadata
+        calib_dict["calibDate"] = date_to_ymd(calib_date)
+        calib_dict["datasetType"] = calib_type
+        calib_dict["filename"] = get_calib_filename(calib_dict, config=self.config)
+
+        return CalibDocument(calib_dict)
 
     def clear_calexp_metrics(self):
         """ Clear all calexp metrics from the collection.

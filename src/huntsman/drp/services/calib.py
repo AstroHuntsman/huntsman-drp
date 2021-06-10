@@ -11,6 +11,7 @@ from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import date_to_ymd
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
+from huntsman.drp.lsst.utils.calib import get_calib_filename
 
 
 class MasterCalibMaker(HuntsmanBase):
@@ -202,7 +203,8 @@ class MasterCalibMaker(HuntsmanBase):
             list of RawExposureDocument: The matching raw exposure documents.
         """
         calib_date = calib_doc["calibDate"]
-        docs = self._exposure_collection.get_matching_raw_calibs(calib_doc, calib_date=calib_date)
+        docs = self._exposure_collection.get_matching_raw_calibs(calib_doc, calib_date=calib_date,
+                                                                 validity=self._validity)
 
         if self._max_docs_per_calib:
 
@@ -289,31 +291,28 @@ class MasterCalibMaker(HuntsmanBase):
             # Archive the master calibs
             self._archive_master_calibs(filenames_by_type)
 
-    def _archive_master_calibs(self, metadata_list):
+    def _archive_master_calibs(self, calib_docs):
         """ Copy the FITS files into the archive directory and update the entry in the DB.
         Args:
             metadata_list (list): List of abc.Mapping, normally CalibDocument.
         """
-        archive_dir = self.config["directories"]["archive"]
+        for calib_doc in calib_docs:
 
-        for metadata in metadata_list:
-
-            basename = metadata["basename"]
-            filename = metadata["filename"]
+            filename = calib_doc["filename"]
 
             # Use the archived filename for the mongo document
-            archived_filename = os.path.join(archive_dir, basename)
+            archived_filename = get_calib_filename(calib_doc, config=self.config)
 
             # Copy the file into the calib archive, overwriting if necessary
             self.logger.debug(f"Copying {filename} to {archived_filename}.")
             os.makedirs(os.path.dirname(archived_filename), exist_ok=True)
             shutil.copy(filename, archived_filename)
 
-            # Update the md before archiving
-            del metadata["basename"]
-            metadata["filename"] = archived_filename
+            # Update the document before archiving
+            calib_doc = calib_doc.copy()
+            calib_doc["filename"] = archived_filename
 
             # Insert the metadata into the calib database
             # Use replace operation with upsert because old document may already exist
             document_filter = {"filename": archived_filename}
-            self._calib_collection.replace_one(document_filter, metadata, upsert=True)
+            self._calib_collection.replace_one(document_filter, calib_doc, upsert=True)

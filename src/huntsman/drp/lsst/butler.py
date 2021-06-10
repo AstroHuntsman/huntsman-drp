@@ -8,19 +8,17 @@ from contextlib import suppress
 from tempfile import TemporaryDirectory
 
 import lsst.daf.persistence as dafPersist
-from lsst.daf.persistence.policy import Policy
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.lsst import tasks
 import huntsman.drp.lsst.utils.butler as utils
 from huntsman.drp.lsst.utils.coadd import get_skymap_ids
+from huntsman.drp.lsst.utils.calib import get_calib_filename
 
 
 class ButlerRepository(HuntsmanBase):
 
     _mapper = "lsst.obs.huntsman.HuntsmanMapper"
-    _policy_filename = Policy.defaultPolicyFile("obs_huntsman", "HuntsmanMapper.yaml",
-                                                relativePath="policy")
 
     def __init__(self, directory, calib_dir=None, initialise=True, calib_validity=1000, **kwargs):
         """
@@ -51,7 +49,7 @@ class ButlerRepository(HuntsmanBase):
             self._refcat_filename = os.path.join(self.butler_dir, "refcat_raw", "refcat_raw.csv")
 
         # Load the policy file
-        self._policy = Policy(self._policy_filename)
+        self._policy = utils.load_policy()
 
         # Initialise the butler repository
         self._butlers = {}  # One butler for each rerun
@@ -277,24 +275,15 @@ class ButlerRepository(HuntsmanBase):
         tasks.make_master_calib(datasetType, calibId, dataIds, butler_dir=self.butler_dir,
                                 calib_dir=self.calib_dir, rerun=rerun, **kwargs)
 
-        # Get the filename template from the LSST policy
-        fname_template = utils.get_filename_template(f"calibrations.{datasetType}", self._policy)
-        basename = fname_template % calibId
+        directory = os.path.join(self.butler_dir, "rerun", rerun)
+        filename = get_calib_filename(calib_doc, directory=directory, config=self.config)
 
         # Check the calib exists
-        filename = os.path.join(self.butler_dir, "rerun", rerun, basename)
         if not os.path.isfile(filename):
             raise FileNotFoundError(f"Master calib not found: {calibId}, filename={filename}")
 
         # Ingest the calib
         self.ingest_master_calibs(datasetType, [filename], validity=validity)
-
-        # Return metadata
-        md = calib_doc.copy()
-        md["filename"] = filename
-        md["basename"] = basename
-
-        return md
 
     def make_master_calibs(self, calib_docs, **kwargs):
         """ Make master calibs for a list of calib documents.
@@ -304,18 +293,18 @@ class ButlerRepository(HuntsmanBase):
         Returns:
             dict: Dictionay containing lists of filename for each datasetType.
         """
-        metadata = []
+        docs = []
         for datasetType in self._ordered_calib_types:  # Order is important
 
             for calib_doc in [c for c in calib_docs if c["datasetType"] == datasetType]:
                 try:
-                    md = self.make_master_calib(calib_doc, **kwargs)
-                    metadata.append(md)
+                    self.make_master_calib(calib_doc, **kwargs)
+                    docs.append(calib_doc)
 
                 except Exception as err:
                     self.logger.error(f"Problem making calib for calibId={calib_doc}: {err!r}")
 
-        return metadata
+        return docs
 
     def make_calexp(self, dataId, rerun="default", **kwargs):
         """ Make calibrated exposure using the LSST stack.

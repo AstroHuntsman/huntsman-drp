@@ -96,6 +96,7 @@ def test_make_master_calibs(exposure_collection, config):
     doc = exposure_collection.find()[0]
     doc_filter = {k: doc[k] for k in ["CAM-ID", "dateObs"]}
     docs = exposure_collection.find(doc_filter)
+
     calib_docs = exposure_collection.get_calib_docs(current_date(), documents=docs)
 
     n_cameras = 1
