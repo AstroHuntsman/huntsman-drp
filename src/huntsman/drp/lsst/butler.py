@@ -303,6 +303,8 @@ class ButlerRepository(HuntsmanBase):
         # Ingest the calib
         self.ingest_master_calibs(datasetType, [filename], validity=validity)
 
+        return filename
+
     def make_master_calibs(self, calib_docs, **kwargs):
         """ Make master calibs for a list of calib documents.
         Args:
@@ -316,8 +318,12 @@ class ButlerRepository(HuntsmanBase):
 
             for calib_doc in [c for c in calib_docs if c["datasetType"] == datasetType]:
                 try:
-                    self.make_master_calib(calib_doc, **kwargs)
-                    docs.append(calib_doc)
+                    filename = self.make_master_calib(calib_doc, **kwargs)
+
+                    # Update the filename
+                    doc = calib_doc.copy()
+                    doc["filename"] = filename
+                    docs.append(doc)
 
                 except Exception as err:
                     self.logger.error(f"Problem making calib for calibId={calib_doc}: {err!r}")

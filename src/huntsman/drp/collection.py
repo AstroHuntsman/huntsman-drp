@@ -427,9 +427,8 @@ class RawExposureCollection(Collection):
 
         # Get metadata for all raw calibs that are valid for this date
         if documents is None:
-            documents = self._exposure_collection.find(
-                {"dataType": {"in": data_types}},
-                date_start=date_start, date_end=date_end, screen=True, quality_filter=True)
+            documents = self.find({"dataType": {"in": data_types}}, date_start=date_start,
+                                  date_end=date_end, screen=True, quality_filter=True)
         else:
             documents = [d for d in documents if d["dataType"] in data_types]
 
