@@ -5,8 +5,6 @@ ENV PATH="/root/miniconda3/bin:${PATH}"
 ENV HUNTSMAN_LOG_DIR=/home/huntsman-logs
 ENV HUNTSMAN_DRP=/home/huntsman-drp
 
-COPY . ${HUNTSMAN_DRP}
-
 USER root
 # update apt-get
 RUN apt-get update -y && \
@@ -26,9 +24,11 @@ RUN apt-get update -y && \
     pip uninstall -y coverage && \
     pip install coverage==4.5.4 && \
     # Make huntsman directories
-    mkdir -p "${HUNTSMAN_LOG_DIR}" && \
-    # Install local huntsman-drp into the image
-    cd ${HUNTSMAN_DRP} && python setup.py develop
+    mkdir -p "${HUNTSMAN_LOG_DIR}"
+
+# Install local huntsman-drp into the image
+COPY . ${HUNTSMAN_DRP}
+RUN cd ${HUNTSMAN_DRP} && python setup.py develop
 
 WORKDIR /home
 ADD docker/ingestor/bash-config.sh .
