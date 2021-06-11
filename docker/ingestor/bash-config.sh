@@ -5,4 +5,4 @@ alias python=python3
 export SOLVE_FIELD=$(which solve-field)
 
 # activate the conda env
-conda activate screener
+conda activate ingestor

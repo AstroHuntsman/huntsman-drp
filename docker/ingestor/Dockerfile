@@ -19,8 +19,8 @@ RUN apt-get update -y && \
     rm -f Miniconda3-latest-Linux-x86_64.sh && \
     conda init bash && \
     . ~/.bashrc && \
-    conda create -n screener python=3.7 numpy astropy ipython pymongo matplotlib pyyaml pandas && \
-    conda activate screener && \
+    conda create -n ingestor python=3.7 numpy astropy ipython pymongo matplotlib pyyaml pandas && \
+    conda activate ingestor && \
     pip install astroquery panoptes-utils && \
     # Downgrade coverage version to avoid pytest issues
     pip uninstall -y coverage && \
@@ -31,6 +31,6 @@ RUN apt-get update -y && \
     cd ${HUNTSMAN_DRP} && python setup.py develop
 
 WORKDIR /home
-ADD docker/screener/bash-config.sh .
+ADD docker/ingestor/bash-config.sh .
 RUN cat bash-config.sh >> ~/.bashrc
 CMD ["/bin/bash"]
