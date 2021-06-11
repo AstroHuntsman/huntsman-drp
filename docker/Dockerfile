@@ -50,6 +50,4 @@ COPY --chown="${USER}:${USER}" . ${HUNTSMAN_DRP}
 
 USER ${user}
 WORKDIR ${LSST_HOME}
-ADD docker/bash-config.sh .
-RUN cat bash-config.sh >> ~/.bashrc
 CMD ["/bin/bash"]
