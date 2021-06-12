@@ -1,7 +1,11 @@
 import os
+import time
+from threading import Thread
 
 import numpy as np
 import matplotlib.pyplot as plt
+
+from panoptes.utils.time import CountdownTimer
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
@@ -16,9 +20,9 @@ HIST_BY_CAMERA = ("metrics.calexp.psf_fwhm_arcsec",)
 HIST_BY_CAMERA_FILTER = ("metrics.calexp.zp_mag",)
 
 
-class DiagnosticPlotter(HuntsmanBase):
-    """
-    """
+class Plotter(HuntsmanBase):
+    """ Class to mass produce plots using data from Collection objects. """
+
     _plot_by_camera_keys = PLOT_BY_CAMERA
     _plot_by_camera_filter_keys = PLOT_BY_CAMERA_FILTER
     _hist_by_camera_keys = HIST_BY_CAMERA
@@ -238,3 +242,52 @@ class DiagnosticPlotter(HuntsmanBase):
             fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
         fig.savefig(filename, dpi=dpi, bbox_inches="tight")
+
+
+class PlotterService(HuntsmanBase):
+    """ Class to routinely update plots from multiple plotters specified in the config. """
+
+    def __init__(self, sleep_interval=1, **kwargs):
+        super().__init__(**kwargs)
+
+        self._sleep_interval = sleep_interval * 3600
+
+        self._plotters = self._create_plotters()
+
+        self._stop_threads = True
+        self._run_thread = Thread(target=self._run)
+
+    def start(self):
+        """ Start the service. """
+        self.logger.debug(f"Starting {self}.")
+        self._run_thread.start()
+
+    def stop(self):
+        """ Stop the service. """
+        self.logger.debug(f"Stopping {self}.")
+        self._stop_threads = True
+        self._run_thread.join()
+        self.logger.info(f"{self} stopped.")
+
+    def _run(self):
+        """ Continually update plots until the service is stopped. """
+        self._stop_threads = False
+
+        while True:
+            for plotter in self.plotters:
+                plotter.makeplots()
+
+            self.logger.debug(f"Sleeping for {self._sleep_interval}s.")
+
+            timer = CountdownTimer(self._sleep_interval)
+            while not timer.expired():
+                if self._stop_threads:
+                    return
+                time.sleep(1)
+
+    def _create_plotters(self):
+        """ Create a list of plotters from the config. """
+        plotter_configs = self.config.get("plotters")
+        if plotter_configs:
+            return [Plotter(config=self.config, logger=self.logger, **c) for c in plotter_configs]
+        return [Plotter(config=self.config, logger=self.logger)]
