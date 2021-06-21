@@ -422,13 +422,13 @@ class RawExposureCollection(Collection):
             validity = timedelta(days=self.config["calibs"]["validity"])
 
         calib_date = parse_date(calib_date)
-        date_start = calib_date - validity
-        date_end = calib_date + validity
+        date_min = calib_date - validity
+        date_max = calib_date + validity
 
         # Get metadata for all raw calibs that are valid for this date
         if documents is None:
-            documents = self.find({"dataType": {"in": data_types}}, date_start=date_start,
-                                  date_end=date_end, screen=True, quality_filter=True)
+            documents = self.find({"dataType": {"in": data_types}}, date_min=date_min,
+                                  date_max=date_max, screen=True, quality_filter=True)
         else:
             documents = [d for d in documents if d["dataType"] in data_types]
 
