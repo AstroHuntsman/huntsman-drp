@@ -70,18 +70,12 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=Fal
 
 def clipped_stats(filename, data, header):
     """Return sigma-clipped image statistics.
-
-    Parameters
-    ----------
-    data : array
-        Image data as stored as an array.
-    header : dict
-        Dictionary containing image metadata
-
-    Returns
-    -------
-    dict
-        Dictionary containing the calculated stats values.
+    Args:
+        filename (str): The filename.
+        data (np.array): The data array.
+        header (abc.Mapping): The parsed FITS header.
+    Returns:
+        dict: The dict containing the metrics.
     """
     mean, median, stdev = stats.sigma_clipped_stats(data)
 
@@ -96,18 +90,12 @@ def clipped_stats(filename, data, header):
 
 def flipped_asymmetry(filename, data, header):
     """ Calculate the asymmetry statistics by flipping data in x and y directions.
-
-    Parameters
-    ----------
-    data : array
-        Image data as stored as an array.
-    header : dict
-        Dictionary containing image metadata
-
-    Returns
-    -------
-    dict
-        Dictionary containing the calculated stats values.
+    Args:
+        filename (str): The filename.
+        data (np.array): The data array.
+        header (abc.Mapping): The parsed FITS header.
+    Returns:
+        dict: The dict containing the metrics.
     """
     # Horizontal flip
     data_flip = data[:, ::-1]
@@ -120,6 +108,12 @@ def flipped_asymmetry(filename, data, header):
 
 def alt_az(filename, data, header):
     """ Get the alt az of the observation from the header.
+    Args:
+        filename (str): The filename.
+        data (np.array): The data array.
+        header (abc.Mapping): The parsed FITS header.
+    Returns:
+        dict: The dict containing the metrics.
     """
     # Get the ra / dec of the observation
     ra = header["RA-MNT"] * u.deg
