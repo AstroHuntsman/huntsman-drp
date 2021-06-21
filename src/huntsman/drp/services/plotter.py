@@ -10,30 +10,26 @@ from panoptes.utils.time import CountdownTimer
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
 
-PLOT_BY_CAMERA = []
-PLOT_BY_CAMERA_FILTER = [{"x_key": "AIRMASS", "y_key": "metrics.calexp.zp_mag"}]
-
-# Metrics to plot histograms per camera
-HIST_BY_CAMERA = ("metrics.calexp.psf_fwhm_arcsec",)
-
-# Metrics to plot histograms per camera per filter
-HIST_BY_CAMERA_FILTER = ("metrics.calexp.zp_mag",)
-
 
 class Plotter(HuntsmanBase):
     """ Class to mass produce plots using data from Collection objects. """
 
-    _plot_by_camera_keys = PLOT_BY_CAMERA
-    _plot_by_camera_filter_keys = PLOT_BY_CAMERA_FILTER
-    _hist_by_camera_keys = HIST_BY_CAMERA
-    _hist_by_camera_filter_keys = HIST_BY_CAMERA_FILTER
-
-    def __init__(self, find_kwargs=None, **kwargs):
-
+    def __init__(self, find_kwargs=None, directory_prefix="default", plot_configs=None, **kwargs):
+        """
+        Args:
+            find_kwargs (dict, optional): kwargs used to select documents to plot. Default: None.
+            directory_prefix (str, optional): The subdirectory in the plot directory in which to
+                store plots. Default: "default".
+            plot_configs (dict, optional): Specify which keys to plot and how to plot them. For
+                more info, see self.makeplots. Default: None.
+            **kwargs: Parsed to HuntsmanBase init function.
+        """
         super().__init__(**kwargs)
 
-        self._image_dir = self.config["directories"]["diagnostics"]
-        os.makedirs(self._image_dir, exist_ok=True)
+        self.image_dir = os.path.join(self.config["directories"]["plots"], directory_prefix)
+        os.makedirs(self.image_dir, exist_ok=True)
+
+        self._plot_configs = {} if not plot_configs else plot_configs
 
         self._exposure_collection = RawExposureCollection(config=self.config)
         self._calib_collection = MasterCalibCollection(config=self.config)
@@ -47,25 +43,28 @@ class Plotter(HuntsmanBase):
     def makeplots(self):
         """ Make all plots and write them to the images directory. """
 
-        for d in self._plot_by_camera_keys:
-            x_key = d.pop("x_key")
-            y_key = d.pop("y_key")
-            self.plot_by_camera(x_key, y_key, **d)
+        for d in self._plot_configs.get("plot_by_camera", []):
+            self.plot_by_camera(**d)
 
-        for d in self._plot_by_camera_filter_keys:
-            x_key = d.pop("x_key")
-            y_key = d.pop("y_key")
-            self.plot_by_camera_filter(x_key, y_key, **d)
+        for d in self._plot_configs.get("plot_by_camera_filter", []):
+            self.plot_by_camera_filter(**d)
 
-        for key in self._hist_by_camera_keys:
-            self.plot_hist_by_camera(key)
+        for d in self._plot_configs.get("hist_by_camera", []):
+            self.plot_hist_by_camera(**d)
 
-        for key in self._hist_by_camera_filter_keys:
-            self.plot_hist_by_camera_filter(key)
+        for d in self._plot_configs.get("hist_by_camera_filter", []):
+            self.plot_hist_by_camera_filter(**d)
 
     def plot_by_camera(self, x_key, y_key, basename=None, docs=None, linestyle=None,
                        marker="o", markersize=1, linewidth=0, **kwargs):
-        """
+        """ x-y plot of quantities by camera.
+        Args:
+            x_key (str): Flattened name of the document field to plot on the x-axis.
+            y_key (str): Flattened name of the document field to plot on the y-axis.
+            basename (str, optional): The file basename. If not provided, key is used.
+            docs (list of Document, optional): A list of documents to plot. If None, will use
+                self._rawdocs.
+            **kwargs: Parsed to matplotlib.pyplot.plot.
         """
         basename = basename if basename is not None else f"{x_key}_{y_key}"
 
@@ -106,13 +105,28 @@ class Plotter(HuntsmanBase):
         fig.suptitle(basename)
         self._savefig(fig, basename=basename)
 
-    def plot_hist_by_camera(self, key, basename=None, docs=None):
+    def plot_by_camera_filter(self, x_key, y_key, **kwargs):
+        """ x-y plot of quantities by camera for each filter.
+        Args:
+            x_key (str): Flattened name of the document field to plot on the x-axis.
+            y_key (str): Flattened name of the document field to plot on the y-axis.
+            **kwargs: Parsed to self.plot_by_camera.
+        """
+        filter_names = set([d["filter"] for d in self._rawdocs])
+
+        for filter_name in filter_names:
+            docs = [d for d in self._rawdocs if d["filter"] == filter_name]
+            basename = f"{x_key}_{y_key}-{filter_name}"
+            self.plot_by_camera(x_key, y_key, basename=basename, docs=docs, **kwargs)
+
+    def plot_hist_by_camera(self, key, basename=None, docs=None, **kwargs):
         """ Plot histograms of quantities by camera.
         Args:
             key (str): Flattened name of the document field to plot.
             basename (str, optional): The file basename. If not provided, key is used.
             docs (list of Document, optional): A list of documents to plot. If None, will use
                 self._rawdocs.
+            **kwargs: Parsed to matplotlib.pyplot.
         """
         basename = basename if basename is not None else key
 
@@ -131,35 +145,24 @@ class Plotter(HuntsmanBase):
         fig, axes = self._make_fig_by_camera(n_cameras=len(values_by_camera))
 
         for (ax, (cam_name, values)) in zip(axes, values_by_camera.items()):
-            ax.hist(values, range=(vmin, vmax))
+            ax.hist(values, range=(vmin, vmax), **kwargs)
             ax.set_title(f"{cam_name}")
         fig.suptitle(basename)
 
         self._savefig(fig, basename=basename)
 
-    def plot_hist_by_camera_filter(self, key):
+    def plot_hist_by_camera_filter(self, key, **kwargs):
         """ Plot histograms of quantities by camera separately for each filter.
         Args:
             key (str): The flattened key to plot.
+            **kwargs: Parsed to self.plot_hist_by_camera.
         """
         filter_names = set([d["filter"] for d in self._rawdocs])
 
         for filter_name in filter_names:
             docs = [d for d in self._rawdocs if d["filter"] == filter_name]
             basename = f"{key}-{filter_name}"
-            self.plot_hist_by_camera(key, basename=basename, docs=docs)
-
-    def plot_by_camera_filter(self, x_key, y_key):
-        """ Plot histograms of quantities by camera separately for each filter.
-        Args:
-            key (str): The flattened key to plot.
-        """
-        filter_names = set([d["filter"] for d in self._rawdocs])
-
-        for filter_name in filter_names:
-            docs = [d for d in self._rawdocs if d["filter"] == filter_name]
-            basename = f"{x_key}_{y_key}-{filter_name}"
-            self.plot_by_camera(x_key, y_key, basename=basename, docs=docs)
+            self.plot_hist_by_camera(key, basename=basename, docs=docs, **kwargs)
 
     def _get_docs_by_camera(self, docs):
         """ Return dict of documents with keys of camera name.
@@ -187,7 +190,14 @@ class Plotter(HuntsmanBase):
         return docs_by_camera
 
     def _get_values_by_camera(self, key, docs_by_camera):
-        """
+        """ Return dict of values with keys of camera name.
+        Args:
+            key (str): The name of the quantity to get.
+            docs_by_camera (dict): Dict of cam_name: docs.
+        Returns:
+            dict: Dict of camera_name: list of values.
+            float: The minimum value of all values
+            flat: The maximum value of all values.
         """
         # Get dict of values organised by camera name
         values_by_camera = {}
@@ -222,7 +232,9 @@ class Plotter(HuntsmanBase):
         axes = []
         for i in range(n_row):
             for j in range(n_col):
-                axes.append(fig.add_subplot(n_row, n_col, i * n_col + j + 1))
+                idx = i * n_col + j
+                if idx < n_cameras:
+                    axes.append(fig.add_subplot(n_row, n_col, idx + 1))
 
         return fig, axes
 
@@ -235,7 +247,7 @@ class Plotter(HuntsmanBase):
             **kwargs: Parsed to fig.savefig.
         """
         basename = basename.replace(".", "-") + ".png"  # Remove nested dict dot notation
-        filename = os.path.join(self._image_dir, basename)
+        filename = os.path.join(self.image_dir, basename)
         self.logger.debug(f"Writing image: {filename}")
 
         if tight_layout:
@@ -249,13 +261,15 @@ class PlotterService(HuntsmanBase):
 
     def __init__(self, sleep_interval=1, **kwargs):
         super().__init__(**kwargs)
-
-        self._sleep_interval = sleep_interval * 3600
-
-        self._plotters = self._create_plotters()
+        self.plotters = self._create_plotters()
 
         self._stop_threads = True
+        self._sleep_interval = sleep_interval * 3600
         self._run_thread = Thread(target=self._run)
+
+    @property
+    def is_running(self):
+        return self._run_thread.is_alive()
 
     def start(self):
         """ Start the service. """
@@ -287,7 +301,5 @@ class PlotterService(HuntsmanBase):
 
     def _create_plotters(self):
         """ Create a list of plotters from the config. """
-        plotter_configs = self.config.get("plotters")
-        if plotter_configs:
-            return [Plotter(config=self.config, logger=self.logger, **c) for c in plotter_configs]
-        return [Plotter(config=self.config, logger=self.logger)]
+        plotter_configs = self.config["plotter"]
+        return [Plotter(config=self.config, logger=self.logger, **c) for c in plotter_configs]
