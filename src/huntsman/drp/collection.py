@@ -96,8 +96,9 @@ class Collection(HuntsmanBase):
             document_filter.update({self._date_key: date_constraint})
 
         # Screen the results if necessary
+        # TODO: Move to raw exposure table
         if screen:
-            document_filter[METRIC_SUCCESS_FLAG] = True  # TODO: Move to raw exposure table
+            document_filter[f"metrics.{METRIC_SUCCESS_FLAG}"] = True
 
         mongo_filter = document_filter.to_mongo()
 
