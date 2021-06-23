@@ -30,6 +30,7 @@ class Collection(HuntsmanBase):
         if not db_name:
             db_name = cfg["db_name"]
 
+        # Get collection name from config if not explicitly provided
         if not collection_name:
             collection_name = cfg["collections"][self.__class__.__name__]["name"]
 
@@ -39,6 +40,9 @@ class Collection(HuntsmanBase):
         # Initialise the DB
         db_name = self.config["mongodb"]["db_name"]
         self._connect()
+
+    def __str__(self):
+        return f"{self.collection_name} ({self.__class__.__name__})"
 
     # Public methods
 
@@ -337,8 +341,8 @@ class RawExposureCollection(Collection):
 
     _document_type = RawExposureDocument
 
-    def __init__(self, collection_name="raw_data", **kwargs):
-        super().__init__(collection_name=collection_name, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     # Public methods
 
