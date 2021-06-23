@@ -8,7 +8,7 @@ import os
 import argparse
 
 from huntsman.drp.core import get_config, get_logger
-from huntsman.drp.utils.library import load_module
+from huntsman.drp.utils import load_module
 
 
 CONFIG = get_config()
@@ -26,7 +26,7 @@ def set_niceness():
 def wait_for_nameserver():
     try:
         from huntsman.drp.utils.pyro import wait_for_nameserver
-        wait_for_nameserver()
+        wait_for_nameserver(config=CONFIG, logger=LOGGER)
     except ImportError:
         pass
 
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     parser.add_argument("service_type", type=str, help="The name of the python class to run.")
     args = parser.parse_args()
 
-    set_niceness(config=CONFIG)
+    set_niceness()
 
     wait_for_nameserver()
 
