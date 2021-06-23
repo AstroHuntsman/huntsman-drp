@@ -141,7 +141,7 @@ class MasterCalibMaker(HuntsmanBase):
         # If there aren't enough matches then return False
         if self._min_docs_per_calib:
             if len(raw_docs) < self._min_docs_per_calib:
-                self.logger.debug(f"Not enough raw exposures to make calibId={calib_doc}.")
+                self.logger.warning(f"Not enough raw exposures to make calibId={calib_doc}.")
                 return False
 
         # If the calib does not already exist, we need to make it
@@ -150,7 +150,7 @@ class MasterCalibMaker(HuntsmanBase):
             return True
 
         # If the file doesn't exist, we need to make it
-        if not os.path.isfile(calib_doc["filename"]):
+        if not os.path.isfile(full_calib_doc["filename"]):
             return True
 
         if any([r["date_modified"] >= full_calib_doc["date_modified"] for r in raw_docs]):
