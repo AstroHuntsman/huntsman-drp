@@ -40,12 +40,6 @@ class Collection(HuntsmanBase):
         db_name = self.config["mongodb"]["db_name"]
         self._connect()
 
-    # Properties
-
-    @property
-    def collection_name(self):
-        return self.collection_name
-
     # Public methods
 
     def count_documents(self, *args, **kwargs):
@@ -497,8 +491,8 @@ class MasterCalibCollection(Collection):
 
     _document_type = CalibDocument
 
-    def __init__(self, collection_name="master_calib", **kwargs):
-        super().__init__(collection_name=collection_name, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def get_matching_calibs(self, document):
         """ Return best matching set of calibs for a given document.

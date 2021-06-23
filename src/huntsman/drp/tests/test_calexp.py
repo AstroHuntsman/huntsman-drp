@@ -14,10 +14,10 @@ def test_calexp_quality_monitor(exposure_collection_real_data, master_calib_coll
     config["mongodb"]["collections"]["MasterCalibCollection"]["name"] = calib_name
 
     n_to_process = exposure_collection_real_data.count_documents({"dataType": "science"})
-    m = CalexpQualityMonitor(status_interval=5, queue_interval=5,
-                             calib_collection=master_calib_collection_real_data,
-                             config=config)
+
+    m = CalexpQualityMonitor(status_interval=5, queue_interval=5, config=config)
     m.start()
+
     i = 0
     timeout = 180
     try:
