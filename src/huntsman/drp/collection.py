@@ -100,7 +100,7 @@ class Collection(HuntsmanBase):
         if screen:
             document_filter[f"metrics.{METRIC_SUCCESS_FLAG}"] = True
 
-        mongo_filter = document_filter.to_mongo()
+        mongo_filter = document_filter.to_mongo(flatten=True)
 
         # Apply quality cuts
         if quality_filter:

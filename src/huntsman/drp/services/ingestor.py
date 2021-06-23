@@ -33,6 +33,8 @@ def _process_file(filename, metric_names, exposure_collection, **kwargs):
     metrics[METRIC_SUCCESS_FLAG] = success
     to_update = {"metrics": metrics}
 
+    logger.info(f"XXX {success}")
+
     # Update the document (upserting if necessary)
     to_update.update(parsed_header)
     to_update["filename"] = filename
