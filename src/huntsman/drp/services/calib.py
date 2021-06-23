@@ -151,9 +151,11 @@ class MasterCalibMaker(HuntsmanBase):
             return True
 
         # If there are new files for this calib, we need to make it again
-        if not ignore_date:
-            if any([r["date_modified"] >= calib_doc["date_modified"] for r in raw_docs]):
-                return True
+        if "date_modified" not in calib_doc:  # Old calib docs don't have date_modified key
+            return True
+
+        if any([r["date_modified"] >= calib_doc["date_modified"] for r in raw_docs]):
+            return True
 
         # If there are no new files contributing to this existing calib, we can skip it
         return False
