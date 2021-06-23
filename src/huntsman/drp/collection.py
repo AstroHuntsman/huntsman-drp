@@ -34,7 +34,7 @@ class Collection(HuntsmanBase):
             collection_name = cfg["collections"][self.__class__.__name__]["name"]
 
         self._db_name = db_name
-        self._collection_name = collection_name
+        self.collection_name = collection_name
 
         # Initialise the DB
         db_name = self.config["mongodb"]["db_name"]
@@ -44,7 +44,7 @@ class Collection(HuntsmanBase):
 
     @property
     def collection_name(self):
-        return self._collection_name
+        return self.collection_name
 
     # Public methods
 
@@ -300,7 +300,7 @@ class Collection(HuntsmanBase):
             raise err
 
         self._db = self._client[self._db_name]
-        self._collection = self._db[self._collection_name]
+        self._collection = self._db[self.collection_name]
 
         # Define which keys identify unique documents
         self._set_unique_keys()
