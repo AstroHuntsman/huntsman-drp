@@ -1,11 +1,23 @@
 from functools import partial
 from copy import deepcopy
 
+from huntsman.drp.collection import RawExposureCollection
 from huntsman.drp.services.base import ProcessQueue
 from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header, read_fits_data
 from huntsman.drp.utils import load_module
 from huntsman.drp.metrics.raw import RAW_METRICS
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG, list_fits_files_recursive
+
+
+def ingest_file(filename, config=None):
+    """ Convenience function to easily ingest one file.
+    Args:
+        filename (str): The name of the file to ingest.
+        config (dict, optional): The config. If not provided, use default config.
+    """
+    collection = RawExposureCollection(config=config)
+
+    return _process_file(filename, metric_names=RAW_METRICS, exposure_collection=collection)
 
 
 def _process_file(filename, metric_names, exposure_collection, **kwargs):
