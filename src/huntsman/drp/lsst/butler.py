@@ -4,6 +4,7 @@ NOTES:
     https://github.com/lsst/pipe_base/blob/master/python/lsst/pipe/base/argumentParser.py#L678
 """
 import os
+from copy import deepcopy
 import sqlite3
 from contextlib import suppress
 from tempfile import TemporaryDirectory
@@ -14,7 +15,7 @@ from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.lsst import tasks
 import huntsman.drp.lsst.utils.butler as utils
 from huntsman.drp.lsst.utils.coadd import get_skymap_ids
-from huntsman.drp.lsst.utils.calib import get_calib_filename
+from huntsman.drp.lsst.utils.calib import get_calib_filename, make_defects_from_dark
 
 
 class ButlerRepository(HuntsmanBase):
@@ -327,6 +328,23 @@ class ButlerRepository(HuntsmanBase):
 
                 except Exception as err:
                     self.logger.error(f"Problem making calib for calibId={calib_doc}: {err!r}")
+
+        # Use the master darks to make the defects files (one for each master dark)
+        butler = dafPersist.Butler(inputs=[self.butler_dir], outputs=[self.calib_dir])
+        for dark_doc in [d for d in docs if d["datasetType"] == "dark"]:
+
+            # Make the defects doc using the dark
+            dataId = self._calib_doc_to_calibId(dark_doc)
+            make_defects_from_dark(butler=butler, dataId=dataId,
+                                   hot_pixel_threshold=self._hot_pixel_threshold)
+
+            # Make the document for the new defects file
+            defects_doc = deepcopy(dark_doc)
+            defects_doc["datasetType"] = "defects"
+
+            # Get the filename of the defects file inside the butler repo
+            filename = get_calib_filename(calib_doc, directory=self.calib_dir, config=self.config)
+            defects_doc["filename"] = filename
 
         return docs
 

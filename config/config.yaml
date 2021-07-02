@@ -31,7 +31,7 @@ cameras:
     zwo:
       width: 5496
       height: 3672
-      saturation: 4095
+      saturation: 4094
       gain: 1.145
       read_noise: 2.4
       pixel_size: 0.0024  # mm (?)
