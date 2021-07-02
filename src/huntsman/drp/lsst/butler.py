@@ -34,6 +34,7 @@ class ButlerRepository(HuntsmanBase):
         super().__init__(**kwargs)
 
         self._ordered_calib_types = self.config["calibs"]["types"]
+        self._hot_pixel_threshold = self.config["calibs"].get("hot_pixel_threshold", 0.05)
 
         if directory is not None:
             directory = os.path.abspath(directory)
@@ -330,7 +331,7 @@ class ButlerRepository(HuntsmanBase):
                     self.logger.error(f"Problem making calib for calibId={calib_doc}: {err!r}")
 
         # Use the master darks to make the defects files (one for each master dark)
-        butler = dafPersist.Butler(inputs=[self.butler_dir], outputs=[self.calib_dir])
+        butler = dafPersist.Butler(inputs=[self.calib_dir], outputs=[self.calib_dir])
         for dark_doc in [d for d in docs if d["datasetType"] == "dark"]:
 
             # Make the defects doc using the dark
