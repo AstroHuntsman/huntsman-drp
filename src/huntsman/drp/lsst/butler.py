@@ -69,11 +69,6 @@ class ButlerRepository(HuntsmanBase):
     def calib_dir(self):
         return self._calib_dir
 
-    @property
-    def status(self):
-        # TODO: Information here about number of ingested files etc
-        raise NotImplementedError
-
     def document_to_dataId(self, document):
         """ Extract an LSST dataId from a RawExposureDocument.
         Args:
@@ -284,6 +279,11 @@ class ButlerRepository(HuntsmanBase):
             str: The filename of the newly created master calib.
         """
         datasetType = calib_doc["datasetType"]
+
+        # Defects is treated separately from other calibs as there is no official makeDefectsTask
+        if datasetType == "defects":
+            return self._make_defects(calib_doc)
+
         calibId = self._calib_doc_to_calibId(calib_doc)
 
         # Get dataIds applicable to this calibId
@@ -329,24 +329,6 @@ class ButlerRepository(HuntsmanBase):
 
                 except Exception as err:
                     self.logger.error(f"Problem making calib for calibId={calib_doc}: {err!r}")
-
-        # Use the master darks to make the defects files (one for each master dark)
-        butler = dafPersist.Butler(inputs=[self.calib_dir], outputs=[self.calib_dir])
-        for dark_doc in [d for d in docs if d["datasetType"] == "dark"]:
-
-            # Make the defects doc using the dark
-            dataId = self._calib_doc_to_calibId(dark_doc)
-            make_defects_from_dark(butler=butler, dataId=dataId,
-                                   hot_pixel_threshold=self._hot_pixel_threshold)
-
-            # Make the document for the new defects file
-            defects_doc = deepcopy(dark_doc)
-            defects_doc["datasetType"] = "defects"
-
-            # Get the filename of the defects file inside the butler repo
-            filename = get_calib_filename(calib_doc, directory=self.calib_dir, config=self.config)
-            defects_doc["filename"] = filename
-
         return docs
 
     def make_calexp(self, dataId, rerun="default", **kwargs):
@@ -373,8 +355,8 @@ class ButlerRepository(HuntsmanBase):
         if dataIds is None:
             dataIds = self.get_dataIds(datasetType="raw", dataId={'dataType': "science"},
                                        extra_keys=["filter"])
-
         if not remake_existing:
+
             dataIds_to_skip = []
             for dataId in dataIds:
                 try:
@@ -383,6 +365,7 @@ class ButlerRepository(HuntsmanBase):
                         dataIds_to_skip.append(dataId)
                 except Exception:
                     pass
+
             dataIds = [d for d in dataIds if d not in dataIds_to_skip]
 
         self.logger.info(f"Making calexp(s) from {len(dataIds)} dataId(s).")
@@ -562,6 +545,35 @@ class ButlerRepository(HuntsmanBase):
             metadata_list = [{k: _[k] for k in keys_keep} for _ in metadata_list]
 
         return metadata_list
+
+    def _get_calib_butler(self):
+        """ Get a butler object specifically for writing calibs. """
+        try:
+            return self._butlers["CALIB"]
+        except KeyError:
+            self._butlers["CALIB"] = dafPersist.Butler(inputs=[self.calib_dir],
+                                                       outputs=[self.calib_dir])
+        return self._get_calib_butler()
+
+    def _make_defects(self, doc):
+        """ Make defects file from a corresponding dark document.
+        Args:
+            doc (Document): The calib document corresponding to the defects file.
+        Returns:
+            str: The filename of the defects file inside the butler repo.
+        """
+        # Defects are based on master darks, so need to retrieve the appropriate master dark
+        dark_doc = deepcopy(doc)
+        dark_doc["datasetType"] = "dark"
+        dark_dataId = self._calib_doc_to_calibId(dark_doc)
+
+        # Create the master defects file and store in butler repo
+        butler = self._get_calib_butler()
+        make_defects_from_dark(butler=butler, dataId=dark_dataId,
+                               hot_pixel_threshold=self._hot_pixel_threshold)
+
+        # Return the filename of the defects file in the butler repo
+        return get_calib_filename(doc, directory=self.calib_dir, config=self.config)
 
 
 class TemporaryButlerRepository(ButlerRepository):

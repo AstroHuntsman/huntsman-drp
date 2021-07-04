@@ -72,9 +72,10 @@ mongodb:
         - "filename"  # Let obs_huntsman handle unique calib file naming
 
 calibs:
-  types:  # Order might be important...
+  types:  # Order is important
     - bias
     - dark
+    - defects
     - flat
   validity: 30
   matching_columns:  # These columns are for matching raw calibs with raw science frames
@@ -84,6 +85,8 @@ calibs:
     bias:
       - ccd
     dark:
+      - ccd
+    defects:
       - ccd
 
 refcat:
