@@ -13,6 +13,7 @@ from huntsman.drp.lsst.tasks.processCcd import HuntsmanProcessCcdTask
 
 INGEST_CALIB_CONFIGS = {"bias": "ingestBias.py",
                         "dark": "ingestDark.py",
+                        "defects": "ingestDefects.py",
                         "flat": "ingestFlat.py"}
 
 

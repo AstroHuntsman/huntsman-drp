@@ -280,27 +280,30 @@ class ButlerRepository(HuntsmanBase):
         """
         datasetType = calib_doc["datasetType"]
 
-        # Defects is treated separately from other calibs as there is no official makeDefectsTask
-        if datasetType == "defects":
-            return self._make_defects(calib_doc)
-
         calibId = self._calib_doc_to_calibId(calib_doc)
 
-        # Get dataIds applicable to this calibId
-        dataIds = self.calibId_to_dataIds(datasetType, calibId, with_calib_date=True)
+        # Defects is treated separately from other calibs as there is no official makeDefectsTask
+        if datasetType == "defects":
+            self._make_defects(calib_doc, rerun=rerun)
 
-        self.logger.info(f"Making master calib for calibId={calibId} from {len(dataIds)} dataIds.")
+        else:
+            # Get dataIds applicable to this calibId
+            dataIds = self.calibId_to_dataIds(datasetType, calibId, with_calib_date=True)
 
-        # Make the master calib
-        tasks.make_master_calib(datasetType, calibId, dataIds, butler_dir=self.butler_dir,
-                                calib_dir=self.calib_dir, rerun=rerun, **kwargs)
+            self.logger.info(f"Making master {datasetType} for calibId={calibId} from"
+                             f" {len(dataIds)} dataIds.")
+
+            # Make the master calib
+            tasks.make_master_calib(datasetType, calibId, dataIds, butler_dir=self.butler_dir,
+                                    calib_dir=self.calib_dir, rerun=rerun, **kwargs)
 
         directory = os.path.join(self.butler_dir, "rerun", rerun)
         filename = get_calib_filename(calib_doc, directory=directory, config=self.config)
 
         # Check the calib exists
         if not os.path.isfile(filename):
-            raise FileNotFoundError(f"Master calib not found: {calibId}, filename={filename}")
+            raise FileNotFoundError(f"Master {datasetType} not found: {calibId},"
+                                    f" filename={filename}")
 
         # Ingest the calib
         self.ingest_master_calibs(datasetType, [filename], validity=validity)
@@ -546,34 +549,22 @@ class ButlerRepository(HuntsmanBase):
 
         return metadata_list
 
-    def _get_calib_butler(self):
-        """ Get a butler object specifically for writing calibs. """
-        try:
-            return self._butlers["CALIB"]
-        except KeyError:
-            self._butlers["CALIB"] = dafPersist.Butler(inputs=[self.calib_dir],
-                                                       outputs=[self.calib_dir])
-        return self._get_calib_butler()
-
-    def _make_defects(self, doc):
+    def _make_defects(self, doc, **kwargs):
         """ Make defects file from a corresponding dark document.
         Args:
             doc (Document): The calib document corresponding to the defects file.
-        Returns:
-            str: The filename of the defects file inside the butler repo.
+            **kwargs: Parsed to self.get_butler.
         """
         # Defects are based on master darks, so need to retrieve the appropriate master dark
         dark_doc = deepcopy(doc)
         dark_doc["datasetType"] = "dark"
         dark_dataId = self._calib_doc_to_calibId(dark_doc)
 
-        # Create the master defects file and store in butler repo
-        butler = self._get_calib_butler()
-        make_defects_from_dark(butler=butler, dataId=dark_dataId,
-                               hot_pixel_threshold=self._hot_pixel_threshold)
+        self.logger.info(f"Making defects file from dark: {dark_dataId}")
 
-        # Return the filename of the defects file in the butler repo
-        return get_calib_filename(doc, directory=self.calib_dir, config=self.config)
+        # Create the master defects file and store in butler repo
+        make_defects_from_dark(butler=self.get_butler(**kwargs), dataId=dark_dataId,
+                               hot_pixel_threshold=self._hot_pixel_threshold)
 
 
 class TemporaryButlerRepository(ButlerRepository):

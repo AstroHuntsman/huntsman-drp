@@ -434,6 +434,16 @@ class RawExposureCollection(Collection):
 
         calib_docs = set([self.raw_doc_to_calib_doc(d, calib_date) for d in documents])
 
+        # Retrieve defects docs, one for each master dark
+        defects_docs = []
+        for calib_doc in calib_docs:
+            if calib_doc["datasetType"] == "dark":
+                defects_doc = calib_doc.copy()
+                defects_doc["datasetType"] = "defects"
+                defects_doc["filename"] = get_calib_filename(defects_doc, config=self.config)
+                defects_docs.append(defects_doc)
+        calib_docs.update(defects_docs)
+
         self.logger.info(f"Found {len(calib_docs)} calibIds for calib_date={calib_date}.")
 
         return calib_docs
