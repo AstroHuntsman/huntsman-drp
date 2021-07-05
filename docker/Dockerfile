@@ -1,4 +1,4 @@
-ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-v21_0_0
+ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-w_2021_26
 FROM ${base_image}
 
 # Build args
@@ -19,7 +19,7 @@ RUN yum install -y wget vim sudo && \
   echo "${user} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
   # Install git-LFS
   export GITLFS=git-lfs-linux-amd64-v2.10.0.tar.gz && \
-  cd "${LSST_HOME}/_build" && \
+  mkdir "${LSST_HOME}/_build" && cd "${LSST_HOME}/_build" && \
   wget "https://github.com/git-lfs/git-lfs/releases/download/v2.10.0/${GITLFS}" && \
   tar -zxf ${GITLFS} && \
   ./install.sh && \

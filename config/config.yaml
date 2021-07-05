@@ -6,12 +6,12 @@ directories:
 fits_header:
   date_key: "DATE-OBS"
   mappings:
-    expTime: "EXPTIME"
-    ccdTemp: "CCD-TEMP"
-    expId: "IMAGEID"
-    taiObs: "DATE-OBS"
-    field: "FIELD"
-    filter: "FILTER"
+    exposure_time: "EXPTIME"
+    detector_serial: "CAM-ID"
+    detector_name: "CAM-ID"
+    object: "FIELD"
+    physical_filter: "FILTER"
+    
   required_columns:
     - "expTime"
     - "taiObs"
