@@ -10,8 +10,7 @@ fits_header:
     detector_serial: "CAM-ID"
     detector_name: "CAM-ID"
     object: "FIELD"
-    physical_filter: "FILTER"
-    
+
   required_columns:
     - "expTime"
     - "taiObs"
