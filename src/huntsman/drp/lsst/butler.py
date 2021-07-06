@@ -78,6 +78,8 @@ class ButlerRepository(HuntsmanBase):
         """
         return {k: document[k] for k in self.get_keys("raw")}
 
+
+    # @lru_cache
     def get_butler(self, rerun=None):
         """ Get a butler object for a given rerun.
         We cache created butlers to avoid the overhead of having to re-create them each time.
@@ -123,109 +125,45 @@ class ButlerRepository(HuntsmanBase):
             object: The dataset.
         """
         butler = self.get_butler(rerun=rerun)
-        return butler.get(datasetType, dataId=dataId, **kwargs)
+        return butler.get(*args, **kwargs)
 
-    def get_keys(self, datasetType, **kwargs):
-        """ Get set of keys required to uniquely identify ingested data.
+    def get_dimension_names(self, datasetType, **kwargs):
+        """ Get dimension names in a dataset type.
         Args:
             datasetType (str): The dataset type (raw, flat, bias etc.).
         Returns:
             list of str: A list of keys.
         """
         butler = self.get_butler(**kwargs)
-        return list(butler.getKeys(datasetType))
+        datasetTypeInstance = butler.registry.getDatasetType(datasetType)
+        return [d.name for d in datasetTypeInstance.dimensions]
 
-    def get_filename(self, datasetType, dataId, **kwargs):
-        """ Get the filename for a data ID of data type.
+    def get_filenames(self, datasetType, dataId, **kwargs):
+        """ Get filenames matching a datasetType and dataId.
         Args:
             datasetType (str): The dataset type (raw, flat, bias etc.).
-            dataId (dict): The data ID that uniquely specifies a file.
+            dataId (dict): The dataId.
         Returns:
-            str: The filename.
+            list of str: The filenames.
         """
-        return self.get(datasetType + "_filename", dataId=dataId, **kwargs)[0]
-
-    def get_metadata(self, datasetType, keys=None, dataId=None, **kwargs):
-        """ Get metadata for a dataset.
-        Args:
-            datasetType (str): The dataset type (e.g. raw, flat, calexp).
-            keys (list of str, optional): The keys contained in the metadata. If not provided,
-                will use default keys for datasetType.
-            dataId (optional): A list of dataIds to query on.
-        """
-        if keys is None:
-            keys = self.get_keys(datasetType, **kwargs)
-
         butler = self.get_butler(**kwargs)
-        md = butler.queryMetadata(datasetType, format=keys, dataId=dataId)
+        datasetRefs = butler.registry.queryDatasets(datasetType=datasetType,
+                                                    collections=butler.collections,
+                                                    dataId=dataId)
+        return [butler.getURI(ref).path for ref in datasetRefs]
 
-        if len(keys) == 1:  # Butler doesn't return a consistent data structure if len(keys)=1
-            return [{keys[0]: _} for _ in md]
-
-        return [{k: v for k, v in zip(keys, _)} for _ in md]
-
-    def get_dataIds(self, datasetType, dataId=None, extra_keys=None, **kwargs):
+    def get_dataIds(self, datasetType, dataId=None, **kwargs):
         """ Get ingested dataIds for a given datasetType.
         Args:
             datasetType (str): The datasetType (raw, bias, flat etc.).
             dataId (dict, optional): A complete or partial dataId to match with.
-            extra_keys (list, optional): List of additional keys to be included in the dataIds.
         Returns:
             list of dict: A list of dataIds.
         """
         butler = self.get_butler(**kwargs)
-
-        keys = list(butler.getKeys(datasetType).keys())
-        if extra_keys is not None:
-            keys.extend(extra_keys)
-
-        # Work-around to have consistent query behaviour for calibs
-        # TODO: Figure out how to do this properly with butler
-        if datasetType in self._ordered_calib_types:
-            results = []
-            for md in self._get_calib_metadata(datasetType):
-                if dataId is not None:
-                    if not all([k in md for k in dataId.keys()]):
-                        continue
-                    elif not all(md[k] == dataId[k] for k in dataId.keys()):
-                        continue
-                results.append({k: md[k] for k in keys})
-            return results
-
-        return self.get_metadata(datasetType, keys=keys, dataId=dataId)
-
-    def get_calexp_dataIds(self, rerun="default", filter_name=None, **kwargs):
-        """ Convenience function to get dataIds for calexps.
-        Args:
-            rerun (str, optional): The rerun name. Default: "default".
-            filter_name (str, optional): If given, only return data Ids for this filter.
-            **kwargs: Parsed to self.get_dataIds.
-        Returns:
-            list of dict: The list of dataIds.
-        """
-        dataId = {"dataType": "science"}
-        if filter_name is not None:
-            dataId["filter"] = filter_name
-
-        return self.get_dataIds("calexp", dataId=dataId, rerun=rerun, **kwargs)
-
-    def get_calexps(self, dataIds=None, rerun="default", **kwargs):
-        """ Convenience function to get calexp objects for a given rerun.
-        Args:
-            dataIds (list, optional): If provided, get calexps for these dataIds only.
-            rerun (str, optional): The rerun name. Default: "default".
-            **kwargs: Parsed to self.get_calexp_dataIds.
-        Returns:
-            list of lsst.afw.image.exposure: The list of calexp objects.
-        """
-        if dataIds is None:
-            dataIds = self.get_calexp_dataIds(rerun=rerun, **kwargs)
-
-        calexps = [self.get("calexp", dataId=d, rerun=rerun) for d in dataIds]
-        if len(calexps) != len(dataIds):
-            raise RuntimeError("Number of dataIds does not match the number of calexps.")
-
-        return calexps, dataIds
+        datasetRefs = butler.registry.queryDatasets(datasetType='raw',
+                                                    collections=butler.collections)
+        return [d.dataId for d in datasetRefs]
 
     def ingest_raw_data(self, filenames, **kwargs):
         """ Ingest raw data into the repository.
