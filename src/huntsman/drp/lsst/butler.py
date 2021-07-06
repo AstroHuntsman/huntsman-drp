@@ -81,7 +81,7 @@ class ButlerRepository(HuntsmanBase):
         datasetType = document["datasetType"]
         return self.document_to_dataId(document, datasetType=datasetType)
 
-    @lru_cache  # Use caching so we don't have to keep reinitialising Butler objects
+    @lru_cache()  # Use caching so we don't have to keep reinitialising Butler objects
     def get_butler(self, collections=None, *args, **kwargs):
         """ Get a butler object for a given rerun.
         We cache created butlers to avoid the overhead of having to re-create them each time.
@@ -152,7 +152,11 @@ class ButlerRepository(HuntsmanBase):
 
     def _initialise(self):
         """ Initialise a new butler repository. """
-        butler = self.get_butler()  # Automatically creates empty butler repo
+        try:
+            dafButler.Butler.makeRepo(self.root_directory)
+        except FileExistsError:
+            return
+        butler = self.get_butler(writeable=True)  # Automatically creates empty butler repo
 
         # Register the Huntsman instrument config with the repo
         instrInstance = getInstrument(self._instrument_class_str, butler.registry)
