@@ -156,7 +156,7 @@ class ButlerRepository(HuntsmanBase):
         Args:
             filenames (iterable of str): The list of filenames containing reference data.
         """
-        butler = self.get_butler(writable=True)
+        butler = self.get_butler(writeable=True)
         ingestor = RefcatIngestor(butler=butler)
 
         self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} file(s).")

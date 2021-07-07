@@ -185,10 +185,6 @@ class HuntsmanIngestIndexedReferenceTask(IngestIndexedReferenceTask):
                                     self.log)
         worker.run(inputFiles)
 
-        # write the config that was used to generate the refcat
-        # dataId = self.indexer.makeDataId(None, self.config.dataset_config.ref_dataset_name)
-        # self.butler.put(self.config.dataset_config, 'ref_cat_config', dataId=dataId)
-
         # Return the filenames so it is easy to ingest them with Gen3 Butler
         return {htmId: filename for htmId, filename in filename_dict.items() if os.path.isfile(
             filename)}
@@ -198,12 +194,8 @@ class HuntsmanIngestIndexedReferenceTask(IngestIndexedReferenceTask):
         arr = self.file_reader.run(filename)
         schema, key_map = self.makeSchema(arr.dtype)
 
-        # dataId = self.indexer.makeDataId('master_schema',
-        #                                  self.config.dataset_config.ref_dataset_name)
-
         catalog = afwTable.SimpleCatalog(schema)
         addRefCatMetadata(catalog)
-        # self.butler.put(catalog, 'ref_cat', dataId=dataId)
 
         return schema, key_map
 
