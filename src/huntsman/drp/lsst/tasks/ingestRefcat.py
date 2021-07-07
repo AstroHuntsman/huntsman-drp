@@ -1,12 +1,15 @@
 """ Minimal overrides to remove unnecessary and time consuming file lock creation in current
 implementation of ingestIndexReferenceTask."""
-
+import os
 import multiprocessing
 
 import astropy.units as u
 import numpy as np
 
+import lsst.sphgeom
+import lsst.afw.table as afwTable
 from lsst.meas.algorithms import IngestIndexedReferenceTask
+from lsst.meas.algorithms.ingestIndexReferenceTask import addRefCatMetadata
 from lsst.meas.algorithms.ingestIndexManager import IngestIndexManager
 
 
@@ -132,7 +135,7 @@ class singleProccessIngestIndexManager(IngestIndexManager):
         catalog.writeFits(self.filenames[pixelId])
 
     def _setIds(self, inputData, catalog):
-        """Fill the `id` field of catalog with a running index, filling the
+        """ Fill the `id` field of catalog with a running index.
         last values up to the length of ``inputData``.
         Fill with `self.config.id_name` if specified, otherwise use the
         global running counter value.
@@ -153,25 +156,73 @@ class singleProccessIngestIndexManager(IngestIndexManager):
 
 
 class HuntsmanIngestIndexedReferenceTask(IngestIndexedReferenceTask):
-    """Class for producing and loading indexed reference catalogs.
-    This implements an indexing scheme based on hierarchical triangular
-    mesh (HTM). The term index really means breaking the catalog into
-    localized chunks called shards.  In this case each shard contains
-    the entries from the catalog in a single HTM trixel
-    For producing catalogs this task makes the following assumptions
-    about the input catalogs:
-    - RA, Dec are in decimal degrees.
-    - Epoch is available in a column, in a format supported by astropy.time.Time.
-    - There are no off-diagonal covariance terms, such as covariance
-      between RA and Dec, or between PM RA and PM Dec. Support for such
-     covariance would have to be added to to the config, including consideration
-     of the units in the input catalog.
-    Parameters
-    ----------
-    butler : `lsst.daf.persistence.Butler`
-        Data butler for reading and writing catalogs
+    """ Overrides to make reference catalogues using Gen3 butler.
+    These overrides should be considered as hacks while we wait for the official implementation.
     """
+    _template = "ref_cats/%(name)s/%(pixel_id)s.fits"  # Template normally specified in gen2 policy
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, output_directory, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         self.IngestManager = singleProccessIngestIndexManager
+        self.output_directory = output_directory
+
+    def createIndexedCatalog(self, inputFiles):
+        """ Override method to remove Gen2 Butler put. """
+        schema, key_map = self._saveMasterSchema(inputFiles[0])
+
+        # create an HTM we can interrogate about pixel ids
+        htm = lsst.sphgeom.HtmPixelization(self.indexer.htm.get_depth())
+        filename_dict = self._getButlerFilenames(htm)
+        worker = self.IngestManager(filename_dict,
+                                    self.config,
+                                    self.file_reader,
+                                    self.indexer,
+                                    schema,
+                                    key_map,
+                                    htm.universe()[0],
+                                    addRefCatMetadata,
+                                    self.log)
+        worker.run(inputFiles)
+
+        # write the config that was used to generate the refcat
+        # dataId = self.indexer.makeDataId(None, self.config.dataset_config.ref_dataset_name)
+        # self.butler.put(self.config.dataset_config, 'ref_cat_config', dataId=dataId)
+
+        # Return the filenames so it is easy to ingest them with Gen3 Butler
+        return {htmId: filename for htmId, filename in filename_dict.items() if os.path.isfile(
+            filename)}
+
+    def _saveMasterSchema(self, filename):
+        """ Override method to remove Gen2 Butler put. """
+        arr = self.file_reader.run(filename)
+        schema, key_map = self.makeSchema(arr.dtype)
+
+        # dataId = self.indexer.makeDataId('master_schema',
+        #                                  self.config.dataset_config.ref_dataset_name)
+
+        catalog = afwTable.SimpleCatalog(schema)
+        addRefCatMetadata(catalog)
+        # self.butler.put(catalog, 'ref_cat', dataId=dataId)
+
+        return schema, key_map
+
+    def _getButlerFilenames(self, htm):
+        """ Override to get filenames for each output pixel without using Gen2 butler. """
+
+        filenames = {}
+        start, end = htm.universe()[0]
+
+        # Get path to first index
+        dataId = self.indexer.makeDataId(start, self.config.dataset_config.ref_dataset_name)
+        path = os.path.join(self.output_directory, self._template % dataId)
+
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+
+        # Hack path for the other indices
+        base = os.path.join(os.path.dirname(path), "%d"+os.path.splitext(path)[1])
+
+        for pixelId in range(start, end):
+            filenames[pixelId] = base % pixelId
+
+        return filenames

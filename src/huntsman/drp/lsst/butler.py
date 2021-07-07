@@ -18,6 +18,7 @@ from huntsman.drp.lsst.utils.calib import get_calib_filename, make_defects_from_
 class ButlerRepository(HuntsmanBase):
 
     _instrument_class_str = "lsst.obs.huntsman.HuntsmanCamera"
+    _default_collections = ["Huntsman/raw/all"]
 
     def __init__(self, directory, calib_dir=None, initialise=True, calib_validity=1000, **kwargs):
         """
@@ -86,12 +87,14 @@ class ButlerRepository(HuntsmanBase):
         """ Get a butler object for a given rerun.
         We cache created butlers to avoid the overhead of having to re-create them each time.
         Args:
-            rerun (str, optional): The rerun name. If None, the butler is created for the root
-                butler directory.
+            collections (list of str):
+            *args, **kwargs:
         Returns:
             butler: The butler object.
         """
-        return dafButler.Butler(self.root_directory, *args, **kwargs)
+        if collections is None:
+            collections = self._default_collections
+        return dafButler.Butler(self.root_directory, collections=collections, *args, **kwargs)
 
     def get_dimension_names(self, datasetType, **kwargs):
         """ Get dimension names in a dataset type.
@@ -382,24 +385,6 @@ class ButlerRepository(HuntsmanBase):
         self._verify_coadd(rerun=rerun_out, filter_names=filter_names, skymapIds=skymapIds)
 
         self.logger.info("Successfully created coadd.")
-
-    def calibId_to_dataIds(self, datasetType, calibId, limit=False, with_calib_date=False):
-        """ Find all matching dataIds given a calibId.
-        Args:
-            calibId (dict): The calibId.
-            limit (bool): If True, limit the number of returned dataIds to a maximum value
-                indicated by self._max_dataIds_per_calib. This avoids long processing times and
-                apparently also segfaults. Default: False.
-        Returns:
-            list of dict: All matching dataIds.
-        """
-        dataIds = utils.calibId_to_dataIds(datasetType, calibId, butler=self.get_butler())
-
-        if with_calib_date:
-            for dataId in dataIds:
-                dataId["calibDate"] = calibId["calibDate"]
-
-        return dataIds
 
     # Private methods
 
