@@ -20,14 +20,14 @@ class RefcatIngestor():
     _config_filename = os.path.join(getPackageDir(PACKAGE_NAME), "config",
                                     "ingestSkyMapperReference.py")
 
-    def __init__(self, butler, run=None):
+    def __init__(self, butler, run="refCat"):
         """
         Args:
             butler (lsst.daf.butler.Butler): The butler object.
-            run (str, default): The run in which to store the refcat. If None, will use butler.run.
+            run (str, optional): The run in which to store the refcat. Default: "refCat".
         """
         self.butler = butler
-        self.run = run if run is not None else self.butler.run
+        self.run_name = run
 
         package_dir = getPackageDir(PACKAGE_NAME)
         config_filename = os.path.join(package_dir, "config", "ingestSkyMapperReference.py")
@@ -48,7 +48,7 @@ class RefcatIngestor():
         registry = self.butler.registry
 
         # Use a temporary directory to make the HTM refcat
-        with tempfile.TemporaryDirectory(delete=True) as tempdir:
+        with tempfile.TemporaryDirectory() as tempdir:
 
             filename_dict = self._make_htm_refcat(tempdir, filenames)
 
@@ -106,24 +106,10 @@ class RefcatIngestor():
             datasets (list of lsst.daf.butler.FileDataset): The refcat datasets.
             transfer (str): The transfer mode. Default: "copy".
         """
-        self.butler.registry.registerCollection(self.run, type=CollectionType.RUN)
+        self.butler.registry.registerCollection(self.run_name, type=CollectionType.RUN)
 
-        self.butler.registry.registerRun(self.run)
+        self.butler.registry.registerRun(self.run_name)
 
         self.butler.registry.registerDatasetType(datasetType)
 
-        self.butler.ingest(*datasets, transfer=transfer, run=self.run)
-
-
-# Remove after testing
-if __name__ == "__main__":
-
-    from huntsman.drp.lsst.butler import ButlerRepository
-
-    directory = "/opt/lsst/software/stack/br"
-    raw_refcat_filenames = ["/opt/lsst/software/stack/huntsman-drp/tests/data/refcat.csv"]
-    br = ButlerRepository(directory)
-
-    butler = br.get_butler()
-    ingestor = RefcatIngestor(butler=butler, run="test")
-    ingestor.run(raw_refcat_filenames)
+        self.butler.ingest(*datasets, transfer=transfer, run=self.run_name)

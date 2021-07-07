@@ -10,7 +10,7 @@ from lsst.obs.base import RawIngestTask
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.lsst import tasks
-from huntsman.drp.lsst.utils import butler as utils
+from huntsman.drp.lsst.utils.refcat import RefcatIngestor
 from huntsman.drp.lsst.utils.coadd import get_skymap_ids
 from huntsman.drp.lsst.utils.calib import get_calib_filename, make_defects_from_dark
 
@@ -18,7 +18,7 @@ from huntsman.drp.lsst.utils.calib import get_calib_filename, make_defects_from_
 class ButlerRepository(HuntsmanBase):
 
     _instrument_class_str = "lsst.obs.huntsman.HuntsmanCamera"
-    _default_collections = ["Huntsman/raw/all"]
+    _default_collections = set(["Huntsman/raw/all", "refCat"])
 
     def __init__(self, directory, calib_dir=None, initialise=True, calib_validity=1000, **kwargs):
         """
@@ -151,6 +151,17 @@ class ButlerRepository(HuntsmanBase):
         task = RawIngestTask(config=task_config, butler=butler)
         task.run(filenames)
 
+    def ingest_reference_catalogue(self, filenames):
+        """ Ingest the reference catalogue into the repository.
+        Args:
+            filenames (iterable of str): The list of filenames containing reference data.
+        """
+        butler = self.get_butler(writable=True)
+        ingestor = RefcatIngestor(butler=butler)
+
+        self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} file(s).")
+        ingestor.run(filenames)
+
     # Private methods
 
     def _initialise(self):
@@ -186,13 +197,7 @@ class ButlerRepository(HuntsmanBase):
 
 
 
-    def ingest_reference_catalogue(self, filenames):
-        """ Ingest the reference catalogue into the repository.
-        Args:
-            filenames (iterable of str): The list of filenames containing reference data.
-        """
-        self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} file(s).")
-        tasks.ingest_reference_catalogue(self.root_directory, filenames)
+
 
     def ingest_master_calibs(self, datasetType, filenames, validity=None):
         """ Ingest the master calibs into the butler repository.
