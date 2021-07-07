@@ -18,7 +18,7 @@ from huntsman.drp.lsst.utils.calib import get_calib_filename, make_defects_from_
 class ButlerRepository(HuntsmanBase):
 
     _instrument_class_str = "lsst.obs.huntsman.HuntsmanCamera"
-    _default_collections = set(["Huntsman/raw/all", "refCat"])
+    _default_collections = set(["Huntsman/raw/all"])
 
     def __init__(self, directory, calib_dir=None, initialise=True, calib_validity=1000, **kwargs):
         """
@@ -151,12 +151,12 @@ class ButlerRepository(HuntsmanBase):
         task = RawIngestTask(config=task_config, butler=butler)
         task.run(filenames)
 
-    def ingest_reference_catalogue(self, filenames):
+    def ingest_reference_catalogue(self, filenames, **kwargs):
         """ Ingest the reference catalogue into the repository.
         Args:
             filenames (iterable of str): The list of filenames containing reference data.
         """
-        butler = self.get_butler(writeable=True)
+        butler = self.get_butler(writeable=True, **kwargs)
         ingestor = RefcatIngestor(butler=butler)
 
         self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} file(s).")
@@ -193,7 +193,7 @@ class ButlerRepository(HuntsmanBase):
 
 
 
-
+        # record = list(butler.registry.queryDimensionRecords("exposure"))[0].toDict()
 
 
 

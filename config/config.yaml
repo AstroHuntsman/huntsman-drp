@@ -10,6 +10,7 @@ fits_header:
     detector_serial: "CAM-ID"
     detector_name: "CAM-ID"
     object: "FIELD"
+    boresight_airmass: "AIRMASS"
 
   required_columns:
     - "expTime"
