@@ -5,29 +5,30 @@ from tempfile import TemporaryDirectory
 
 import lsst.daf.butler as dafButler
 from lsst.obs.base.utils import getInstrument
-from lsst.obs.base import RawIngestConfig
-from lsst.obs.base import RawIngestTask
+from lsst.obs.base import RawIngestTask, RawIngestConfig
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.lsst import tasks
+from huntsman.drp.lsst import tasks, pipeline
 from huntsman.drp.lsst.utils.refcat import RefcatIngestor
 from huntsman.drp.lsst.utils.coadd import get_skymap_ids
 from huntsman.drp.lsst.utils.calib import get_calib_filename, make_defects_from_dark
 
 # https://jira.lsstcorp.org/browse/DM-27922
 
+
 class ButlerRepository(HuntsmanBase):
 
-    _instrument_class_str = "lsst.obs.huntsman.HuntsmanCamera"
-    _default_collections = set(["Huntsman/raw/all"])
     _instrument_name = "Huntsman"
+    _instrument_class_str = "lsst.obs.huntsman.HuntsmanCamera"
 
-    def __init__(self, directory, calib_directory=None, initialise=True, calib_validity=1000, **kwargs):
+    _raw_collection = f"{_instrument_name}/raw/all"
+    _calib_collection = f"{_instrument_name}/calib"
+    _default_collections = set([_raw_collection, _calib_collection])
+
+    def __init__(self, directory, initialise=True, calib_validity=1000, **kwargs):
         """
         Args:
             directory (str): The path of the butler reposity.
-            calib_directory (str, optional): The path of the butler calib repository. If None (default),
-                will create a new CALIB directory under the butler repository root.
             initialise (bool, optional): If True (default), initialise the butler reposity
                 with required files.
         """
@@ -39,10 +40,6 @@ class ButlerRepository(HuntsmanBase):
         if directory is not None:
             directory = os.path.abspath(directory)
         self.root_directory = directory
-
-        if (calib_directory is None) and (directory is not None):
-            calib_directory = os.path.join(self.root_directory, "calib")
-        self.calib_directory = calib_directory
 
         self._calib_validity = calib_validity
 
@@ -163,7 +160,7 @@ class ButlerRepository(HuntsmanBase):
     def ingest_master_calibs(self):
         pass
 
-    def make_master_calib(self, calib_doc, rerun="default", validity=None, **kwargs):
+    def make_master_calib(self, calib_doc, begin_date=None, end_date=None, **kwargs):
         """ Make a master calib from ingested raw exposures.
         Args:
             datasetType (str): The calib datasetType (e.g. bias, dark, flat).
@@ -174,27 +171,36 @@ class ButlerRepository(HuntsmanBase):
         Returns:
             str: The filename of the newly created master calib.
         """
+        butler = self.get_butler()
         datasetType = calib_doc["datasetType"]
 
+        # Get the dataId for the calib
         calibId = self.document_to_calibId(calib_doc)
 
-        # Defects is treated separately from other calibs as there is no official makeDefectsTask
-        if datasetType == "defects":
-            self._make_defects(calib_doc, rerun=rerun)
+        # Get dataIds applicable to this calibId
+        dataIds = self._calibId_to_dataIds(datasetType, calibId)
 
-        else:
-            # Get dataIds applicable to this calibId
-            dataIds = self.calibId_to_dataIds(datasetType, calibId, with_calib_date=True)
+        self.logger.info(f"Making master {datasetType} for calibId={calibId} from"
+                         f" {len(dataIds)} dataIds.")
 
-            self.logger.info(f"Making master {datasetType} for calibId={calibId} from"
-                             f" {len(dataIds)} dataIds.")
+        # Make the calibs in their own collection / run
+        collection_name = f"{self._instrument_name}/{datasetType}"
+        butler.registry.registerCollection(collection_name, type=dafButler.CollectionType.RUN)
+        butler.registry.registerDatasetType(datasetType)
 
-            # Make the master calib
-            calib_type = datasetType.title()  # Capitalise first letter
-            pipetask_run(f"construct{calib_type}", dataIds=dataIds)
+        # Make the master calib
+        calib_type = datasetType.title()  # Capitalise first letter
+        pipeline.pipetask_run(f"construct{calib_type}", dataIds=dataIds)
 
-            tasks.make_master_calib(datasetType, calibId, dataIds, butler_dir=self.root_directory,
-                                    calib_directory=self.calib_directory, rerun=rerun, **kwargs)
+        # Certify the calibs
+        # TODO: Figure out what this actually does...
+        dafButler.script.certifyCalibrations(repo=self.root_directory,
+                                             input_collection=collection_name,
+                                             output_collection=self._calib_collection,
+                                             dataset_type_name=datasetType,
+                                             begin_date=begin_date,
+                                             end_date=end_date)
+
 
         """
         directory = os.path.join(self.root_directory, "rerun", rerun)
@@ -219,7 +225,7 @@ class ButlerRepository(HuntsmanBase):
             dafButler.Butler.makeRepo(self.root_directory)
         except FileExistsError:
             return
-        butler = self.get_butler(writeable=True)  # Automatically creates empty butler repo
+        butler = self.get_butler(writeable=True)  # Creates empty butler repo
 
         # Register the Huntsman instrument config with the repo
         instrInstance = getInstrument(self._instrument_class_str, butler.registry)
@@ -228,10 +234,6 @@ class ButlerRepository(HuntsmanBase):
         # Setup camera and calibrations
         instr = getInstrument(self._instrument_name, butler.registry)
         instr.writeCuratedCalibrations(butler, collection=None, labels=())
-
-        # Make and register the calib collection
-        # butler.registry.registerCollection(self.calib_directory,
-        #                                       type=dafButler.CollectionType.CALIBRATION)
 
     def _get_datasetRefs(self, datasetType, dataId=None, **kwargs):
         """ Return datasetRefs for a given datasetType matching dataId.
@@ -247,10 +249,30 @@ class ButlerRepository(HuntsmanBase):
                                              collections=butler.collections,
                                              dataId=dataId)
 
+    def _calibId_to_dataIds(self, datasetType, calibId):
+        """ Get ingested dataIds for a specific calibId.
+        TODO: Use Butler to do this directly?
+        Args:
+            calibId (dict): The calibId.
+        Returns:
+            list of dict: Matching dataIds from ingested raw files.
+        """
+        dataIds = self.get_dataIds("raw", where=f"exposure.observation_type = '{datasetType}'")
+
+        dimensions = self.get_dimension_names("raw")
+        calib_dimensions = self.get_dimension_names(datasetType)
+
+        common_dimensions = [d for d in dimensions if d in calib_dimensions]
+
+        matching_dataIds = []
+        for dataId in dataIds:
+            if all([dataId[k] == calibId[k]] for k in common_dimensions):
+                matching_dataIds.append(dataId)
+
+        return matching_dataIds
 
 
 
-        # record = list(butler.registry.queryDimensionRecords("exposure"))[0].toDict()
 
 
 
