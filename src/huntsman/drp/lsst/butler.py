@@ -158,16 +158,24 @@ class ButlerRepository(HuntsmanBase):
         ingestor.run(filenames)
 
     def ingest_master_calibs(self):
+
+        # Create and register collection
+
+        # Create and register datasetType
+
+        # Create dataset objects
+
+        # Ingest dataset objects
+
         pass
 
     def make_master_calib(self, calib_doc, begin_date=None, end_date=None, **kwargs):
         """ Make a master calib from ingested raw exposures.
+        NOTES:
+            - Certification: Associate one or more datasets with a calibration collection and a
+                             validity range within it.
         Args:
-            datasetType (str): The calib datasetType (e.g. bias, dark, flat).
             calib_doc (CalibDocument): The calib document of the calib to make.
-            rerun (str, optional): The name of the rerun. Default is "default".
-            validity (int, optional): The calib validity in days.
-            **kwargs: Parsed to tasks.make_master_calib.
         Returns:
             str: The filename of the newly created master calib.
         """
@@ -192,8 +200,7 @@ class ButlerRepository(HuntsmanBase):
         calib_type = datasetType.title()  # Capitalise first letter
         pipeline.pipetask_run(f"construct{calib_type}", dataIds=dataIds)
 
-        # Certify the calibs
-        # TODO: Figure out what this actually does...
+        # Certify the calibs (see docstring notes)
         dafButler.script.certifyCalibrations(repo=self.root_directory,
                                              input_collection=collection_name,
                                              output_collection=self._calib_collection,
@@ -270,77 +277,6 @@ class ButlerRepository(HuntsmanBase):
                 matching_dataIds.append(dataId)
 
         return matching_dataIds
-
-
-
-
-
-
-
-
-    def ingest_master_calibs(self, datasetType, filenames, validity=None):
-        """ Ingest the master calibs into the butler repository.
-        Args:
-            datasetType (str): The calib dataset type (e.g. bias, flat).
-            filenames (list of str): The files to ingest.
-            validity (int, optional): How many days the calibs remain valid for. Default 1000.
-        """
-        filenames = set([os.path.abspath(os.path.realpath(_)) for _ in filenames])
-
-        if not filenames:
-            self.logger.warning(f"No master {datasetType} files to ingest.")
-            return
-
-        if validity is None:
-            validity = self._calib_validity
-
-        self.logger.info(f"Ingesting {len(filenames)} master {datasetType} calib(s) with validity="
-                         f"{validity}.")
-        tasks.ingest_master_calibs(datasetType, filenames, butler_dir=self.root_directory,
-                                   calib_directory=self.calib_directory, validity=validity)
-
-    def make_master_calib(self, calib_doc, rerun="default", validity=None, **kwargs):
-        """ Make a master calib from ingested raw exposures.
-        Args:
-            datasetType (str): The calib datasetType (e.g. bias, dark, flat).
-            calib_doc (CalibDocument): The calib document of the calib to make.
-            rerun (str, optional): The name of the rerun. Default is "default".
-            validity (int, optional): The calib validity in days.
-            **kwargs: Parsed to tasks.make_master_calib.
-        Returns:
-            str: The filename of the newly created master calib.
-        """
-        datasetType = calib_doc["datasetType"]
-
-        calibId = self.document_to_calibId(calib_doc)
-
-        # Defects is treated separately from other calibs as there is no official makeDefectsTask
-        if datasetType == "defects":
-            self._make_defects(calib_doc, rerun=rerun)
-
-        else:
-            # Get dataIds applicable to this calibId
-            dataIds = self.calibId_to_dataIds(datasetType, calibId, with_calib_date=True)
-
-            self.logger.info(f"Making master {datasetType} for calibId={calibId} from"
-                             f" {len(dataIds)} dataIds.")
-
-            # Make the master calib
-            tasks.make_master_calib(datasetType, calibId, dataIds, butler_dir=self.root_directory,
-                                    calib_directory=self.calib_directory, rerun=rerun, **kwargs)
-
-        directory = os.path.join(self.root_directory, "rerun", rerun)
-        filename = get_calib_filename(calib_doc, directory=directory, config=self.config)
-
-        # Check the calib exists
-        if not os.path.isfile(filename):
-            raise FileNotFoundError(f"Master {datasetType} not found: {calibId},"
-                                    f" filename={filename}")
-
-        # Ingest the calib
-        self.ingest_master_calibs(datasetType, [filename], validity=validity)
-
-        return filename
 
     def make_master_calibs(self, calib_docs, **kwargs):
         """ Make master calibs for a list of calib documents.
