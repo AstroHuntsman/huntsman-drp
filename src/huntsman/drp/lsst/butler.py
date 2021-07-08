@@ -4,6 +4,7 @@ from functools import lru_cache
 import lsst.daf.butler as dafButler
 from lsst.obs.base.utils import getInstrument
 from lsst.obs.base import RawIngestTask, RawIngestConfig
+from lsst.daf.butler.script.certifyCalibrations import certifyCalibrations
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.lsst.utils import pipeline
@@ -142,45 +143,39 @@ class ButlerRepository(HuntsmanBase):
         self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} file(s).")
         ingestor.run(filenames)
 
-    def make_master_calibs(self, datasetType, dataIds=None, begin_date=None, end_date=None,
-                           output_collection=None, **kwargs):
+    def construct_calibs(self, datasetType, dataIds=None, begin_date=None, end_date=None,
+                         output_collection=None, **kwargs):
         """ Make a master calib from ingested raw exposures.
         Args:
             calib_doc (CalibDocument): The calib document of the calib to make.
         Returns:
             str: The filename of the newly created master calib.
         """
-        butler = self.get_butler()
-
         # If dataIds not provided, make calib using all ingested dataIds of the correct type
         if dataIds is None:
-            dataIds = self.get_dataIds(datasetType,
-                                       where=f"exposure.observation_type='{datasetType}'")
+            dataIds = self.get_dataIds("raw", where=f"exposure.observation_type='{datasetType}'")
 
-        self.logger.info(f"Making master {datasetType}s for from {len(dataIds)} dataIds.")
+        self.logger.info(f"Making master {datasetType}(s) from {len(dataIds)} dataIds.")
 
         # Make the calibs in their own collection / run
         if output_collection is None:
             output_collection = os.path.join(self._calib_collection, f"{datasetType}")
 
-        # Ensure the output collection is setup
-        butler.registry.registerCollection(output_collection, type=dafButler.CollectionType.RUN)
-        butler.registry.registerDatasetType(datasetType)
-
         # Make the master calibs
         calib_type = datasetType.title()  # Capitalise first letter
-        pipeline.pipetask_run(f"construct{calib_type}", dataIds=dataIds,
+        pipeline.pipetask_run(f"construct{calib_type}", self.root_directory, dataIds=dataIds,
                               output_collection=output_collection,
-                              input_collection=self.collections, **kwargs)
+                              input_collections=self.collections, **kwargs)
 
         # Certify the calibs
         # This associates them with the calib collection and a validity range
-        dafButler.script.certifyCalibrations(repo=self.root_directory,
-                                             input_collection=output_collection,
-                                             output_collection=self._calib_collection,
-                                             dataset_type_name=datasetType,
-                                             begin_date=begin_date,
-                                             end_date=end_date)
+        certifyCalibrations(repo=self.root_directory,
+                            input_collection=output_collection,
+                            output_collection=self._calib_collection,
+                            search_all_inputs=False,
+                            dataset_type_name=datasetType,
+                            begin_date=begin_date,
+                            end_date=end_date)
 
     # Private methods
 
@@ -200,7 +195,7 @@ class ButlerRepository(HuntsmanBase):
         instr = getInstrument(self._instrument_name, butler.registry)
         instr.writeCuratedCalibrations(butler, collection=None, labels=())
 
-    def _get_datasetRefs(self, datasetType, dataId=None, **kwargs):
+    def _get_datasetRefs(self, datasetType, collections=None, **kwargs):
         """ Return datasetRefs for a given datasetType matching dataId.
         Args:
             datasetType (str): The datasetType.
@@ -209,7 +204,7 @@ class ButlerRepository(HuntsmanBase):
         Returns:
             lsst.daf.butler.registry.queries.ChainedDatasetQueryResults: The query results.
         """
-        butler = self.get_butler(**kwargs)
+        butler = self.get_butler(collections=collections)
         return butler.registry.queryDatasets(datasetType=datasetType,
                                              collections=butler.collections,
-                                             dataId=dataId)
+                                             **kwargs)
