@@ -129,7 +129,7 @@ class ButlerRepository(HuntsmanBase):
         datasetRefs = self._get_datasetRefs(datasetType, **kwargs)
         return [d.dataId for d in datasetRefs]
 
-    def ingest_raw_files(self, filenames, **kwargs):
+    def ingest_raw_files(self, filenames, transfer="symlink", **kwargs):
         """ Ingest raw files into the Butler repository.
         Args:
             filenames (iterable of str): The list of raw data filenames.
@@ -141,10 +141,8 @@ class ButlerRepository(HuntsmanBase):
         kwargs.update({"writeable": True})
         butler = self.get_butler(**kwargs)
 
-        task_config = RawIngestConfig()  # TODO: Check if this gets overriden automatically
-        # Symlink files rather than copying them
-        # TODO: Remove in favour of config override
-        task_config.transfer = "symlink"
+        task_config = RawIngestConfig()
+        task_config.transfer = transfer
 
         task = RawIngestTask(config=task_config, butler=butler)
         task.run(filenames)
