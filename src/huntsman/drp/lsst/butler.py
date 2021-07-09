@@ -1,5 +1,6 @@
 import os
 from functools import lru_cache
+from contextlib import suppress
 
 import lsst.daf.butler as dafButler
 from lsst.obs.base.utils import getInstrument
@@ -46,17 +47,17 @@ class ButlerRepository(HuntsmanBase):
     # Properties
 
     @property
-    def collections():
-        butler = self.get_butler(collections=self._raw_collection)
-        for collection_name in butler.registry.queryCollections():
-            collection_type = butler.registry.getCollectionType(collection_name).name
-            if collection_type != "CALIBRATION":
-                collections.append()
-            print(collection_name, collection_type)
+    def search_collections(self):
+        """ Get default search collections. """
+        butler = self.get_butler()
 
+        collections = set(butler.registry.queryCollections())
 
-        collection_names = list(butler.registry.queryCollections())
-        collection_types = [butler.registry.getCollectionType(c).name
+        with suppress(KeyError):
+            collections.remove(self._calib_collection)
+            collections.remove("Huntsman/calib/unbounded")
+
+        return collections
 
     # Methods
 
@@ -82,18 +83,15 @@ class ButlerRepository(HuntsmanBase):
         datasetType = document["datasetType"]
         return self.document_to_dataId(document, datasetType=datasetType)
 
-    @lru_cache()  # Use caching so we don't have to keep reinitialising Butler objects
-    def get_butler(self, collections=None, *args, **kwargs):
+    def get_butler(self, *args, **kwargs):
         """ Get a butler object for a given rerun.
         We cache created butlers to avoid the overhead of having to re-create them each time.
         Args:
-            collections (list of str):
-            *args, **kwargs:
+            *args, **kwargs: Parsed to dafButler.Butler.
         Returns:
             butler: The butler object.
         """
-        collections = self.collections if collections is None else collections
-        return dafButler.Butler(self.root_directory, collections=collections, *args, **kwargs)
+        return dafButler.Butler(self.root_directory, *args, **kwargs)
 
     def get_dimension_names(self, datasetType, **kwargs):
         """ Get dimension names in a dataset type.
@@ -242,7 +240,7 @@ class ButlerRepository(HuntsmanBase):
         Returns:
             lsst.daf.butler.registry.queries.ChainedDatasetQueryResults: The query results.
         """
-        butler = self.get_butler(collections=collections)
+        butler = self.get_butler(collections=self.search_collections)
         return butler.registry.queryDatasets(datasetType=datasetType,
-                                             collections=butler.collections,
+                                             collections=self.search_collections,
                                              **kwargs)
