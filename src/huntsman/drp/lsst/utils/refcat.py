@@ -20,14 +20,14 @@ class RefcatIngestor():
     _config_filename = os.path.join(getPackageDir(PACKAGE_NAME), "config",
                                     "ingestSkyMapperReference.py")
 
-    def __init__(self, butler, run="refCat"):
+    def __init__(self, butler, collection="refCat"):
         """
         Args:
             butler (lsst.daf.butler.Butler): The butler object.
-            run (str, optional): The run in which to store the refcat. Default: "refCat".
+            collection (str, optional): The run in which to store the refcat. Default: "refCat".
         """
         self.butler = butler
-        self.run_name = run
+        self.collection = collection
 
         package_dir = getPackageDir(PACKAGE_NAME)
         config_filename = os.path.join(package_dir, "config", "ingestSkyMapperReference.py")
@@ -106,10 +106,10 @@ class RefcatIngestor():
             datasets (list of lsst.daf.butler.FileDataset): The refcat datasets.
             transfer (str): The transfer mode. Default: "copy".
         """
-        self.butler.registry.registerCollection(self.run_name, type=CollectionType.RUN)
+        self.butler.registry.registerCollection(self.collection, type=CollectionType.RUN)
 
-        self.butler.registry.registerRun(self.run_name)
+        self.butler.registry.registerRun(self.collection)
 
         self.butler.registry.registerDatasetType(datasetType)
 
-        self.butler.ingest(*datasets, transfer=transfer, run=self.run_name)
+        self.butler.ingest(*datasets, transfer=transfer, run=self.collection)

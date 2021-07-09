@@ -17,6 +17,7 @@ class ButlerRepository(HuntsmanBase):
     _instrument_class_str = "lsst.obs.huntsman.HuntsmanCamera"  # TODO: Move to config
 
     _raw_collection = f"{_instrument_name}/raw/all"
+    _refcat_collection = "refCat"
 
     def __init__(self, directory, calib_collection=None, **kwargs):
         """
@@ -29,14 +30,33 @@ class ButlerRepository(HuntsmanBase):
             directory = os.path.abspath(directory)
         self.root_directory = directory
 
+        # Calib directory relative to root
+        self._calib_directory = os.path.join("Huntsman", "calib")
+
         if calib_collection is None:
-            calib_collection = f"{self._instrument_name}/calib"
+            calib_collection = f"{self._instrument_name}/calib/CALIB"
         self._calib_collection = calib_collection
 
-        # These are the collections to be used by default
-        self.collections = set([self._raw_collection, self._calib_collection])
+        # These are the collections to be searched by default
+        self.collections = set([self._raw_collection,
+                                self._refcat_collection])
 
         self._initialise_repository()
+
+    # Properties
+
+    @property
+    def collections():
+        butler = self.get_butler(collections=self._raw_collection)
+        for collection_name in butler.registry.queryCollections():
+            collection_type = butler.registry.getCollectionType(collection_name).name
+            if collection_type != "CALIBRATION":
+                collections.append()
+            print(collection_name, collection_type)
+
+
+        collection_names = list(butler.registry.queryCollections())
+        collection_types = [butler.registry.getCollectionType(c).name
 
     # Methods
 
@@ -138,7 +158,7 @@ class ButlerRepository(HuntsmanBase):
             **kwargs: Parsed to self.get_butler.
         """
         butler = self.get_butler(writeable=True, **kwargs)
-        ingestor = RefcatIngestor(butler=butler)
+        ingestor = RefcatIngestor(butler=butler, collection=self._refcat_collection)
 
         self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} file(s).")
         ingestor.run(filenames)
@@ -157,15 +177,18 @@ class ButlerRepository(HuntsmanBase):
 
         self.logger.info(f"Making master {datasetType}(s) from {len(dataIds)} dataIds.")
 
-        # Make the calibs in their own collection / run
+        # Specify the input collections we need to make the calibs
+        input_collections = (self._raw_collection, self._calib_collection)
+
+        # Make the calibs in their own collection
         if output_collection is None:
-            output_collection = os.path.join(self._calib_collection, f"{datasetType}")
+            output_collection = os.path.join(self._calib_directory, f"{datasetType}")
 
         # Make the master calibs
         calib_type = datasetType.title()  # Capitalise first letter
         pipeline.pipetask_run(f"construct{calib_type}", self.root_directory, dataIds=dataIds,
                               output_collection=output_collection,
-                              input_collections=self.collections, **kwargs)
+                              input_collections=input_collections, **kwargs)
 
         # Certify the calibs
         # This associates them with the calib collection and a validity range
@@ -176,6 +199,21 @@ class ButlerRepository(HuntsmanBase):
                             dataset_type_name=datasetType,
                             begin_date=begin_date,
                             end_date=end_date)
+
+        # Add the output collection to the default search collections
+        self.collections.add(output_collection)
+
+    def construct_calexps(self):
+        """
+        """
+
+        # Define visits
+        # TODO: Figure out why this is necessary
+        # butler define-visits ./repo lsst.obs.decam.DarkEnergyCamera --collections DECam/raw/object
+
+        # Get dataIds
+
+        # Run task
 
     # Private methods
 
@@ -193,7 +231,7 @@ class ButlerRepository(HuntsmanBase):
 
         # Setup camera and calibrations
         instr = getInstrument(self._instrument_name, butler.registry)
-        instr.writeCuratedCalibrations(butler, collection=None, labels=())
+        instr.writeCuratedCalibrations(butler, collection=self._calib_collection, labels=())
 
     def _get_datasetRefs(self, datasetType, collections=None, **kwargs):
         """ Return datasetRefs for a given datasetType matching dataId.
