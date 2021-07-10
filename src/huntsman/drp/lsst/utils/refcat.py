@@ -17,9 +17,6 @@ PACKAGE_NAME = "obs_huntsman"
 
 class RefcatIngestor():
 
-    _config_filename = os.path.join(getPackageDir(PACKAGE_NAME), "config",
-                                    "ingestSkyMapperReference.py")
-
     def __init__(self, butler, collection="refCat"):
         """
         Args:
