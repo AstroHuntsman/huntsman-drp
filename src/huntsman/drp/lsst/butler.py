@@ -1,6 +1,7 @@
 import os
 from contextlib import suppress
 
+import lsst.afw.display as afwDisplay
 from lsst.obs.base.utils import getInstrument
 from lsst.obs.base import RawIngestTask, RawIngestConfig
 from lsst.obs.base.script.defineVisits import defineVisits
@@ -53,9 +54,10 @@ class ButlerRepository(HuntsmanBase):
 
         collections = set(butler.registry.queryCollections())
 
+        # Temporary workaround because we cannot query CALIBRATION collections yet
+        # TODO: Remove when implemented
         with suppress(KeyError):
             collections.remove(self._calib_collection)
-            collections.remove("Huntsman/calib/unbounded")
 
         return collections
 
@@ -204,14 +206,14 @@ class ButlerRepository(HuntsmanBase):
                 will determine automatically.
             **kwargs: Parsed to pipeline.pipetask_run.
         """
-        # If dataIds not provided, make calib using all ingested dataIds of the correct type
+        # If dataIds not provided, make calexp using all ingested dataIds of the correct type
         if dataIds is None:
             dataIds = self.get_dataIds("raw", where="exposure.observation_type='science'")
 
-        # Specify the input collections we need to make the calibs
-        input_collections = (self._raw_collection, self._calib_collection)
+        # Specify the input collections we need to make the calexps
+        input_collections = (self._raw_collection, self._calib_collection, self._refcat_collection)
 
-        # Make the calibs in their own collection
+        # Make the calexps in this collection
         if output_collection is None:
             output_collection = os.path.join(self.root_directory, "calexp")
 
@@ -256,3 +258,14 @@ class ButlerRepository(HuntsmanBase):
         return butler.registry.queryDatasets(datasetType=datasetType,
                                              collections=self.search_collections,
                                              **kwargs)
+
+    def _get_display(self, frame=1, backend="firefly", **kwargs):
+        """ Thin wrapper around afwDisplay.Display.
+        Args:
+            frame (int, optional): The frame identifier. Default: 1.
+            backend (str, optional): The display backend. Default: 'firefly'.
+            **kwargs: Parsed to afwDisplay.Display.
+        Returns:
+            afwDisplay.Display: The display object.
+        """
+        return afwDisplay.Display(frame=frame, backend=backend, **kwargs)

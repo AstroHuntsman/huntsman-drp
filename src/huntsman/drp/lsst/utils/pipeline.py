@@ -12,6 +12,9 @@ def _run_pipetask_cmd(option_str=None, command_str=None, args_str=None, logger=N
     Args:
 
     Returns:
+
+    Raises:
+        subprocess.CalledProcessError: Raise this error if the command fails.
     """
     logger = get_logger() if logger is None else logger
 
