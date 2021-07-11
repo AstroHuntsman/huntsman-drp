@@ -234,7 +234,10 @@ class ButlerRepository(HuntsmanBase):
         try:
             dafButler.Butler.makeRepo(self.root_directory)
         except FileExistsError:
+            self.logger.info(f"Found existing butler repository: {self.root_directory}")
             return
+        self.logger.info(f"Creating new butler repository: {self.root_directory}")
+
         butler = self.get_butler(writeable=True)  # Creates empty butler repo
 
         # Register the Huntsman instrument config with the repo
