@@ -1,12 +1,12 @@
 import os
 from contextlib import suppress
 
-import lsst.afw.display as afwDisplay
+import lsst.daf.butler as dafButler
+from lsst.daf.butler.script.certifyCalibrations import certifyCalibrations
+
 from lsst.obs.base.utils import getInstrument
 from lsst.obs.base import RawIngestTask, RawIngestConfig
 from lsst.obs.base.script.defineVisits import defineVisits
-import lsst.daf.butler as dafButler
-from lsst.daf.butler.script.certifyCalibrations import certifyCalibrations
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.lsst.utils import pipeline
@@ -36,12 +36,8 @@ class ButlerRepository(HuntsmanBase):
         self._calib_directory = os.path.join("Huntsman", "calib")
 
         if calib_collection is None:
-            calib_collection = f"{self._instrument_name}/calib/CALIB"
+            calib_collection = os.path.join(self._calib_directory, "CALIB")
         self._calib_collection = calib_collection
-
-        # These are the collections to be searched by default
-        self.collections = set([self._raw_collection,
-                                self._refcat_collection])
 
         self._initialise_repository()
 
@@ -140,7 +136,7 @@ class ButlerRepository(HuntsmanBase):
         self.logger.debug(f"Ingesting {len(filenames)} file(s).")
 
         kwargs.update({"writeable": True})
-        butler = self.get_butler(**kwargs)
+        butler = self.get_butler(run=self._raw_collection, **kwargs)
 
         task_config = RawIngestConfig()
         task_config.transfer = transfer
@@ -197,7 +193,7 @@ class ButlerRepository(HuntsmanBase):
                             begin_date=begin_date,
                             end_date=end_date)
 
-    def construct_calexps(self, dataIds=None, output_collection=None, **kwargs):
+    def construct_calexps(self, dataIds=None, output_collection="calexp", **kwargs):
         """ Create calibrated exposures (calexps) from raw exposures.
         Args:
             dataIds (list of dict, optional): List of dataIds to process. If None (default),
@@ -212,10 +208,6 @@ class ButlerRepository(HuntsmanBase):
 
         # Specify the input collections we need to make the calexps
         input_collections = (self._raw_collection, self._calib_collection, self._refcat_collection)
-
-        # Make the calexps in this collection
-        if output_collection is None:
-            output_collection = os.path.join(self.root_directory, "calexp")
 
         # Define visits
         # TODO: Figure out what this actually does
@@ -261,14 +253,3 @@ class ButlerRepository(HuntsmanBase):
         return butler.registry.queryDatasets(datasetType=datasetType,
                                              collections=self.search_collections,
                                              **kwargs)
-
-    def _get_display(self, frame=1, backend="firefly", **kwargs):
-        """ Thin wrapper around afwDisplay.Display.
-        Args:
-            frame (int, optional): The frame identifier. Default: 1.
-            backend (str, optional): The display backend. Default: 'firefly'.
-            **kwargs: Parsed to afwDisplay.Display.
-        Returns:
-            afwDisplay.Display: The display object.
-        """
-        return afwDisplay.Display(frame=frame, backend=backend, **kwargs)
