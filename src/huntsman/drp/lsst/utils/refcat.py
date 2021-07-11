@@ -1,5 +1,7 @@
 """ Temporary hack solution to creating a reference catalogue in Butler Gen 3.
 NOTES:
+- Refcats are not fully implemented in Gen3 yet. Current advice is to convert an old Gen2 repo.
+- We do not have an old Gen2 repo to convert from in general.
 - Each refcat (e.g. skymapper) is treated as it's own datasetType.
 - Old gen2 ingestIndexReferenceTask has been overriden so as not to use a Gen2 butler.
 - This code is inspired by the convertRepo code in lsst.obs.base.

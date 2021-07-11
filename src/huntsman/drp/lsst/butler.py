@@ -1,10 +1,10 @@
 import os
-from functools import lru_cache
 from contextlib import suppress
 
-import lsst.daf.butler as dafButler
 from lsst.obs.base.utils import getInstrument
 from lsst.obs.base import RawIngestTask, RawIngestConfig
+from lsst.obs.base.script.defineVisits import defineVisits
+import lsst.daf.butler as dafButler
 from lsst.daf.butler.script.certifyCalibrations import certifyCalibrations
 
 from huntsman.drp.base import HuntsmanBase
@@ -84,8 +84,7 @@ class ButlerRepository(HuntsmanBase):
         return self.document_to_dataId(document, datasetType=datasetType)
 
     def get_butler(self, *args, **kwargs):
-        """ Get a butler object for a given rerun.
-        We cache created butlers to avoid the overhead of having to re-create them each time.
+        """ Get a butler object for this repository.
         Args:
             *args, **kwargs: Parsed to dafButler.Butler.
         Returns:
@@ -196,20 +195,35 @@ class ButlerRepository(HuntsmanBase):
                             begin_date=begin_date,
                             end_date=end_date)
 
-        # Add the output collection to the default search collections
-        self.collections.add(output_collection)
+    def construct_calexps(self, dataIds=None, output_collection=None, **kwargs):
+        """ Create calibrated exposures (calexps) from raw exposures.
+        Args:
+            dataIds (list of dict, optional): List of dataIds to process. If None (default),
+                will use all appropriate ingested raw files.
+            output_collection (str, optional): The name of the output collection. If None (default),
+                will determine automatically.
+            **kwargs: Parsed to pipeline.pipetask_run.
+        """
+        # If dataIds not provided, make calib using all ingested dataIds of the correct type
+        if dataIds is None:
+            dataIds = self.get_dataIds("raw", where="exposure.observation_type='science'")
 
-    def construct_calexps(self):
-        """
-        """
+        # Specify the input collections we need to make the calibs
+        input_collections = (self._raw_collection, self._calib_collection)
+
+        # Make the calibs in their own collection
+        if output_collection is None:
+            output_collection = os.path.join(self.root_directory, "calexp")
 
         # Define visits
-        # TODO: Figure out why this is necessary
-        # butler define-visits ./repo lsst.obs.decam.DarkEnergyCamera --collections DECam/raw/object
-
-        # Get dataIds
+        # TODO: Figure out what this actually does
+        defineVisits(self.root_directory, config_file=None, collections=self._raw_collection,
+                     instrument=self._instrument_name)
 
         # Run task
+        pipeline.pipetask_run("processCcd", self.root_directory, dataIds=dataIds,
+                              output_collection=output_collection,
+                              input_collections=input_collections, **kwargs)
 
     # Private methods
 
