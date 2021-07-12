@@ -31,3 +31,20 @@ def list_fits_files_recursive(directory):
                 files_in_directory.append(os.path.join(dirpath, file))
 
     return files_in_directory
+
+
+def ingest_exposure(filename, collection=None, config=None):
+    """ Convenience function to easily ingest one file.
+    Args:
+        filename (str): The name of the file to ingest.
+        config (dict, optional): The config. If not provided, use default config.
+    """
+    # Do import here to prevent circular import
+    from huntsman.drp.services.ingestor import ingest_file
+
+    if collection is None:
+        # Do import here to prevent circular import
+        from huntsman.drp.collection import ExposureCollection
+        collection = ExposureCollection(config=config)
+
+    return ingest_file(filename, collection=collection)

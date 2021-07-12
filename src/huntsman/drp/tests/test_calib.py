@@ -6,7 +6,7 @@ from panoptes.utils.time import CountdownTimer
 from panoptes.utils import error
 
 from huntsman.drp.utils.testing import FakeExposureSequence
-from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
+from huntsman.drp.collection import ExposureCollection, CalibCollection
 from huntsman.drp.services.calib import MasterCalibMaker
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
 from huntsman.drp.fitsutil import FitsHeaderTranslator
@@ -26,7 +26,7 @@ def config_lite(config):
 @pytest.fixture(scope="function")
 def empty_calib_collection(config):
     """ An empty master calib collection. """
-    col = MasterCalibCollection(config=config, collection_name="master_calib_test")
+    col = CalibCollection(config=config, collection_name="master_calib_test")
     yield col
 
     col.delete_all(really=True)
@@ -46,7 +46,7 @@ def exposure_collection_lite(tmp_path_factory, config_lite):
     expseq.generate_fake_data(directory=tempdir)
 
     # Populate the database
-    exposure_collection = RawExposureCollection(config=config_lite,
+    exposure_collection = ExposureCollection(config=config_lite,
                                                 collection_name="fake_data_lite")
 
     for filename, header in expseq.header_dict.items():

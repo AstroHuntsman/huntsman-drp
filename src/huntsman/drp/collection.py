@@ -337,7 +337,7 @@ class Collection(HuntsmanBase):
         return doc
 
 
-class RawExposureCollection(Collection):
+class ExposureCollection(Collection):
     """ Table to store metadata for Huntsman exposures. """
 
     _document_type = RawExposureDocument
@@ -386,8 +386,8 @@ class RawExposureCollection(Collection):
 
         doc_filter = {k: calib_document[k] for k in matching_keys}
 
-        # Add dataType to doc filter
-        doc_filter["dataType"] = dataset_type
+        # Add observation_type to doc filter
+        doc_filter["observation_type"] = dataset_type
 
         # Add valid date range to query
         calib_date = parse_date(calib_date)
@@ -427,10 +427,10 @@ class RawExposureCollection(Collection):
 
         # Get metadata for all raw calibs that are valid for this date
         if documents is None:
-            documents = self.find({"dataType": {"in": data_types}}, date_min=date_min,
+            documents = self.find({"observation_type": {"in": data_types}}, date_min=date_min,
                                   date_max=date_max, screen=True, quality_filter=True)
         else:
-            documents = [d for d in documents if d["dataType"] in data_types]
+            documents = [d for d in documents if d["observation_type"] in data_types]
 
         calib_docs = set([self.raw_doc_to_calib_doc(d, calib_date) for d in documents])
 
@@ -456,7 +456,7 @@ class RawExposureCollection(Collection):
         Returns:
             CalibDocument: The matching calib document.
         """
-        calib_type = document["dataType"]
+        calib_type = document["observation_type"]
 
         # Get minimal calib metadata
         keys = self.config["calibs"]["matching_columns"][calib_type]
@@ -491,17 +491,17 @@ class RawExposureCollection(Collection):
 
             if document_filter is not None:
                 # Create a new document filter for this data type
-                document_filter["dataType"] = data_type
+                document_filter["observation_type"] = data_type
                 filters.append(encode_mongo_filter(document_filter))
 
         # Allow data types that do not have any quality requirements in config
         data_types = list(quality_config.keys())
-        filters.append({"dataType": {"$nin": data_types}})
+        filters.append({"observation_type": {"$nin": data_types}})
 
         return mongo_logical_or(filters)
 
 
-class MasterCalibCollection(Collection):
+class CalibCollection(Collection):
     """ Table to store metadata for master calibs. """
 
     _document_type = CalibDocument

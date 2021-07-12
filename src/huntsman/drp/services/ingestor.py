@@ -1,55 +1,52 @@
 from functools import partial
-from copy import deepcopy
 
-from huntsman.drp.collection import RawExposureCollection
 from huntsman.drp.services.base import ProcessQueue
-from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header, read_fits_data
-from huntsman.drp.utils import load_module
-from huntsman.drp.metrics.raw import RAW_METRICS
+from huntsman.drp.metrics.raw import metric_evaluator
+from huntsman.drp.utils.fits import read_fits_header, parse_fits_header, read_fits_data
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG, list_fits_files_recursive
 
 
-def ingest_file(filename, config=None):
-    """ Convenience function to easily ingest one file.
-    Args:
-        filename (str): The name of the file to ingest.
-        config (dict, optional): The config. If not provided, use default config.
-    """
-    collection = RawExposureCollection(config=config)
-
-    return _process_file(filename, metric_names=RAW_METRICS, exposure_collection=collection)
-
-
-def _process_file(filename, metric_names, exposure_collection, **kwargs):
+def ingest_file(filename, metric_names, exposure_collection, **kwargs):
     """ Process a single file.
     This function has to be defined outside of the FileIngestor class since we are using
     multiprocessing and class instance methods cannot be pickled.
     Args:
         filename (str): The name of the file to process.
         metric_names (list of str): The list of the metrics to process.
-        exposure_collection (RawExposureCollection): The raw exposure collection.
+        exposure_collection (ExposureCollection): The raw exposure collection.
     Returns:
         bool: True if file was successfully processed, else False.
     """
-    config = exposure_collection.config
     logger = exposure_collection.logger
-
     logger.debug(f"Processing file: {filename}.")
-    fits_header_translator = FitsHeaderTranslator(config=config, logger=logger)
 
-    # Get the metrics
-    metrics, success = _get_raw_metrics(filename, metric_names=metric_names, logger=logger)
+    try:
+        data = read_fits_data(filename)
+        original_header = read_fits_header(filename)
+    except Exception as err:
+        logger.warning(f"Problem reading FITS file: {err!r}")
+        metrics = {}
+        success = False
+    else:
+        # Get the metrics
+        metrics, success = metric_evaluator.evaluate(filename, header=original_header, data=data,
+                                                     **kwargs)
     metrics[METRIC_SUCCESS_FLAG] = success
-    to_update = {"metrics": metrics}
 
     # Read the header
-    # NOTE: The header is currently modified when calculating metrics
-    parsed_header = fits_header_translator.read_and_parse(filename)
+    # NOTE: The header is currently modified if WCS is measured
+    header = read_fits_header(filename)
 
-    # Update the document (upserting if necessary)
-    # Note we only use the filename to match as other keys may change
+    # Parse the FITS header
+    # NOTE: Parsed info goes in the top level of the mongo document
+    parsed_header = parse_fits_header(header)
+
+    to_update = {"filename": filename}
     to_update.update(parsed_header)
-    to_update["filename"] = filename
+    to_update["header"] = header
+    to_update["metrics"] = metrics
+
+    # Use filename query as metrics etc can change
     exposure_collection.update_one({"filename": filename}, to_update=to_update, upsert=True)
 
     # Raise an exception if not success
@@ -57,41 +54,8 @@ def _process_file(filename, metric_names, exposure_collection, **kwargs):
         raise RuntimeError(f"Metric evaluation unsuccessful for {filename}.")
 
 
-def _get_raw_metrics(filename, metric_names, logger):
-    """ Evaluate metrics for a raw/unprocessed file.
-    Args:
-        filename (str): The filename of the FITS image to be processed.
-        metric_names (list of str): The list of the metrics to process.
-    Returns:
-        dict: Dictionary containing the metric names / values.
-    """
-    result = {}
-    success = True
-
-    # Read the FITS file
-    try:
-        header = read_fits_header(filename)
-        data = read_fits_data(filename)  # Returns float array
-    except Exception as err:
-        logger.error(f"Unable to read {filename}: {err!r}")
-        success = False
-    else:
-        for metric in metric_names:
-            func = load_module(f"huntsman.drp.metrics.raw.{metric}")
-            try:
-                result.update(func(filename, data=data, header=header))
-            except Exception as err:
-                logger.error(f"Exception while calculating {metric} for {filename}: {err!r}")
-                success = False
-
-    return result, success
-
-
 class FileIngestor(ProcessQueue):
     """ Class to watch for new file entries in database and process their metadata. """
-
-    # Work around so that tests can run without running the has_wcs metric
-    _raw_metrics = deepcopy(RAW_METRICS)
 
     def __init__(self, directory=None, nproc=None, *args, **kwargs):
         """
@@ -120,7 +84,7 @@ class FileIngestor(ProcessQueue):
     def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """
 
-        func = partial(_process_file, metric_names=self._raw_metrics)
+        func = partial(ingest_file, metric_names=self._raw_metrics)
 
         return super()._async_process_objects(process_func=func)
 

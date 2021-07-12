@@ -10,10 +10,10 @@ def test_calexp_quality_monitor(exposure_collection_real_data, master_calib_coll
     # Make sure the service uses the correct collections
     raw_name = exposure_collection_real_data.collection_name
     calib_name = master_calib_collection_real_data.collection_name
-    config["mongodb"]["collections"]["RawExposureCollection"]["name"] = raw_name
-    config["mongodb"]["collections"]["MasterCalibCollection"]["name"] = calib_name
+    config["mongodb"]["collections"]["ExposureCollection"]["name"] = raw_name
+    config["mongodb"]["collections"]["CalibCollection"]["name"] = calib_name
 
-    n_to_process = exposure_collection_real_data.count_documents({"dataType": "science"})
+    n_to_process = exposure_collection_real_data.count_documents({"observation_type": "science"})
 
     m = CalexpQualityMonitor(status_interval=5, queue_interval=5, config=config)
     m.start()
@@ -31,7 +31,7 @@ def test_calexp_quality_monitor(exposure_collection_real_data, master_calib_coll
         if not m.is_running:
             raise RuntimeError("Calexp monitor has stopped running.")
 
-        for md in exposure_collection_real_data.find({"dataType": "science"}):
+        for md in exposure_collection_real_data.find({"observation_type": "science"}):
             assert "calexp" in md["metrics"].keys()
 
             for metric_value in md["metrics"]["calexp"].values():
@@ -44,6 +44,6 @@ def test_calexp_quality_monitor(exposure_collection_real_data, master_calib_coll
 
     # Test delete calexp metrics
     exposure_collection_real_data.clear_calexp_metrics()
-    for md in exposure_collection_real_data.find({"dataType": "science"}):
+    for md in exposure_collection_real_data.find({"observation_type": "science"}):
         exposure_collection_real_data.logger.info(f"{md._document}")
         assert "calexp" not in md["metrics"].keys()

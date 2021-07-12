@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from panoptes.utils.time import CountdownTimer
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
+from huntsman.drp.collection import ExposureCollection, CalibCollection
 
 
 class Plotter(HuntsmanBase):
@@ -31,8 +31,8 @@ class Plotter(HuntsmanBase):
 
         self._plot_configs = {} if not plot_configs else plot_configs
 
-        self._exposure_collection = RawExposureCollection(config=self.config)
-        self._calib_collection = MasterCalibCollection(config=self.config)
+        self._exposure_collection = ExposureCollection(config=self.config)
+        self._calib_collection = CalibCollection(config=self.config)
 
         find_kwargs = {} if find_kwargs is None else find_kwargs
         self._rawdocs = self._exposure_collection.find(**find_kwargs)

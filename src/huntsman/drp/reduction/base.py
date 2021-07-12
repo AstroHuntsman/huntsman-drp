@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from huntsman.drp.utils import normalise_path, plotting
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
+from huntsman.drp.collection import ExposureCollection, CalibCollection
 from huntsman.drp.refcat import RefcatClient
 
 
@@ -32,11 +32,11 @@ class ReductionBase(HuntsmanBase):
         self._refcat_filename = os.path.join(self.directory, "refcat.csv")
 
         if not exposure_collection:
-            exposure_collection = RawExposureCollection(config=self.config)
+            exposure_collection = ExposureCollection(config=self.config)
         self._exposure_collection = exposure_collection
 
         if not calib_collection:
-            calib_collection = MasterCalibCollection(config=self.config)
+            calib_collection = CalibCollection(config=self.config)
         self._calib_collection = calib_collection
 
         self.science_docs = self._exposure_collection.find(**self._query)

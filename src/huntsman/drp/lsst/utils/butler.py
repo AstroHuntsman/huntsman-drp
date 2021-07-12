@@ -45,8 +45,8 @@ def calibId_to_dataIds(datasetType, calibId, butler):
     # Use these keys to match calibIds to dataIds
     matching_keys = [k for k in raw_keys if k in calib_keys]
 
-    # Get all dataIds inside the butler repo of the correct dataType
-    values = butler.queryMetadata("raw", format=raw_keys, dataId={"dataType": datasetType})
+    # Get all dataIds inside the butler repo of the correct observation_type
+    values = butler.queryMetadata("raw", format=raw_keys, dataId={"observation_type": datasetType})
     dataIds_all = [{k: v for k, v in zip(raw_keys, vals)} for vals in values]
 
     # Get matching dataIds

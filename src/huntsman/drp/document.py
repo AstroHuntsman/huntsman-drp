@@ -10,7 +10,7 @@ from astropy.wcs import WCS
 
 from huntsman.drp.core import get_config
 from huntsman.drp.utils.date import parse_date
-from huntsman.drp.fitsutil import read_fits_header
+from huntsman.drp.utils.fits import read_fits_header
 from huntsman.drp.utils.mongo import encode_mongo_filter, unflatten_dict
 
 

@@ -23,7 +23,7 @@ exposure_sequence:
 
 mongodb:
   collections:
-    RawExposureCollection:
+    ExposureCollection:
       name: "test_real_data"
 
 pyro:

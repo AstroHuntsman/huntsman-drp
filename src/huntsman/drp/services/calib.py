@@ -6,7 +6,7 @@ from threading import Thread, Event
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
-from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
+from huntsman.drp.collection import ExposureCollection, CalibCollection
 
 
 class MasterCalibMaker(HuntsmanBase):
@@ -35,8 +35,8 @@ class MasterCalibMaker(HuntsmanBase):
         self._nproc = int(nproc)
 
         # Create collection client objects
-        self.exposure_collection = RawExposureCollection(**kwargs)
-        self.calib_collection = MasterCalibCollection(**kwargs)
+        self.exposure_collection = ExposureCollection(**kwargs)
+        self.calib_collection = CalibCollection(**kwargs)
 
         # Create threads
         self._stop_threads = Event()

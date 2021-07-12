@@ -5,7 +5,7 @@ import numpy as np
 
 from huntsman.drp.utils.date import current_date, parse_date
 from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header
-from huntsman.drp.collection import RawExposureCollection
+from huntsman.drp.collection import ExposureCollection
 
 from pymongo.errors import ServerSelectionTimeoutError, DuplicateKeyError
 
@@ -15,7 +15,7 @@ def test_mongodb_wrong_host_name(config):
     modified_config = copy.deepcopy(config)
     modified_config["mongodb"]["hostname"] = "nonExistantHostName"
     with pytest.raises(ServerSelectionTimeoutError):
-        RawExposureCollection(config=modified_config)
+        ExposureCollection(config=modified_config)
 
 
 def test_datatable_query_by_date(exposure_collection, config):
@@ -93,7 +93,7 @@ def test_update_file_data_bad_filename(exposure_collection):
 def test_quality_filter(exposure_collection):
     """
     """
-    document_filter = {"dataType": "dark"}
+    document_filter = {"observation_type": "dark"}
     documents = exposure_collection.find(document_filter)
     n_docs = len(documents)
 

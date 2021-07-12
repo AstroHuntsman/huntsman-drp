@@ -4,7 +4,7 @@ name: example-offsetsky-reduction
 # This query is used to select science / target exposures
 query:
   document_filter:
-    dataType: science
+    observation_type: science
     field: DoradoGroup-p0p0
     filter:
       in:
@@ -16,7 +16,7 @@ query:
 # This query is used to select offset sky exposures
 sky_query:
   document_filter:
-    dataType: science
+    observation_type: science
     field: DoradoGroup-p0p0_sky
     filter:
       in:

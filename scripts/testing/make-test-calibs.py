@@ -6,7 +6,7 @@ import os
 import shutil
 
 from huntsman.drp.services.calib import MasterCalibMaker
-from huntsman.drp.collection import MasterCalibCollection
+from huntsman.drp.collection import CalibCollection
 from huntsman.drp.utils.testing import create_test_exposure_collection
 
 
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     raw = create_test_exposure_collection()
 
     # Make a master calib collection just for the test data
-    calib = MasterCalibCollection(collection_name="calib-test")
+    calib = CalibCollection(collection_name="calib-test")
 
     # Make the calibs
     calib_maker = MasterCalibMaker(exposure_collection=raw, calib_collection=calib)

@@ -3,7 +3,7 @@ name: example-reduction
 
 query:
   document_filter:
-    dataType: science
+    observation_type: science
     field: DoradoGroup-p0p0
     filter:
       in:

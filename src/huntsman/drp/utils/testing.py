@@ -10,7 +10,7 @@ from huntsman.drp.core import get_config
 from huntsman.drp.lsst.butler import ButlerRepository, TemporaryButlerRepository
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import parse_date
-from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
+from huntsman.drp.collection import ExposureCollection, CalibCollection
 from huntsman.drp.services.ingestor import ingest_file
 from huntsman.drp.lsst.utils.calib import get_calib_filename
 
@@ -90,14 +90,14 @@ def create_test_bulter_repository(directory, config=None, with_calibs=False, **k
 
 
 def create_test_exposure_collection(config=None, clear=True):
-    """ Ingest real testing images into a RawExposureCollection
+    """ Ingest real testing images into a ExposureCollection
     """
     if config is None:
         config = get_config(testing=True)
 
     filenames = get_testdata_fits_filenames(config)
 
-    exposure_collection = RawExposureCollection(config=config)
+    exposure_collection = ExposureCollection(config=config)
     if clear:
         exposure_collection.delete_all(really=True)
         assert not exposure_collection.find()
@@ -119,7 +119,7 @@ def create_test_calib_collection(config=None):
     if config is None:
         config = get_config()
 
-    calib_collection = MasterCalibCollection(config=config, collection_name="calib-test")
+    calib_collection = CalibCollection(config=config, collection_name="calib-test")
     calib_collection.delete_all(really=True)
     assert not calib_collection.find()
 

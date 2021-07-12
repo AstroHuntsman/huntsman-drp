@@ -223,7 +223,7 @@ class RefcatClient(HuntsmanBase):
         Returns:
             pd.DataFrame: The reference catalogue.
         """
-        coords = [d.get_central_skycoord() for d in documents if d["dataType"] == "science"]
+        coords = [d.get_central_skycoord() for d in documents if d["observation_type"] == "science"]
         return self.make_reference_catalogue(coords=coords, **kwargs)
 
 

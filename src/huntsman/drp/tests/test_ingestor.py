@@ -14,7 +14,7 @@ def ingestor(tempdir_and_exposure_collection_with_uningested_files, config):
 
     # Make sure the ingestor uses the correct collection
     raw_name = exposure_collection.collection_name
-    config["mongodb"]["collections"]["RawExposureCollection"]["name"] = raw_name
+    config["mongodb"]["collections"]["ExposureCollection"]["name"] = raw_name
 
     tempdir, exposure_collection = tempdir_and_exposure_collection_with_uningested_files
 

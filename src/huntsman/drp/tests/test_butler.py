@@ -66,22 +66,22 @@ def test_ingest(exposure_collection,  config):
         # Check we have the right number of each datatype
         n_flat = config["n_cameras"] * config["n_days"] * config["n_flat"] * n_filters
         data_ids = butler.queryMetadata('raw', ['visit', 'ccd'],
-                                        dataId={"dataType": "flat"})
+                                        dataId={"observation_type": "flat"})
         assert len(data_ids) == n_flat
 
         n_sci = config["n_cameras"] * config["n_days"] * config["n_science"] * n_filters
         data_ids = butler.queryMetadata('raw', ['visit', 'ccd'],
-                                        dataId={"dataType": "science"})
+                                        dataId={"observation_type": "science"})
         assert len(data_ids) == n_sci
 
         n_bias = config["n_cameras"] * config["n_days"] * config["n_bias"]
         data_ids = butler.queryMetadata('raw', ['visit', 'ccd'],
-                                        dataId={"dataType": "bias"})
+                                        dataId={"observation_type": "bias"})
         assert len(data_ids) == n_bias
 
         n_dark = config["n_cameras"] * config["n_days"] * config["n_dark"] * 2  # 2 exp times
         data_ids = butler.queryMetadata('raw', ['visit', 'ccd'],
-                                        dataId={"dataType": "dark"})
+                                        dataId={"observation_type": "dark"})
         assert len(data_ids) == n_dark
 
 
@@ -105,15 +105,15 @@ def test_make_master_calibs(exposure_collection, config):
     # Check we have the expected number of raw calib files
     # n_bias = n_cameras * n_days * n_bias_per_day
     n_raw_bias = n_cameras * n_days * test_config["n_bias"]
-    assert n_raw_bias == len([d for d in docs if d["dataType"] == "bias"])
+    assert n_raw_bias == len([d for d in docs if d["observation_type"] == "bias"])
 
     # n_dark = n_cameras * n_days * n_dark_per_day * n_unique_exptimes
     n_raw_dark = n_cameras * n_days * test_config["n_dark"] * 2
-    assert n_raw_dark == len([d for d in docs if d["dataType"] == "dark"])
+    assert n_raw_dark == len([d for d in docs if d["observation_type"] == "dark"])
 
     # n_flat = n_cameras * n_days * n_flat_per_day * n_filters
     n_raw_flat = n_cameras * n_days * test_config["n_flat"] * n_filters
-    assert n_raw_flat == len([d for d in docs if d["dataType"] == "flat"])
+    assert n_raw_flat == len([d for d in docs if d["observation_type"] == "flat"])
 
     # Specify the expected number of output master calibs
     n_bias = n_cameras
@@ -163,7 +163,7 @@ def test_make_coadd(exposure_collection_real_data, master_calib_collection_real_
     """ Test that we can make coadds """
 
     # Identify science files to process
-    docs = exposure_collection_real_data.find({"dataType": "science"})[:n_to_process]
+    docs = exposure_collection_real_data.find({"observation_type": "science"})[:n_to_process]
     assert len(docs) > 0
 
     # Get corresponding calibs

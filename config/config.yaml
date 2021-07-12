@@ -5,24 +5,7 @@ directories:
 
 fits_header:
   date_key: "DATE-OBS"
-  mappings:
-    exposure_time: "EXPTIME"
-    detector_serial: "CAM-ID"
-    detector_name: "CAM-ID"
-    object: "FIELD"
-    boresight_airmass: "AIRMASS"
 
-  required_columns:
-    - "expTime"
-    - "taiObs"
-    - "field"
-    - "expId"
-    - "ccdTemp"
-    - "dateObs"
-    - "dataType"
-    - "filter"
-    - "visit"
-    - "ccd"
 
 cameras:
   plate_scale: 527.54167  # arcsec/mm
@@ -62,11 +45,11 @@ mongodb:
   port: 27017
   db_name: "huntsman"
   collections:
-    RawExposureCollection:
+    ExposureCollection:
       name: "raw_exposures"
       unique_keys:
         - "filename"
-    MasterCalibCollection:
+    CalibCollection:
       name: "master_calibs"
       unique_keys:
         - "filename"  # Let obs_huntsman handle unique calib file naming
