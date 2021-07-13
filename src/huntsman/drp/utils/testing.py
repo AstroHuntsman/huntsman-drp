@@ -104,7 +104,7 @@ def create_test_exposure_collection(config=None, clear=True):
 
     # Make and start FileIngestor object
     for filename in filenames:
-        ingest_file(filename, config=config)
+        ingest_file(filename, collection=exposure_collection, config=config)
 
     assert len(exposure_collection.find()) == len(filenames)
     assert set(exposure_collection.find(key="filename")) == set(filenames)

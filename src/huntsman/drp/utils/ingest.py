@@ -1,7 +1,7 @@
 import os
 
 METRICS = "clipped_stats", "flipped_asymmetry"  # TODO: Refactor!
-METRIC_SUCCESS_FLAG = "screen_success"
+METRIC_SUCCESS_FLAG = "RAW_METRIC_SUCCESS"
 
 
 def screen_success(document):
@@ -31,22 +31,3 @@ def list_fits_files_recursive(directory):
                 files_in_directory.append(os.path.join(dirpath, file))
 
     return files_in_directory
-
-
-def ingest_exposure(filename, collection=None, **kwargs):
-    """ Convenience function to easily ingest one file.
-    Args:
-        filename (str): The name of the file to ingest.
-        collection (ExposureCollection, optional): The exposure collection. If not provided,
-            will make one from config.
-        **kwargs: Used to create the exposure collection if it is not provided.
-    """
-    # Do import here to prevent circular import
-    from huntsman.drp.services.ingestor import ingest_file
-
-    if collection is None:
-        # Do import here to prevent circular import
-        from huntsman.drp.collection import ExposureCollection
-        collection = ExposureCollection(**kwargs)
-
-    return ingest_file(filename, collection=collection)

@@ -1,62 +1,16 @@
-from functools import partial
-
 from huntsman.drp.services.base import ProcessQueue
-from huntsman.drp.metrics.raw import metric_evaluator
-from huntsman.drp.utils.fits import read_fits_header, parse_fits_header, read_fits_data
-from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG, list_fits_files_recursive
+from huntsman.drp.utils.ingest import ingest_exposure, list_fits_files_recursive
+
+__all__ = ("FileIngestor",)
 
 
-def ingest_file(filename, collection, **kwargs):
-    """ Process a single file.
-    This function has to be defined outside of the FileIngestor class since we are using
-    multiprocessing and class instance methods cannot be pickled.
+def ingest_file(filename, exposure_collection):
+    """ Ingest a file into the collection.
     Args:
-        filename (str): The name of the file to process.
-        collection (ExposureCollection): The raw exposure collection.
-    Returns:
-        bool: True if file was successfully processed, else False.
+        filename (str): The name of the file to ingest.
+        exposure_collection (ExposureCollection): The collection in which to ingest the file.
     """
-    config = collection.config
-    logger = collection.logger
-    logger.debug(f"Processing file: {filename}.")
-
-    try:
-        data = read_fits_data(filename)
-        original_header = read_fits_header(filename)
-    except Exception as err:
-        logger.warning(f"Problem reading FITS file: {err!r}")
-        metrics = {}
-        success = False
-    else:
-        # Ignore certain metrics if required
-        metrics_ignore = config.get("raw_metrics_ignore", ())
-        for metric_name in metrics_ignore:
-            metric_evaluator.remove_function(metric_name)
-
-        # Get the metrics
-        metrics, success = metric_evaluator.evaluate(filename, header=original_header, data=data,
-                                                     **kwargs)
-    metrics[METRIC_SUCCESS_FLAG] = success
-
-    # Read the header
-    # NOTE: The header is currently modified if WCS is measured
-    header = read_fits_header(filename)
-
-    # Parse the FITS header
-    # NOTE: Parsed info goes in the top level of the mongo document
-    parsed_header = parse_fits_header(header)
-
-    to_update = {"filename": filename}
-    to_update.update(parsed_header)
-    to_update["header"] = dict(header)
-    to_update["metrics"] = metrics
-
-    # Use filename query as metrics etc can change
-    collection.update_one({"filename": filename}, to_update=to_update, upsert=True)
-
-    # Raise an exception if not success
-    if not success:
-        raise RuntimeError(f"Metric evaluation unsuccessful for {filename}.")
+    exposure_collection.ingest_file(filename)
 
 
 class FileIngestor(ProcessQueue):
@@ -88,10 +42,7 @@ class FileIngestor(ProcessQueue):
 
     def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """
-
-        func = partial(ingest_file)
-
-        return super()._async_process_objects(process_func=func)
+        return super()._async_process_objects(process_func=ingest_exposure)
 
     def _get_objs(self):
         """ Get list of files to process. """

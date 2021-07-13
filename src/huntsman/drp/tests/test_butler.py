@@ -3,7 +3,7 @@ from huntsman.drp.lsst.butler import TemporaryButlerRepository
 
 
 def test_ingest(exposure_collection, config):
-    """ Test ingest of raw files into a ButlerRepository. """
+    """ Test ingest of raw files into a ButlerRepository and ensure they have the right type. """
 
     config = config["exposure_sequence"]  # TODO: Rename
     n_filters = len(config["filters"])
@@ -39,7 +39,7 @@ def test_ingest(exposure_collection, config):
 
 
 def test_make_master_calibs(exposure_collection, config):
-    """ Make sure the correct number of master bias frames are produced. """
+    """ Check we can create master calibs and in the correct number. """
 
     # Get documents for a single night and a single camera
     doc = exposure_collection.find()[0]
