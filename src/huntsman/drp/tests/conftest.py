@@ -7,8 +7,6 @@ from huntsman.drp.collection import ExposureCollection
 from huntsman.drp import refcat as rc
 from huntsman.drp.utils import testing
 
-from huntsman.drp.utils.ingest import ingest_exposure
-
 # ===========================================================================
 # Config
 
@@ -81,7 +79,7 @@ def exposure_collection(tmp_path_factory, config):
 
     # Ingest the data into the collection
     for filename, header in expseq.header_dict.items():
-        ingest_exposure(filename=filename, collection=exposure_collection)
+        exposure_collection.ingest_file(filename=filename)
 
     # Make sure table has the correct number of rows
     assert exposure_collection.count_documents() == expseq.file_count
@@ -143,7 +141,7 @@ def tempdir_and_exposure_collection_with_uningested_files(tmp_path_factory, conf
     for filename, header in expseq.header_dict.items():
         if n >= n_stop:
             break
-        ingest_exposure(filename=filename, collection=exposure_collection, config=config)
+        exposure_collection.ingest_file(filename=filename)
         n += 1
 
     # Make sure table has the correct number of rows

@@ -1,5 +1,5 @@
 from huntsman.drp.services.base import ProcessQueue
-from huntsman.drp.utils.ingest import ingest_exposure, list_fits_files_recursive
+from huntsman.drp.utils.ingest import list_fits_files_recursive
 
 __all__ = ("FileIngestor",)
 
@@ -42,7 +42,7 @@ class FileIngestor(ProcessQueue):
 
     def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """
-        return super()._async_process_objects(process_func=ingest_exposure)
+        return super()._async_process_objects(process_func=ingest_file)
 
     def _get_objs(self):
         """ Get list of files to process. """

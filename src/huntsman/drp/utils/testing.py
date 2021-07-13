@@ -11,7 +11,6 @@ from huntsman.drp.lsst.butler import ButlerRepository, TemporaryButlerRepository
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import parse_date
 from huntsman.drp.collection import ExposureCollection, CalibCollection
-from huntsman.drp.services.ingestor import ingest_file
 from huntsman.drp.lsst.utils.calib import get_calib_filename
 
 
@@ -104,7 +103,7 @@ def create_test_exposure_collection(config=None, clear=True):
 
     # Make and start FileIngestor object
     for filename in filenames:
-        ingest_file(filename, collection=exposure_collection, config=config)
+        exposure_collection.ingest_file(filename)
 
     assert len(exposure_collection.find()) == len(filenames)
     assert set(exposure_collection.find(key="filename")) == set(filenames)

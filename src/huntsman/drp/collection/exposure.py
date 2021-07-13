@@ -80,11 +80,13 @@ class ExposureCollection(Collection):
         header = read_fits_header(filename)
 
         # Parse the FITS header
-        # NOTE: Parsed info goes in the top level of the mongo document
+        # NOTE: Parsed info goes in the top-level of the mongo document
         parsed_header = parse_fits_header(header)
 
         to_update = {"filename": filename}
         to_update.update(parsed_header)
+
+        # NOTE: Header and metrics go in sub-levels of the mongo document
         to_update["header"] = dict(header)
         to_update["metrics"] = metrics
 
