@@ -51,7 +51,7 @@ def test_make_master_calibs(exposure_collection, config):
                                                     validity=9999)
 
     for doc in docs:
-        exposure_collection.logger.info(f"{doc['observing_day']} {doc['datasetType']}")
+        exposure_collection.logger.info(f"{doc['observing_day']} {doc['observation_type']}")
 
     with TemporaryButlerRepository(config=config) as br:
         br.ingest_raw_files([d["filename"] for d in docs])
@@ -65,4 +65,4 @@ def test_make_master_calibs(exposure_collection, config):
             br.construct_calibs(datasetType)
 
             # Check the right number of calibs were produced
-            assert len(br.get_dataIds(datasetType) == n_expected)
+            assert len(br.get_dataIds(datasetType)) == n_expected

@@ -34,8 +34,11 @@ class ButlerRepository(HuntsmanBase):
         self.root_directory = directory
 
         # Calib directory relative to root
+        # This is where new calibs will be created
         self._calib_directory = os.path.join("Huntsman", "calib")
 
+        # Calib collection relative to root
+        # This is where calibs are registered
         if calib_collection is None:
             calib_collection = os.path.join(self._calib_directory, "CALIB")
         self._calib_collection = calib_collection
@@ -48,13 +51,16 @@ class ButlerRepository(HuntsmanBase):
     def search_collections(self):
         """ Get default search collections. """
         butler = self.get_butler()
-
-        collections = set(butler.registry.queryCollections())
+        collections = set()
 
         # Temporary workaround because we cannot query CALIBRATION collections yet
-        # TODO: Remove when implemented
-        with suppress(KeyError):
-            collections.remove(self._calib_collection)
+        # TODO: Remove when implemented in LSST code
+        for collection in butler.registry.queryCollections():
+
+            collection_type = butler.registry.getCollectionType(collection).name
+
+            if collection_type not in ("CALIBRATION", "CHAINED"):
+                collections.add(collection)
 
         return collections
 
@@ -250,9 +256,11 @@ class ButlerRepository(HuntsmanBase):
         Returns:
             lsst.daf.butler.registry.queries.ChainedDatasetQueryResults: The query results.
         """
-        butler = self.get_butler(collections=self.search_collections)
-        return butler.registry.queryDatasets(datasetType=datasetType,
-                                             collections=self.search_collections,
+        if collections is None:
+            collections = self.search_collections
+        butler = self.get_butler(collections=collections)
+
+        return butler.registry.queryDatasets(datasetType=datasetType, collections=collections,
                                              **kwargs)
 
 

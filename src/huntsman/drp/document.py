@@ -16,7 +16,9 @@ class Document(abc.Mapping):
     """ A dataId behaves like a dictionary but makes it easier to compare between dataIds.
     DataId objects are hashable, whereas dictionaries are not. This allows them to be used in sets.
     """
-    _required_keys = set()
+    # Hash keys is an ordered set, the corresponding values are used to uniquely identify the doc
+    # TODO: Figure out the best way of setting these from the config
+    _hash_keys = set()
 
     def __init__(self, document, copy=False, unflatten=True, **kwargs):
         super().__init__()
@@ -39,11 +41,11 @@ class Document(abc.Mapping):
 
     def __eq__(self, o):
         with suppress(KeyError):
-            return all([self[k] == o[k] for k in self._required_keys])
+            return all([self[k] == o[k] for k in self._hash_keys])
         return False
 
     def __hash__(self):
-        return hash(tuple([self[k] for k in self._required_keys]))
+        return hash(tuple([self[k] for k in self._hash_keys]))
 
     def __getitem__(self, key):
         return self._document[key]
@@ -61,13 +63,13 @@ class Document(abc.Mapping):
         return len(self._document)
 
     def __str__(self):
-        if self._required_keys:
-            return str({k: self._document[k] for k in self._required_keys})
+        if self._hash_keys:
+            return str({k: self._document[k] for k in self._hash_keys})
         return str(self._document)
 
     def __repr__(self):
-        if self._required_keys:
-            return repr({k: self._document[k] for k in self._required_keys})
+        if self._hash_keys:
+            return repr({k: self._document[k] for k in self._hash_keys})
         return repr(self._document)
 
     # Public methods
@@ -109,7 +111,7 @@ class Document(abc.Mapping):
         Returns:
             dict: The encoded document.
         """
-        doc = {k: self[k] for k in self._required_keys}
+        doc = {k: self[k] for k in self._hash_keys}
         return encode_mongo_filter(doc)
 
     def copy(self):
@@ -121,6 +123,9 @@ class Document(abc.Mapping):
 
 
 class ExposureDocument(Document):
+
+    # TODO: Figure out the best way of setting these from the config
+    _hash_keys = set(["filename"])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -148,5 +153,12 @@ class ExposureDocument(Document):
 
 class CalibDocument(Document):
 
+    # TODO: Figure out the best way of setting these from the config
+    _hash_keys = set(["datasetType", "detector_num", "instrument"])
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        if self["datasetType"] == "flat":
+            self._hash_keys = self._hash_keys.copy()
+            self._hash_keys.add("physical_filter")
