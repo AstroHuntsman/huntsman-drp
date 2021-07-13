@@ -5,11 +5,11 @@ import pytest
 from panoptes.utils.time import CountdownTimer
 from panoptes.utils import error
 
+from huntsman.drp.utils.fits import parse_fits_header
 from huntsman.drp.utils.testing import FakeExposureSequence
 from huntsman.drp.collection import ExposureCollection, CalibCollection
 from huntsman.drp.services.calib import MasterCalibMaker
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
-from huntsman.drp.fitsutil import FitsHeaderTranslator
 
 
 @pytest.fixture(scope="function")
@@ -38,8 +38,6 @@ def exposure_collection_lite(tmp_path_factory, config_lite):
     Create a temporary directory populated with fake FITS images, then parse the images into the
     raw data table.
     """
-    fits_header_translator = FitsHeaderTranslator(config=config_lite)
-
     # Generate the fake data
     tempdir = tmp_path_factory.mktemp("test_exposure_sequence")
     expseq = FakeExposureSequence(config=config_lite)
@@ -47,12 +45,12 @@ def exposure_collection_lite(tmp_path_factory, config_lite):
 
     # Populate the database
     exposure_collection = ExposureCollection(config=config_lite,
-                                                collection_name="fake_data_lite")
+                                             collection_name="fake_data_lite")
 
     for filename, header in expseq.header_dict.items():
 
         # Parse the header
-        parsed_header = fits_header_translator.parse_header(header)
+        parsed_header = parse_fits_header(header)
         parsed_header["filename"] = filename
         parsed_header["metrics"] = {METRIC_SUCCESS_FLAG: True}
 

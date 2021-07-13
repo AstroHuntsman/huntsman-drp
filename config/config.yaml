@@ -6,7 +6,8 @@ directories:
 fits_header:
   date_key: "DATE-OBS"
 
-
+# Camera info, mainly used by obs_huntsman
+# TODO: Move to obs_huntsman?
 cameras:
   plate_scale: 527.54167  # arcsec/mm
   default_preset: "zwo"
@@ -40,20 +41,35 @@ cameras:
       width: 800
       height: 800
 
+# Config items for connecting to the mongodb client
 mongodb:
   hostname: "localhost"
   port: 27017
   db_name: "huntsman"
-  collections:
-    ExposureCollection:
-      name: "raw_exposures"
-      unique_keys:
-        - "filename"
-    CalibCollection:
-      name: "master_calibs"
-      unique_keys:
-        - "filename"  # Let obs_huntsman handle unique calib file naming
 
+# Config for collections
+collections:
+  ExposureCollection:
+    name: "huntsman_exposures"  # The name of the mongodb collection
+    required_fields:  # Required fields must be present in an inserted document
+      - filename
+    index_fields:
+      - filename
+
+  CalibCollection:
+    name: "huntsman_calibs"
+    required_fields:
+      - "filename"
+      - "datasetType"
+      - "instrument"
+      - "detector_num"
+    required_fields_by_type:
+      flat:
+        - "physical_filter"
+    index_fields:
+      - filename
+
+# Config items for calibs
 calibs:
   types:  # Order is important
     - bias
@@ -61,16 +77,22 @@ calibs:
     - defects
     - flat
   validity: 30
-  matching_columns:  # These columns are for matching raw calibs with raw science frames
+  # These columns are for matching raw calibs with raw science frames
+  # TODO: Get these from butler?
+  matching_columns:
     flat:
-      - filter
-      - ccd
+      - instrument
+      - detector_num
+      - physical_filter
     bias:
-      - ccd
+      - instrument
+      - detector_num
     dark:
-      - ccd
+      - instrument
+      - detector_num
     defects:
-      - ccd
+      - instrument
+      - detector_num
 
 refcat:
   tap_url: http://api.skymapper.nci.org.au/aus/tap/

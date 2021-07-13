@@ -54,14 +54,10 @@ def parse_fits_header(header, **kwargs):
     md = ObservationInfo(header, translator_class=HuntsmanTranslator, **kwargs).to_simple()
 
     # Extract simplified AltAz
-    altaz = md.pop("altaz_begin")
-    md["alt"] = altaz.alt.to_value("deg")
-    md["az"] = altaz.az.to_value("deg")
+    md["alt"], md["az"] = md.pop("altaz_begin")
 
     # Extract simplified RaDec
-    radec = md.pop("tracking_radec")
-    md["ra"] = radec.ra.to_value("deg")
-    md["dec"] = radec.dec.to_value("deg")
+    md["ra"], md["dec"] = md.pop("tracking_radec")
 
     # Remove other keys that cannot be stored in mongo DB
     for key in md.keys():

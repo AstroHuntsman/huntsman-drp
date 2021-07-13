@@ -11,7 +11,7 @@ from huntsman.drp.metrics import MetricEvaluator
 metric_evaluator = MetricEvaluator()
 
 
-@metric_evaluator.add_function()
+@metric_evaluator.add_function
 def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=False, **kwargs):
     """ Function to call get_solve_field on a file and verify if a WCS solution could be found.
     Args:
@@ -69,7 +69,7 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=Fal
     return result
 
 
-@metric_evaluator.add_function()
+@metric_evaluator.add_function
 def clipped_stats(filename, data, header):
     """Return sigma-clipped image statistics.
     Args:
@@ -90,7 +90,7 @@ def clipped_stats(filename, data, header):
             "well_fullfrac": well_fullfrac}
 
 
-@metric_evaluator.add_function()
+@metric_evaluator.add_function
 def flipped_asymmetry(filename, data, header):
     """ Calculate the asymmetry statistics by flipping data in x and y directions.
     Args:

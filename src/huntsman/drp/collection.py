@@ -1,4 +1,3 @@
-"""Code to interface with the Huntsman mongo database."""
 import os
 import shutil
 from contextlib import suppress
@@ -11,7 +10,7 @@ from pymongo.errors import ServerSelectionTimeoutError, DuplicateKeyError
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import current_date, parse_date, date_to_ymd
-from huntsman.drp.document import Document, RawExposureDocument, CalibDocument
+from huntsman.drp.document import Document, ExposureDocument, CalibDocument
 from huntsman.drp.utils.mongo import encode_mongo_filter, mongo_logical_or, mongo_logical_and
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
 from huntsman.drp.lsst.utils.calib import get_calib_filename
@@ -21,39 +20,40 @@ class Collection(HuntsmanBase):
     """ This class is used to interface with the mongodb. It is responsible for performing queries
     and inserting/updating/deleting documents, as well as validating new documents.
     """
-    _unique_keys = None
+    _index_fields = None
+    _required_fields = None
+    _DocumentClass = None
 
     def __init__(self, db_name=None, collection_name=None, **kwargs):
         super().__init__(**kwargs)
 
-        cfg = self.config["mongodb"]
-        if not db_name:
-            db_name = cfg["db_name"]
+        # Get the name of the mongo database
+        self._db_name = self.config["mongodb"]["db_name"] if db_name is None else db_name
 
-        # Get collection name from config if not explicitly provided
+        # Get the name of the collection in the mongo database
         if not collection_name:
-            collection_name = cfg["collections"][self.__class__.__name__]["name"]
-
-        self._db_name = db_name
+            try:
+                collection_name = self.config["collections"][self.__class__.__name__]["name"]
+            except KeyError:
+                raise ValueError("Unable to determine collection name.")
         self.collection_name = collection_name
 
-        # Initialise the DB
-        db_name = self.config["mongodb"]["db_name"]
+        # Get the fields required for new documents
+        with suppress(KeyError):
+            self._required_fields = self.config[self.__class__.__name__]["required_fields"]
+
+        # Get the fields used to create a lookup index
+        # The combination of field values must be unique for each document
+        with suppress(KeyError):
+            self._index_fields = self.config[self.__class__.__name__]["index_fields"]
+
+        # Connect to the DB and initialise the collection
         self._connect()
 
     def __str__(self):
         return f"{self.collection_name} ({self.__class__.__name__})"
 
     # Public methods
-
-    def count_documents(self, *args, **kwargs):
-        """ Count the number of matching documents in the collection.
-        Args:
-            *args, **kwargs: Parsed to self.find.
-        Returns:
-            int: The number of matching documents in the collection.
-        """
-        return len(self.find(*args, **kwargs))
 
     def find(self, document_filter=None, date_min=None, date_max=None, date=None, key=None,
              screen=False, quality_filter=False, limit=None):
@@ -121,7 +121,7 @@ class Collection(HuntsmanBase):
             return [d[key] for d in documents]
 
         # Skip validation to speed up - inserted documents should already be valid
-        return [self._document_type(d, validate=False, config=self.config) for d in documents]
+        return [self._DocumentClass(d, validate=False, config=self.config) for d in documents]
 
     def find_one(self, *args, **kwargs):
         """ Find a single matching document. If multiple matches, raise a RuntimeError.
@@ -272,6 +272,15 @@ class Collection(HuntsmanBase):
         docs = self.find()
         self.delete_many(docs, **kwargs)
 
+    def count_documents(self, *args, **kwargs):
+        """ Count the number of matching documents in the collection.
+        Args:
+            *args, **kwargs: Parsed to self.find.
+        Returns:
+            int: The number of matching documents in the collection.
+        """
+        return len(self.find(*args, **kwargs))
+
     # Private methods
 
     def _connect(self):
@@ -301,25 +310,11 @@ class Collection(HuntsmanBase):
         self._db = self._client[self._db_name]
         self._collection = self._db[self.collection_name]
 
-        # Define which keys identify unique documents
-        self._set_unique_keys()
-
-    def _set_unique_keys(self):
-        """ Define the set of keys (if any) that identify a unique document.
-        This approach leverages mongdb's server-side locking mechanism to ensure thread-safety on
-        inserts.
-        See: https://docs.mongodb.com/manual/core/index-unique
-        """
-        cfg = self.config["mongodb"]["collections"].get(self.__class__.__name__, {})
-
-        unique_keys = cfg.get("unique_keys", None)
-        if unique_keys:
-            self._collection.create_index([(k, pymongo.ASCENDING) for k in unique_keys],
+        # Create unique index
+        # This leverages mongdb's server-side locking mechanism for thread-safety on inserts
+        if self._index_fields:
+            self._collection.create_index([(k, pymongo.ASCENDING) for k in self._index_fields],
                                           unique=True)
-
-    def _get_quality_filter(self):
-        """ Return the Query object corresponding to quality cuts. """
-        raise NotImplementedError
 
     def _prepare_doc_for_insert(self, document):
         """ Prepare a document to be inserted into the database.
@@ -328,7 +323,9 @@ class Collection(HuntsmanBase):
         Returns:
             Document: The prepared document of the appropriate type for this collection.
         """
-        doc = self._document_type(document, copy=True, unflatten=True, config=self.config)
+        # Create and validate document
+        doc = self._DocumentClass(document, copy=True, unflatten=True)
+        self._validate_document(doc)
 
         # Add date records
         doc["date_created"] = current_date()
@@ -336,11 +333,34 @@ class Collection(HuntsmanBase):
 
         return doc
 
+    def _validate_document(self, document, required_fields=None):
+        """ Validate a document for insersion.
+        Args:
+            document (Document): The document to validate.
+            required_fields (iterable of str, optional): Fields required to exist in document.
+                If not provided, use class attribute.
+        Raises:
+            ValueError: If the document is invalid.
+        """
+        if required_fields is None:
+            required_fields = self._required_fields
+
+        if not required_fields:
+            return
+
+        for field in required_fields:
+            if field not in document:
+                raise ValueError(f"Field {field} not in document. Cannot insert.")
+
+    def _get_quality_filter(self):
+        """ Return the Query object corresponding to quality cuts. """
+        raise NotImplementedError
+
 
 class ExposureCollection(Collection):
     """ Table to store metadata for Huntsman exposures. """
 
-    _document_type = RawExposureDocument
+    _DocumentClass = ExposureDocument
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -350,12 +370,12 @@ class ExposureCollection(Collection):
     def insert_one(self, document, *args, **kwargs):
         """ Override to make sure the document does not clash with an fpacked version.
         Args:
-            document (RawExposureDocument): The document to insert.
+            document (ExposureDocument): The document to insert.
             *args, **kwargs: Parsed to super().insert_one
         Raises:
             DuplicateKeyError: If a .fz / .fits duplicate already exists.
         """
-        doc = self._document_type(document, copy=True, config=self.config)
+        doc = self._DocumentClass(document, copy=True, config=self.config)
         filename = doc["filename"]
 
         if filename.endswith(".fits"):
@@ -375,7 +395,7 @@ class ExposureCollection(Collection):
             calib_date (object): An object that can be interpreted as a date.
             validity (datetime.timedelta): The validity of the calibs.
         Returns:
-            list of RawExposureDocument: The matching raw calibs ordered by increasing time diff.
+            list of ExposureDocument: The matching raw calibs ordered by increasing time diff.
         """
         if validity is None:
             validity = timedelta(days=self.config["calibs"]["validity"])
@@ -407,23 +427,28 @@ class ExposureCollection(Collection):
 
         return documents
 
-    def get_calib_docs(self, calib_date, documents=None, validity=None):
-        """ Get all possible CalibDocuments from a set of RawExposureDocuments.
+    def get_calib_docs(self, date, documents=None, validity=None):
+        """ Get all possible CalibDocuments from a set of ExposureDocuments.
         Args:
-            calib_date (object): The calib date.
-            documents (list of RawExposureDocument, optional): The list of documents to process.
+            date (object): The calib date.
+            documents (list of ExposureDocument, optional): The list of documents to process.
                 If not provided, will lookup the appropriate documents from the collection.
             validity (datetime.timedelta): The validity of the calibs.
         Returns:
             set of CalibDocument: The calb documents.
         """
         data_types = self.config["calibs"]["types"]
+
+        # Standardise validity input
         if validity is None:
             validity = timedelta(days=self.config["calibs"]["validity"])
+        elif not isinstance(validity, timedelta):
+            validity = timedelta(days=validity)
 
-        calib_date = parse_date(calib_date)
-        date_min = calib_date - validity
-        date_max = calib_date + validity
+        # Get valid date range
+        date = parse_date(date)
+        date_min = date - validity
+        date_max = date + validity
 
         # Get metadata for all raw calibs that are valid for this date
         if documents is None:
@@ -432,40 +457,29 @@ class ExposureCollection(Collection):
         else:
             documents = [d for d in documents if d["observation_type"] in data_types]
 
-        calib_docs = set([self.raw_doc_to_calib_doc(d, calib_date) for d in documents])
-
-        # Retrieve defects docs, one for each master dark
-        defects_docs = []
-        for calib_doc in calib_docs:
-            if calib_doc["datasetType"] == "dark":
-                defects_doc = calib_doc.copy()
-                defects_doc["datasetType"] = "defects"
-                defects_doc["filename"] = get_calib_filename(defects_doc, config=self.config)
-                defects_docs.append(defects_doc)
-        calib_docs.update(defects_docs)
-
-        self.logger.info(f"Found {len(calib_docs)} calibIds for calib_date={calib_date}.")
+        # Extract the calib docs from the set of exposure docs
+        calib_docs = set([self.raw_doc_to_calib_doc(d, date) for d in documents])
+        self.logger.info(f"Found {len(calib_docs)} calibIds for date={date}.")
 
         return calib_docs
 
     def raw_doc_to_calib_doc(self, document, calib_date):
-        """ Convert a RawExposureDocument into its corresponding CalibDocument.
+        """ Convert a ExposureDocument into its corresponding CalibDocument.
         Args:
-            document (RawExposureDocument): The raw calib document.
+            document (ExposureDocument): The raw calib document.
             calib_date (object): The calib date.
         Returns:
             CalibDocument: The matching calib document.
         """
-        calib_type = document["observation_type"]
+        datasetType = document["observation_type"]
 
         # Get minimal calib metadata
-        keys = self.config["calibs"]["matching_columns"][calib_type]
+        keys = self.config["calibs"]["matching_columns"][datasetType]
         calib_dict = {k: document[k] for k in keys}
 
         # Add extra required metadata
         calib_dict["calibDate"] = date_to_ymd(calib_date)
-        calib_dict["datasetType"] = calib_type
-        calib_dict["filename"] = get_calib_filename(calib_dict, config=self.config)
+        calib_dict["datasetType"] = datasetType
 
         return CalibDocument(calib_dict)
 
@@ -504,15 +518,24 @@ class ExposureCollection(Collection):
 class CalibCollection(Collection):
     """ Table to store metadata for master calibs. """
 
-    _document_type = CalibDocument
+    _DocumentClass = CalibDocument
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # Set required fields with type dependency
+        # This is useful for e.g. requiring a filter name for flats but not for biases
+        try:
+            required_fields_by_type = self.config[self.__class__.__name__][
+                "required_fields_by_type"]
+        except KeyError:
+            required_fields_by_type = None
+        self._required_fields_by_type = required_fields_by_type
+
     def get_matching_calibs(self, document):
         """ Return best matching set of calibs for a given document.
         Args:
-            document (RawExposureDocument): The document to match with.
+            document (ExposureDocument): The document to match with.
         Returns:
             dict: A dict of datasetType: CalibDocument.
         Raises:
@@ -525,7 +548,7 @@ class CalibCollection(Collection):
         matching_keys = self.config["calibs"]["matching_columns"]
 
         # Specify valid date range
-        date = parse_date(document["dateObs"])
+        date = parse_date(document["observing_day"])
         date_min = date - validity
         date_max = date + validity
 
@@ -577,3 +600,18 @@ class CalibCollection(Collection):
         # Insert the metadata into the calib database
         # Use replace operation with upsert because old document may already exist
         self.replace_one({"filename": archived_filename}, metadata, upsert=True)
+
+    # Private methods
+
+    def _validate_document(self, document):
+        """ Validate a document for insersion.
+        Args:
+            document (Document): The document to validate.
+        Raises:
+            ValueError: If the document is invalid.
+        """
+        super()._validate_document(document)
+
+        required_fields = self._required_fields_by_type.get(document["datasetType"])
+        if required_fields:
+            super()._validate_document(document, required_fields=required_fields)

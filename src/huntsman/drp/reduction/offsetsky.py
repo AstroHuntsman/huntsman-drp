@@ -122,9 +122,9 @@ class OffsetSkyReduction(LsstReduction):
     def _get_matching_sky_docs(self, document):
         """ Get list of documents to measure the offset sky background with.
         Args:
-            document (RawExposureDocument): The raw exposure document to match with.
+            document (ExposureDocument): The raw exposure document to match with.
         Returns:
-            list of RawExposureDocument: The matching documents.
+            list of ExposureDocument: The matching documents.
         """
         td = timedelta(minutes=self._timedelta_minutes)
         date_min = document["date"] - td

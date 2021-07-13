@@ -3,9 +3,9 @@ import copy
 from datetime import timedelta
 import numpy as np
 
-from huntsman.drp.utils.date import current_date, parse_date
-from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header
 from huntsman.drp.collection import ExposureCollection
+from huntsman.drp.utils.date import current_date, parse_date
+from huntsman.drp.utils.fits import read_fits_header, parse_fits_header
 
 from pymongo.errors import ServerSelectionTimeoutError, DuplicateKeyError
 
@@ -20,10 +20,8 @@ def test_mongodb_wrong_host_name(config):
 
 def test_datatable_query_by_date(exposure_collection, config):
     """ """
-    fits_header_translator = FitsHeaderTranslator(config=config)
-
     # Get list of all dates in the database
-    dates = [d["dateObs"] for d in exposure_collection.find()]
+    dates = [d["observing_day"] for d in exposure_collection.find()]
     n_files = len(dates)
 
     dates_unique = np.unique(dates)  # Sorted array of unique dates
@@ -37,7 +35,7 @@ def test_datatable_query_by_date(exposure_collection, config):
         for filename in filenames:
             # Assert date is within expected range
             header = read_fits_header(filename)
-            date = parse_date(fits_header_translator.translate_dateObs(header))
+            date = parse_date(parse_fits_header(header)["observing_day"])
             assert date >= parse_date(date_min)
             assert date < parse_date(date_max)
 

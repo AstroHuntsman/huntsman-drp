@@ -218,7 +218,7 @@ class RefcatClient(HuntsmanBase):
     def make_from_documents(self, documents, **kwargs):
         """ Convenience function to make a reference catalogue from a list of documents.
         Args:
-            documents (list of RawExposureDocument): The raw exposure documents.
+            documents (list of ExposureDocument): The raw exposure documents.
             **kwargs: Parsed to self.make_reference_catalogue.
         Returns:
             pd.DataFrame: The reference catalogue.

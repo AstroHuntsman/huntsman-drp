@@ -3,7 +3,7 @@
 import pytest
 from datetime import datetime
 
-from huntsman.drp.fitsutil import read_fits_header
+from huntsman.drp.utils.fits import read_fits_header
 from huntsman.drp.utils.date import current_date, parse_date, current_date_ymd
 
 

@@ -6,18 +6,18 @@ from huntsman.drp.utils.fits import read_fits_header, parse_fits_header, read_fi
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG, list_fits_files_recursive
 
 
-def ingest_file(filename, metric_names, exposure_collection, **kwargs):
+def ingest_file(filename, collection, **kwargs):
     """ Process a single file.
     This function has to be defined outside of the FileIngestor class since we are using
     multiprocessing and class instance methods cannot be pickled.
     Args:
         filename (str): The name of the file to process.
-        metric_names (list of str): The list of the metrics to process.
-        exposure_collection (ExposureCollection): The raw exposure collection.
+        collection (ExposureCollection): The raw exposure collection.
     Returns:
         bool: True if file was successfully processed, else False.
     """
-    logger = exposure_collection.logger
+    config = collection.config
+    logger = collection.logger
     logger.debug(f"Processing file: {filename}.")
 
     try:
@@ -28,6 +28,11 @@ def ingest_file(filename, metric_names, exposure_collection, **kwargs):
         metrics = {}
         success = False
     else:
+        # Ignore certain metrics if required
+        metrics_ignore = config.get("raw_metrics_ignore", ())
+        for metric_name in metrics_ignore:
+            metric_evaluator.remove_function(metric_name)
+
         # Get the metrics
         metrics, success = metric_evaluator.evaluate(filename, header=original_header, data=data,
                                                      **kwargs)
@@ -43,11 +48,11 @@ def ingest_file(filename, metric_names, exposure_collection, **kwargs):
 
     to_update = {"filename": filename}
     to_update.update(parsed_header)
-    to_update["header"] = header
+    to_update["header"] = dict(header)
     to_update["metrics"] = metrics
 
     # Use filename query as metrics etc can change
-    exposure_collection.update_one({"filename": filename}, to_update=to_update, upsert=True)
+    collection.update_one({"filename": filename}, to_update=to_update, upsert=True)
 
     # Raise an exception if not success
     if not success:
@@ -84,7 +89,7 @@ class FileIngestor(ProcessQueue):
     def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """
 
-        func = partial(ingest_file, metric_names=self._raw_metrics)
+        func = partial(ingest_file)
 
         return super()._async_process_objects(process_func=func)
 
@@ -95,7 +100,7 @@ class FileIngestor(ProcessQueue):
         self.logger.debug(f"Found {len(files_in_directory)} FITS files in {self._directory}.")
 
         # Get set of all files that are ingested and pass screening
-        files_ingested = set(self.exposure_collection.find(screen=True, key="filename"))
+        files_ingested = set(self.collection.find(screen=True, key="filename"))
 
         # Identify files that require processing
         files_to_process = files_in_directory - files_ingested

@@ -159,7 +159,7 @@ def create_test_calib_collection(config=None):
 # Fake test data
 
 
-def make_hdu(data, date, cam_name, exposure_time, field, image_type, ccd_temp=0, filter="Blank",
+def make_hdu(data, date, cam_name, exposure_time, field, image_type, ccd_temp=0, filter="blank",
              imageId="TestImageId", ra=10, dec=-20, airmass=1, pixel_size=1):
     """Make a HDU with a minimal header for DRP to function."""
     hdu = fits.PrimaryHDU(data)
@@ -179,6 +179,9 @@ def make_hdu(data, date, cam_name, exposure_time, field, image_type, ccd_temp=0,
     hdu.header["CD1_2"] = 0
     hdu.header["CD2_1"] = 0
     hdu.header["BITDEPTH"] = 12
+    hdu.header["LAT-OBS"] = -31.16
+    hdu.header["LONG-OBS"] = 149.13
+    hdu.header["ELEV-OBS"] = 1160
     return hdu
 
 

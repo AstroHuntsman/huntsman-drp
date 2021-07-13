@@ -1,7 +1,7 @@
 import pytest
 from astropy.wcs import WCS
 
-from huntsman.drp.fitsutil import read_fits_header
+from huntsman.drp.utils.fits import read_fits_header
 from huntsman.drp.metrics import raw
 
 

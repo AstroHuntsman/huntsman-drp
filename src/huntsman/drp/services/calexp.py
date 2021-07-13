@@ -16,7 +16,7 @@ CALEXP_METRIC_TRIGGER = "CALEXP_METRIC_TRIGGER"
 def _process_document(document, exposure_collection, calib_collection, timeout, **kwargs):
     """ Create a calibrated exposure (calexp) for the given data ID and store the metadata.
     Args:
-        document (RawExposureDocument): The document to process.
+        document (ExposureDocument): The document to process.
     """
     config = exposure_collection.config
     logger = calib_collection.logger

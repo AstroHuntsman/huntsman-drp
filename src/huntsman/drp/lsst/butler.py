@@ -1,5 +1,6 @@
 import os
 from contextlib import suppress
+from tempfile import TemporaryDirectory
 
 import lsst.daf.butler as dafButler
 from lsst.daf.butler.script.certifyCalibrations import certifyCalibrations
@@ -253,3 +254,22 @@ class ButlerRepository(HuntsmanBase):
         return butler.registry.queryDatasets(datasetType=datasetType,
                                              collections=self.search_collections,
                                              **kwargs)
+
+
+class TemporaryButlerRepository():
+    """ Class to return a ButlerRepository in a temporary directory.
+    Used as a context manager.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self._args = args
+        self._kwargs = kwargs
+        self._tempdir = None
+
+    def __enter__(self):
+        self._tempdir = TemporaryDirectory()
+        return ButlerRepository(self._tempdir.name, *self._args, **self._kwargs)
+
+    def __exit__(self, *args, **kwargs):
+        self._tempdir.cleanup()
+        self._tempdir = None

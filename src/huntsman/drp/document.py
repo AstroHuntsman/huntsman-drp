@@ -8,8 +8,6 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.wcs import WCS
 
-from huntsman.drp.core import get_config
-from huntsman.drp.utils.date import parse_date
 from huntsman.drp.utils.fits import read_fits_header
 from huntsman.drp.utils.mongo import encode_mongo_filter, unflatten_dict
 
@@ -20,7 +18,7 @@ class Document(abc.Mapping):
     """
     _required_keys = set()
 
-    def __init__(self, document, validate=True, copy=False, unflatten=True, **kwargs):
+    def __init__(self, document, copy=False, unflatten=True, **kwargs):
         super().__init__()
 
         if document is None:
@@ -34,10 +32,6 @@ class Document(abc.Mapping):
 
         if unflatten:
             document = unflatten_dict(document)
-
-        # Check all the required information is present
-        if validate and self._required_keys:
-            self._validate_document(document)
 
         self._document = document
 
@@ -125,31 +119,11 @@ class Document(abc.Mapping):
         """
         return deepcopy(self)
 
-    # Private methods
 
-    def _validate_document(self, document):
-        """
-        """
-        if not all([k in document for k in self._required_keys]):
-            missing_keys = [k for k in self._required_keys if k not in document.keys()]
-            raise ValueError(f"Document missing required keys: {missing_keys}.")
+class ExposureDocument(Document):
 
-
-class RawExposureDocument(Document):
-
-    _required_keys = set(["filename"])
-
-    def __init__(self, document, config=None, **kwargs):
-
-        if config is None:
-            config = get_config()  # Do not store the config as we will be making many DataIds
-
-        self._required_keys.update(config["fits_header"]["required_columns"])
-
-        super().__init__(document=document, **kwargs)
-
-        if "date" not in self.keys():
-            self["date"] = parse_date(self["dateObs"])
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def get_central_skycoord(self):
         """ Return the central celestial coordinate of the exposure using the WCS info.
@@ -174,24 +148,5 @@ class RawExposureDocument(Document):
 
 class CalibDocument(Document):
 
-    _required_keys = set(["calibDate", "datasetType", "filename", "ccd"])
-
-    _required_keys_type = {"flat": ("filter",)}
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        if "date" not in self.keys():
-            self["date"] = parse_date(self["calibDate"])
-
-    def _validate_document(self, document):
-        """
-        """
-        super()._validate_document(document)
-
-        keys = self._required_keys_type.get(document["datasetType"], None)
-        if not keys:
-            return
-
-        if not all([k in document for k in keys]):
-            raise ValueError(f"Document does not contain all required keys: {keys}.")

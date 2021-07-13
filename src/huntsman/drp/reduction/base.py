@@ -107,7 +107,7 @@ class ReductionBase(HuntsmanBase):
     def _get_calibs(self, science_docs):
         """ Get matching calib docs for a set of science docs.
         Args:
-            science_docs (list of RawExposureDocument): The list of science docs to match with.
+            science_docs (list of ExposureDocument): The list of science docs to match with.
         Returns:
             dict of set: Dictionary of calib type: set of matching calib documents.
         """

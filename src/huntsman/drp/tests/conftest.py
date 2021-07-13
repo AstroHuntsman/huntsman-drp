@@ -143,7 +143,7 @@ def tempdir_and_exposure_collection_with_uningested_files(tmp_path_factory, conf
     for filename, header in expseq.header_dict.items():
         if n >= n_stop:
             break
-        ingest_exposure(filename=filename, collection=exposure_collection)
+        ingest_exposure(filename=filename, collection=exposure_collection, config=config)
         n += 1
 
     # Make sure table has the correct number of rows

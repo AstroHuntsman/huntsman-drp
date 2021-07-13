@@ -51,3 +51,6 @@ plotter:
       plot_by_camera:
         - x_key: "expTime"
           y_key: "metrics.clipped_mean"
+
+raw_metrics_ignore:
+  - get_wcs
