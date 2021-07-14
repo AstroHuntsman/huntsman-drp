@@ -1,5 +1,6 @@
 directories:
   archive: ${HUNTSMAN_ARCHIVE}
+  calib: ${HUNTSMAN_ARCHIVE}/calib
   reductions: ${HUNTSMAN_ARCHIVE}/reductions
   plots: ${HUNTSMAN_ARCHIVE}/plots
 
@@ -31,7 +32,7 @@ collections:
       - "filename"
       - "datasetType"
       - "instrument"
-      - "detector_num"
+      - "detector"
     required_fields_by_type:
       flat:
         - "physical_filter"
@@ -40,10 +41,10 @@ collections:
 
 # Config items for calibs
 calibs:
-  types:  # Order is important
+  types:  # In order of creation
     - bias
     - dark
-    - defects
+    # - defects
     - flat
   validity: 30
   # These columns are for matching raw calibs with raw science frames
@@ -51,17 +52,17 @@ calibs:
   matching_columns:
     flat:
       - instrument
-      - detector_num
+      - detector
       - physical_filter
     bias:
       - instrument
-      - detector_num
+      - detector
     dark:
       - instrument
-      - detector_num
+      - detector
     defects:
       - instrument
-      - detector_num
+      - detector
 
 refcat:
   tap_url: http://api.skymapper.nci.org.au/aus/tap/

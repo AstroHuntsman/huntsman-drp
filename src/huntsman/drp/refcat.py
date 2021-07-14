@@ -192,6 +192,12 @@ class RefcatClient(HuntsmanBase):
         uri = ns.name_server.lookup(pyro_name)
         self._proxy = Proxy(uri)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self._proxy._pyroRelease()
+
     def make_reference_catalogue(self, *args, **kwargs):
         """ Thread-safe implementation of refcat query.
         Args:

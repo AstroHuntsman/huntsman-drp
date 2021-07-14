@@ -23,7 +23,7 @@ MASTER_CALIB_SCRIPTS = {"bias": "constructBias.py",
                                              "constructFlat.py")}
 
 
-def ingest_raw_data(filenames, butler_dir, mode="link", ignore_ingested=True):
+def ingest_raw_files(filenames, butler_dir, mode="link", ignore_ingested=True):
     """ Ingest raw files into a butler repository.
     Args:
         filenames (list of str): The list of filenames to ingest.

@@ -34,7 +34,7 @@ class LsstReduction(ReductionBase):
             super().prepare()
 
         # Ingest raw files into butler repository
-        self._butler_repo.ingest_raw_data([d["filename"] for d in self.science_docs])
+        self._butler_repo.ingest_raw_files([d["filename"] for d in self.science_docs])
 
         # Ingest master calibs into butler repository
         for datasetType, docs in self.calib_docs.items():

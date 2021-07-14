@@ -70,7 +70,7 @@ class OffsetSkyReduction(LsstReduction):
         super().prepare(call_super=False)
 
         # Ingest extra sky docs
-        self._butler_repo.ingest_raw_data([d["filename"] for d in all_sky_docs])
+        self._butler_repo.ingest_raw_files([d["filename"] for d in all_sky_docs])
 
     def reduce(self):
         """ Override method to measure the offset sky backgrounds before processing. """

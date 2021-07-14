@@ -42,4 +42,7 @@ def parse_fits_header(header, **kwargs):
     for key in md.keys():
         pass
 
+    # Make some extra fields that are used by LSST
+    md["detector"] = md["detector_num"]
+
     return md

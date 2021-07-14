@@ -9,7 +9,7 @@ from astropy import units as u
 from huntsman.drp.core import get_config
 from huntsman.drp.lsst.butler import ButlerRepository, TemporaryButlerRepository
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.utils.date import parse_date
+from huntsman.drp.utils.date import parse_date, current_date_ymd
 from huntsman.drp.collection import ExposureCollection, CalibCollection
 
 
@@ -70,7 +70,7 @@ def create_test_bulter_repository(directory, config=None, with_calibs=False, **k
     filenames = get_testdata_fits_filenames(config=config)
 
     # Ingest test data into butler repository
-    br.ingest_raw_data(filenames)
+    br.ingest_raw_files(filenames)
 
     # Ingest the refcat
     refcat_filename = get_refcat_filename(config)
@@ -114,6 +114,7 @@ def create_test_exposure_collection(config=None, clear=True):
 
 def create_test_calib_collection(config=None):
     """ Make a calib collection out of ready-made master calibs. """
+
     if config is None:
         config = get_config()
 
@@ -122,6 +123,9 @@ def create_test_calib_collection(config=None):
     assert not calib_collection.find()
 
     rootdir = os.path.join(config["directories"]["root"], "tests", "data", "calib")
+
+    # Use arbitary calib date
+    calib_date = current_date_ymd()
 
     # Use a butler instance to ingest master calibs and get metadata
     calibIds = []
@@ -145,7 +149,8 @@ def create_test_calib_collection(config=None):
 
             for dataId in dataIds:
                 dataId["datasetType"] = datasetType
-            calibIds.extend(dataId)
+                dataId["calib_date"] = calib_date  # Arbitary
+                calibIds.append(dataId)
 
         # Archive the files
         for filename, calibId in zip(filenames, calibIds):

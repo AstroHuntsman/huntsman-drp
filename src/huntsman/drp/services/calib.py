@@ -93,7 +93,7 @@ class MasterCalibMaker(HuntsmanBase):
         with TemporaryButlerRepository() as br:
 
             # Ingest raw exposures
-            br.ingest_raw_data([_["filename"] for _ in raw_docs])
+            br.ingest_raw_files([_["filename"] for _ in raw_docs])
 
             # Make master calibs
             calib_docs = br.make_master_calibs(calib_docs=calib_docs,

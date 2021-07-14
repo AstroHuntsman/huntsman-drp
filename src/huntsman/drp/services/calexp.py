@@ -5,7 +5,7 @@ from multiprocessing.pool import ThreadPool
 from huntsman.drp.services.base import ProcessQueue
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.refcat import RefcatClient
-from huntsman.drp.metrics.calexp import calculate_metrics
+from huntsman.drp.metrics.calexp import metric_evaluator
 
 # This is a boolean value that gets inserted into the DB
 # If it is True, the calexp will be queued for processing
@@ -29,56 +29,40 @@ def _process_document(document, exposure_collection, calib_collection, timeout, 
 
     # Use a directory prefix for the temporary directory
     # This is necessary as the tempfile module is apparently creating duplicates(!)
-    directory_prefix = document["expId"]
+    directory_prefix = str(document["exposure_id"])
 
-    with TemporaryButlerRepository(logger=logger, config=config,
-                                   directory_prefix=directory_prefix) as br:
-
-        logger.debug(f"Butler directory for {document}: {br.butler_dir}")
+    with TemporaryButlerRepository(logger=logger, config=config, prefix=directory_prefix) as br:
 
         # Ingest raw science exposure into the bulter repository
         logger.debug(f"Ingesting raw data for {document}")
-        br.ingest_raw_data([document["filename"]])
-
-        # Check the files were ingested properly
-        # This shouldn't be neccessary but helps for debugging
-        ingested_docs = br.get_dataIds("raw")
-        if len(ingested_docs) != 1:
-            raise RuntimeError(f"Unexpected number of ingested raw files: {len(ingested_docs)}")
+        br.ingest_raw_files([document["filename"]])
 
         # Ingest the corresponding master calibs
         logger.debug(f"Ingesting master calibs for {document}")
-
         for calib_type, calib_doc in calib_docs.items():
             calib_filename = calib_doc["filename"]
             br.ingest_calibs(datasetType=calib_type, filenames=[calib_filename])
 
         # Make and ingest the reference catalogue
         logger.debug(f"Making refcat for {document}")
-        refcat_client = RefcatClient(config=config, logger=logger)
-
         with tempfile.NamedTemporaryFile(prefix=directory_prefix) as tf:
-            try:
-                # Download the refcat to the tempfile
-                refcat_client.make_from_documents([document], filename=tf.name)
-            except Exception as err:
-                logger.error(f"Exception while making refcat for {document}: {err!r}")
-                raise err
-            finally:
-                # Cleanup the refcat client
-                # This *shouldn't* be necessary but seems like it might be...
-                # TODO: Parse refcat client as function arg?
-                refcat_client._proxy._pyroRelease()
+            with RefcatClient(config=config, logger=logger) as refcat_client:
 
-            br.ingest_reference_catalogue([tf.name])
+                refcat_client.make_from_documents([document], filename=tf.name)
+                br.ingest_reference_catalogue([tf.name])
 
         # Make the calexp
         logger.debug(f"Making calexp for {document}")
-        task_result = br.make_calexp(dataId=br.document_to_dataId(document))
+        dataId = br.document_to_dataId(document)
+        br.construct_calexps(dataId=[dataId])
+
+        # Retrieve the calexp results
+        calexp = br.get_butler().get("calexp", dataId=dataId)
+        src = br.get_butler().get("src", dataId=dataId)
 
         # Evaluate metrics
         logger.debug(f"Calculating metrics for {document}")
-        metrics = calculate_metrics(task_result)
+        metrics = metric_evaluator.evaluate(calexp=calexp, src=src)
 
         # Mark processing complete
         metrics[CALEXP_METRIC_TRIGGER] = False

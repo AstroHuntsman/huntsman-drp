@@ -12,15 +12,8 @@ def get_dataId_from_header(filename, required_keys):
     Returns:
         dict: The dataId.
     """
-    header = parse_fits_header(read_fits_header(filename))
-    dataId = {}
-    for key in required_keys:
-        header_key = key
-        # For some reason LSST changes the name of some fields
-        if key == "detector":
-            header_key = "detector_num"
-        dataId[key] = header[header_key]
-    return dataId
+    parsed_header = parse_fits_header(read_fits_header(filename))
+    return {k: parsed_header[k] for k in required_keys}
 
 
 def makeFileDataset(datasetType, dataId, filename):
@@ -46,9 +39,7 @@ def ingest_files(butler, datasetType, datasets, collection, transfer="copy"):
     """
     # Register collection and datasetType
     butler.registry.registerCollection(collection, type=CollectionType.RUN)
-    # butler.registry.registerRun(collection)
     butler.registry.registerDatasetType(datasetType)
-
     # Ingest
     butler.ingest(*datasets, transfer=transfer, run=collection)
 
@@ -61,14 +52,17 @@ def make_calib_dataset_type(datasetTypeName, universe):
         universe (lsst.daf.butler.DimensionUniverse): The dimension universe.
     Returns:
         lsst.daf.butler.DatasetType: The DatasetType object.
+        list of str: The dimension names.
     """
     dimensions = ["instrument", "detector"]
 
     if datasetTypeName == "flat":
         dimensions.append("physical_filter")
 
-    return DatasetType(datasetTypeName, dimensions=dimensions, universe=universe,
-                       storageClass="ExposureF", isCalibration=True)
+    datasetType = DatasetType(datasetTypeName, dimensions=dimensions, universe=universe,
+                              storageClass="ExposureF", isCalibration=True)
+
+    return datasetType, dimensions
 
 
 def ingest_calibs(butler, datasetTypeName, filenames, collection, **kwargs):
@@ -79,11 +73,11 @@ def ingest_calibs(butler, datasetTypeName, filenames, collection, **kwargs):
         collection (str): The collection to ingest into.
         **kwargs: Parsed to ingest_files.
     """
-    datasetType = make_calib_dataset_type(datasetTypeName, universe=butler.registry.dimensions)
-
+    datasetType, dimension_names = make_calib_dataset_type(datasetTypeName,
+                                                           universe=butler.registry.dimensions)
     datasets = []
     for filename in filenames:
-        dataId = get_dataId_from_header(filename, required_keys=datasetType.dimensions.names)
+        dataId = get_dataId_from_header(filename, required_keys=dimension_names)
         datasets.append(makeFileDataset(datasetType, dataId=dataId, filename=filename))
 
     ingest_files(butler, datasetType, datasets, collection, **kwargs)

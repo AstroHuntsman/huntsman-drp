@@ -55,7 +55,7 @@ class ExposureCollection(Collection):
         Args:
             filename (str): The filename to ingest.
         """
-        self.logger.debug(f"Ingesting file: {filename}.")
+        self.logger.debug(f"Ingesting file into {self}: {filename}.")
 
         try:
             data = read_fits_data(filename)
@@ -83,14 +83,14 @@ class ExposureCollection(Collection):
         # NOTE: Parsed info goes in the top-level of the mongo document
         parsed_header = parse_fits_header(header)
 
-        to_update = {"filename": filename}
-        to_update.update(parsed_header)
+        document = {"filename": filename}
+        document.update(parsed_header)
 
         # NOTE: Metrics go in a sub-level of the mongo document
-        to_update["metrics"] = metrics
+        document["metrics"] = metrics
 
         # Use filename query as metrics etc can change
-        self.update_one({"filename": filename}, to_update=to_update, upsert=True)
+        self.replace_one({"filename": filename}, document, upsert=True)
 
         # Raise an exception if not success
         if not success:

@@ -6,50 +6,13 @@ from astropy import units as u
 
 from lsst.afw.geom.ellipses import Quadrupole, SeparableDistortionTraceRadius
 
-from huntsman.drp.core import get_logger
-from huntsman.drp.utils.date import current_date
-from huntsman.drp.utils import load_module
+from huntsman.drp.metrics import MetricEvaluator
+
+metric_evaluator = MetricEvaluator()
 
 
-METRICS = ("zeropoint", "psf", "background", "sourcecat")
-
-
-def calculate_metrics(task_result, metrics=METRICS, logger=None):
-    """ Evaluate metrics for a single calexp.
-    Args:
-        calexp: The LSST calexp object.
-        metrics (list of str): list of metrics to calculate.
-    Returns:
-        dict: A dictionary of metric name: value.
-    """
-    if logger is None:
-        logger = get_logger()
-
-    # Record date of modification
-    result = {"date_modified": current_date()}
-
-    for key in ("isrSuccess", "charSuccess", "calibSuccess"):
-        result[key] = task_result[key]
-
-    for func_name in metrics:
-
-        func = load_module(f"huntsman.drp.metrics.calexp.{func_name}")
-
-        try:
-            metric_dict = func(task_result)
-        except Exception as err:
-            logger.error(f"Exception while calculation {func_name} metric: {err!r}")
-            continue
-
-        for k, v in metric_dict.items():
-            if k in result:
-                raise KeyError(f"Key '{k}' already in metrics dict.")
-            result[k] = v
-
-    return result
-
-
-def background(task_result):
+@metric_evaluator.add_function
+def background_metadata(calexp, src, **kwargs):
     """ Calculate sky background statistics.
     Args:
         task_result (dict): The result of ProcessCcdTask.
@@ -57,23 +20,16 @@ def background(task_result):
         dict: The dictionary of results
     """
     result = {}
+    bg = calexp.getBackground().getImage().getArray()
 
-    # Background from image characterisation
-    if task_result["charSuccess"]:
-        bg = task_result["charRes"].background.getImage().getArray()
-        result["bg_median_char"] = np.median(bg)
-        result["bg_std_char"] = bg.std()
-
-    # Background from final calibrated image
-    if task_result["calibSuccess"]:
-        bg = task_result["calibRes"].background.getImage().getArray()
-        result["bg_median"] = np.median(bg)
-        result["bg_std"] = bg.std()
+    result["bg_median"] = np.median(bg)
+    result["bg_std"] = bg.std()
 
     return result
 
 
-def sourcecat(task_result):
+@metric_evaluator.add_function
+def source_metadata(calexp, src, **kwargs):
     """ Metadata from source catalogue.
     Args:
         task_result (dict): The result of ProcessCcdTask.
@@ -82,31 +38,24 @@ def sourcecat(task_result):
     """
     result = {}
 
-    # Count the number of sources used for image characterisation
-    if task_result["charSuccess"]:
-        result["n_src_char"] = len(task_result["charRes"].sourceCat)
-
-    # Count the number of sources in the final catalogue
-    if task_result["calibSuccess"]:
-        result["n_src"] = len(task_result["calibRes"].sourceCat)
+    # Count the number of sources
+    result["n_src_char"] = len(src)
 
     return result
 
 
-def zeropoint(task_result):
+@metric_evaluator.add_function
+def photocal_metadata(calexp, src, **kwargs):
     """ Get the magnitude zero point of the raw data.
     Args:
         calexp (lsst.afw.image.exposure): The calexp object.
     Returns:
         dict: Dict containing the zeropoint in mags.
     """
-    if not task_result["calibSuccess"]:
-        return {}
-
     # Find number of sources used for photocal
-    n_sources = sum(task_result["calibRes"].sourceCat["calib_photometry_used"])
+    n_sources = sum(src["calib_photometry_used"])
 
-    calexp = task_result["exposure"]
+    # Get the photo calib metadata
     pc = calexp.getPhotoCalib()
 
     # Get the magnitude zero point
@@ -121,7 +70,8 @@ def zeropoint(task_result):
             "zp_n_src": n_sources}
 
 
-def psf(task_result):
+@metric_evaluator.add_function
+def psf_metadata(calexp, src, **kwargs):
     """ Calculate PSF metrics.
     This formula (based on a code shared in the stack club) assumes a Gaussian PSF, so the returned
     FWHM is an approximation that can be used to monitor data quality.
@@ -130,15 +80,8 @@ def psf(task_result):
     Returns:
         dict: Dict containing the PSF FWHM in arcsec and ellipticity.
     """
-    if not task_result["charSuccess"]:
-        return {}
-    if not task_result["charRes"].psfSuccess:
-        return {"psfSuccess": False}
-
     # Find number of sources used to measure PSF
-    n_sources = sum(task_result["charRes"].sourceCat["calib_psf_used"])
-
-    calexp = task_result["exposure"]
+    n_sources = sum(src["calib_psf_used"])
 
     psf = calexp.getPsf()
     shape = psf.computeShape()  # At the average position of the stars used to measure it

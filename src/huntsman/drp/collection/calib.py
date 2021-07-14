@@ -4,8 +4,7 @@ from datetime import timedelta
 
 import numpy as np
 
-from huntsman.drp.utils.date import parse_date
-# from huntsman.drp.lsst.utils.calib import get_calib_filename
+from huntsman.drp.utils.date import parse_date, date_to_ymd
 from huntsman.drp.collection.collection import Collection
 from huntsman.drp.document import CalibDocument
 
@@ -22,12 +21,11 @@ class CalibCollection(Collection):
 
         # Set required fields with type dependency
         # This is useful for e.g. requiring a filter name for flats but not for biases
-        try:
-            required_fields_by_type = self.config[self.__class__.__name__][
+        self._required_fields_by_type = self.config["collections"][self.__class__.__name__][
                 "required_fields_by_type"]
-        except KeyError:
-            required_fields_by_type = None
-        self._required_fields_by_type = required_fields_by_type
+
+        # Set the calib archive directory
+        self.archive_dir = self.config["directories"]["calib"]
 
     def get_matching_calibs(self, document):
         """ Return best matching set of calibs for a given document.
@@ -67,7 +65,7 @@ class CalibCollection(Collection):
             if len(calib_docs) == 0:
                 raise FileNotFoundError(f"No matching master {calib_type} for {doc_filter}.")
 
-            dates = [parse_date(_["calibDate"]) for _ in calib_docs]
+            dates = [parse_date(_["calib_date"]) for _ in calib_docs]
             timediffs = [abs(date - d) for d in dates]
 
             # Choose the one with the nearest date
@@ -75,13 +73,21 @@ class CalibCollection(Collection):
 
         return best_calibs
 
-    def archive_master_calib(self, filename, archive_filename, metadata):
+    def archive_master_calib(self, filename, metadata):
         """ Copy the FITS files into the archive directory and update the entry in the DB.
         Args:
             filename (str): The filename of the calib to archive, which is copied into the archive
                 dir.
             metadata (abc.Mapping): The calib metadata to be stored in the document.
         """
+        # LSST calib filenames do not include calib date, so add as parent directory
+        # Also store in subdirs of datasetType
+        subdir = os.path.join(date_to_ymd(metadata["calib_date"]), metadata["datasetType"])
+
+        # Create the archive filename
+        basename = os.path.basename(filename)
+        archive_filename = os.path.join(self.archive_dir, subdir, basename)
+
         # Copy the file into the calib archive, overwriting if necessary
         self.logger.debug(f"Copying {filename} to {archive_filename}.")
         os.makedirs(os.path.dirname(archive_filename), exist_ok=True)
@@ -105,7 +111,6 @@ class CalibCollection(Collection):
             ValueError: If the document is invalid.
         """
         super()._validate_document(document)
-
         required_fields = self._required_fields_by_type.get(document["datasetType"])
         if required_fields:
             super()._validate_document(document, required_fields=required_fields)

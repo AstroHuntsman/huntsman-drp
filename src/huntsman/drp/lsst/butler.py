@@ -78,19 +78,9 @@ class ButlerRepository(HuntsmanBase):
             dict: The corresponding dataId.
         """
         try:
-            return {k: document[k] for k in self.get_dimension_names(datasetType)}
+            return {k: document[k] for k in self.get_dimension_names(datasetType, required=True)}
         except KeyError as err:
             raise KeyError(f"Unable to determine dataId from {document}: {err!r}")
-
-    def document_to_calibId(self, document):
-        """ Extract an LSST dataId from a CalibDocument.
-        Args:
-            document (CalibDocument): The calib document.
-        Returns:
-            dict: The calibId.
-        """
-        datasetType = document["datasetType"]
-        return self.document_to_dataId(document, datasetType=datasetType)
 
     def get_butler(self, *args, **kwargs):
         """ Get a butler object for this repository.
@@ -101,16 +91,21 @@ class ButlerRepository(HuntsmanBase):
         """
         return dafButler.Butler(self.root_directory, *args, **kwargs)
 
-    def get_dimension_names(self, datasetType, **kwargs):
+    def get_dimension_names(self, datasetType, required=False, **kwargs):
         """ Get dimension names in a dataset type.
         Args:
             datasetType (str): The dataset type (raw, flat, bias etc.).
+            required (bool, optional): If True, only return dimensions that are required in the
+                dataId. Default: False.
         Returns:
             list of str: A list of keys.
         """
         butler = self.get_butler(**kwargs)
         datasetTypeInstance = butler.registry.getDatasetType(datasetType)
-        return [d.name for d in datasetTypeInstance.dimensions]
+        dimensions = datasetTypeInstance.dimensions
+        if required:
+            dimensions = dimensions.required
+        return [d.name for d in dimensions]
 
     def get_filenames(self, datasetType, **kwargs):
         """ Get filenames matching a datasetType and dataId.
@@ -133,9 +128,12 @@ class ButlerRepository(HuntsmanBase):
             list of dict: A list of dataIds.
         """
         datasetRefs = self._get_datasetRefs(datasetType, **kwargs)
-        dataIds = [d.dataId for d in datasetRefs]
-        if as_dict:
-            return [{k: v for k, v in d.items()} for d in dataIds]
+        dataIds = []
+        for datasetRef in datasetRefs:
+            dataId = datasetRef.dataId
+            if as_dict:
+                dataId = dataId.to_simple().dict()["dataId"]
+            dataIds.append(dataId)
         return dataIds
 
     def ingest_raw_files(self, filenames, transfer="symlink", **kwargs):
@@ -313,13 +311,14 @@ class TemporaryButlerRepository():
     Used as a context manager.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, prefix=None,  *args, **kwargs):
         self._args = args
         self._kwargs = kwargs
+        self._prefix = prefix
         self._tempdir = None
 
     def __enter__(self):
-        self._tempdir = TemporaryDirectory()
+        self._tempdir = TemporaryDirectory(prefix=self._prefix)
         return ButlerRepository(self._tempdir.name, *self._args, **self._kwargs)
 
     def __exit__(self, *args, **kwargs):
