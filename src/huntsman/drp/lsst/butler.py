@@ -1,5 +1,5 @@
 import os
-from contextlib import suppress
+import random
 from tempfile import TemporaryDirectory
 
 import lsst.daf.butler as dafButler
@@ -12,10 +12,14 @@ from lsst.obs.base.script.defineVisits import defineVisits
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.lsst.utils import pipeline
 from huntsman.drp.lsst.utils.refcat import RefcatIngestor
+from huntsman.drp.lsst.utils import butler as utils
 
 
 class ButlerRepository(HuntsmanBase):
-
+    """ This class provides a convenient interface to LSST Butler functionality.
+    The goal of ButlerRepository is to facilitate simple calls to LSST code, including running
+    pipelines to construct calibs and coadds.
+    """
     _instrument_name = "Huntsman"  # TODO: Move to config
     _instrument_class_str = "lsst.obs.huntsman.HuntsmanCamera"  # TODO: Move to config
 
@@ -108,30 +112,31 @@ class ButlerRepository(HuntsmanBase):
         datasetTypeInstance = butler.registry.getDatasetType(datasetType)
         return [d.name for d in datasetTypeInstance.dimensions]
 
-    def get_filenames(self, datasetType, dataId, **kwargs):
+    def get_filenames(self, datasetType, **kwargs):
         """ Get filenames matching a datasetType and dataId.
         Args:
             datasetType (str): The dataset type (raw, flat, bias etc.).
-            dataId (dict): The dataId.
         Returns:
             list of str: The filenames.
         """
-        butler = self.get_butler(**kwargs)
-        datasetRefs = butler.registry.queryDatasets(datasetType=datasetType,
-                                                    collections=butler.collections,
-                                                    dataId=dataId)
+        datasetRefs, butler = self._get_datasetRefs(datasetType, get_butler=True, **kwargs)
         return [butler.getURI(ref).path for ref in datasetRefs]
 
-    def get_dataIds(self, datasetType, **kwargs):
+    def get_dataIds(self, datasetType, as_dict=True, **kwargs):
         """ Get ingested dataIds for a given datasetType.
         Args:
             datasetType (str): The datasetType (raw, bias, flat etc.).
-            dataId (dict, optional): A complete or partial dataId to match with.
+            as_dict (bool, optional): If True, return as a dictionary rather than dataId object.
+                Default: True.
+            **kwargs: Parsed to self._get_datasetRefs.
         Returns:
             list of dict: A list of dataIds.
         """
         datasetRefs = self._get_datasetRefs(datasetType, **kwargs)
-        return [d.dataId for d in datasetRefs]
+        dataIds = [d.dataId for d in datasetRefs]
+        if as_dict:
+            return [{k: v for k, v in d.items()} for d in dataIds]
+        return dataIds
 
     def ingest_raw_files(self, filenames, transfer="symlink", **kwargs):
         """ Ingest raw files into the Butler repository.
@@ -150,6 +155,35 @@ class ButlerRepository(HuntsmanBase):
 
         task = RawIngestTask(config=task_config, butler=butler)
         task.run(filenames)
+
+    def ingest_calibs(self, datasetType, filenames, collection=None, begin_date=None,
+                      end_date=None, **kwargs):
+        """ Ingest pre-prepared master calibs into the Butler repository.
+        Calibs ingested by a single call to this function are assumed to be valid over the same
+        date range. Calibs that differ by date should be stored in separate collections for now.
+        Args:
+            datasetType (str): The dataset type (e.g. bias, flat).
+            filenames (list of str): The files to ingest.
+            collection (str, optional): The collection to ingest into.
+            **kwargs: Parsed to utils.ingest_calibs.
+        """
+        butler = self.get_butler(writeable=True)
+
+        # Define the collection that the calibs will be ingested into
+        # NOTE: There is nothing in the path to distinguish between dates, so use random for now
+        if collection is None:
+            randstr = f"{random.randint(0, 1E+6):06d}"
+            collection = os.path.join(self._calib_directory, "calib", "ingest", randstr,
+                                      datasetType)
+
+        self.logger.info(f"Ingesting {len(filenames)} {datasetType} calibs in"
+                         f" collection: {collection}")
+
+        utils.ingest_calibs(butler, datasetType, filenames=filenames, collection=collection,
+                            **kwargs)
+
+        # Certify the calibs
+        self._certify_calibrations(datasetType, collection, begin_date, end_date)
 
     def ingest_reference_catalogue(self, filenames, **kwargs):
         """ Ingest the reference catalogue into the repository.
@@ -191,14 +225,7 @@ class ButlerRepository(HuntsmanBase):
                               input_collections=input_collections, **kwargs)
 
         # Certify the calibs
-        # This associates them with the calib collection and a validity range
-        certifyCalibrations(repo=self.root_directory,
-                            input_collection=output_collection,
-                            output_collection=self._calib_collection,
-                            search_all_inputs=False,
-                            dataset_type_name=datasetType,
-                            begin_date=begin_date,
-                            end_date=end_date)
+        self._certify_calibrations(datasetType, output_collection, begin_date, end_date)
 
     def construct_calexps(self, dataIds=None, output_collection="calexp", **kwargs):
         """ Create calibrated exposures (calexps) from raw exposures.
@@ -247,11 +274,12 @@ class ButlerRepository(HuntsmanBase):
         instr = getInstrument(self._instrument_name, butler.registry)
         instr.writeCuratedCalibrations(butler, collection=self._calib_collection, labels=())
 
-    def _get_datasetRefs(self, datasetType, collections=None, **kwargs):
+    def _get_datasetRefs(self, datasetType, collections=None, get_butler=False, **kwargs):
         """ Return datasetRefs for a given datasetType matching dataId.
         Args:
             datasetType (str): The datasetType.
             dataId (dict, optional): If given, returned datasetRefs match with this dataId.
+            get_butler (bool, optional): If True, also return the Butler object. Default: False.
             **kwargs: Parsed to self.get_butler.
         Returns:
             lsst.daf.butler.registry.queries.ChainedDatasetQueryResults: The query results.
@@ -260,8 +288,24 @@ class ButlerRepository(HuntsmanBase):
             collections = self.search_collections
         butler = self.get_butler(collections=collections)
 
-        return butler.registry.queryDatasets(datasetType=datasetType, collections=collections,
-                                             **kwargs)
+        datasetRefs = butler.registry.queryDatasets(
+            datasetType=datasetType, collections=collections, **kwargs)
+
+        if get_butler:
+            return datasetRefs, butler
+        return datasetRefs
+
+    def _certify_calibrations(self, datasetType, collection, begin_date, end_date):
+        """ Certify the calibs in a collection.
+        This associates them with the repository's calib collection and a date validity range.
+        """
+        certifyCalibrations(repo=self.root_directory,
+                            input_collection=collection,
+                            output_collection=self._calib_collection,
+                            search_all_inputs=False,
+                            dataset_type_name=datasetType,
+                            begin_date=begin_date,
+                            end_date=end_date)
 
 
 class TemporaryButlerRepository():

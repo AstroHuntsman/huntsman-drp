@@ -135,8 +135,8 @@ class ExposureDocument(Document):
         Returns:
             astropy.coordinates.SkyCoord: The central coordinate.
         """
-        ra = self["metrics"]["ra_centre"] * u.deg
-        dec = self["metrics"]["dec_centre"] * u.deg
+        ra = self["ra"] * u.deg
+        dec = self["dec"] * u.deg
         return SkyCoord(ra=ra, dec=dec)
 
     def get_wcs(self):

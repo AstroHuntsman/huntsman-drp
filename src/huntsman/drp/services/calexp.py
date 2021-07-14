@@ -51,10 +51,7 @@ def _process_document(document, exposure_collection, calib_collection, timeout, 
 
         for calib_type, calib_doc in calib_docs.items():
             calib_filename = calib_doc["filename"]
-
-            # Use a high validity as the calib matching is already taken care of
-            br.ingest_master_calibs(datasetType=calib_type, filenames=[calib_filename],
-                                    validity=1000)
+            br.ingest_calibs(datasetType=calib_type, filenames=[calib_filename])
 
         # Make and ingest the reference catalogue
         logger.debug(f"Making refcat for {document}")

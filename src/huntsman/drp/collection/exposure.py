@@ -86,8 +86,7 @@ class ExposureCollection(Collection):
         to_update = {"filename": filename}
         to_update.update(parsed_header)
 
-        # NOTE: Header and metrics go in sub-levels of the mongo document
-        to_update["header"] = dict(header)
+        # NOTE: Metrics go in a sub-level of the mongo document
         to_update["metrics"] = metrics
 
         # Use filename query as metrics etc can change

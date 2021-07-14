@@ -67,7 +67,7 @@ def ingest_reference_catalogue(butler_dir, filenames, output_directory=None):
     HuntsmanIngestIndexedReferenceTask.parseAndRun(args=args)
 
 
-def ingest_master_calibs(datasetType, filenames, butler_dir, calib_dir, validity):
+def ingest_calibs(datasetType, filenames, butler_dir, calib_dir, validity):
     """ Ingest the master calib of a given date.
     Args:
         datasetType (str): One of bias, dark or flat.

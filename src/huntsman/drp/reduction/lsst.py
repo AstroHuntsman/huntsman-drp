@@ -38,7 +38,7 @@ class LsstReduction(ReductionBase):
 
         # Ingest master calibs into butler repository
         for datasetType, docs in self.calib_docs.items():
-            self._butler_repo.ingest_master_calibs(datasetType, [d["filename"] for d in docs])
+            self._butler_repo.ingest_calibs(datasetType, [d["filename"] for d in docs])
 
         # Ingest reference catalogue
         self._butler_repo.ingest_reference_catalogue([self._refcat_filename])

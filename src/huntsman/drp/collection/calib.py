@@ -5,7 +5,7 @@ from datetime import timedelta
 import numpy as np
 
 from huntsman.drp.utils.date import parse_date
-from huntsman.drp.lsst.utils.calib import get_calib_filename
+# from huntsman.drp.lsst.utils.calib import get_calib_filename
 from huntsman.drp.collection.collection import Collection
 from huntsman.drp.document import CalibDocument
 
@@ -75,28 +75,25 @@ class CalibCollection(Collection):
 
         return best_calibs
 
-    def archive_master_calib(self, filename, metadata):
+    def archive_master_calib(self, filename, archive_filename, metadata):
         """ Copy the FITS files into the archive directory and update the entry in the DB.
         Args:
             filename (str): The filename of the calib to archive, which is copied into the archive
                 dir.
             metadata (abc.Mapping): The calib metadata to be stored in the document.
         """
-        # Use the archived filename for the mongo document
-        archived_filename = get_calib_filename(metadata, config=self.config)
-
         # Copy the file into the calib archive, overwriting if necessary
-        self.logger.debug(f"Copying {filename} to {archived_filename}.")
-        os.makedirs(os.path.dirname(archived_filename), exist_ok=True)
-        shutil.copy(filename, archived_filename)
+        self.logger.debug(f"Copying {filename} to {archive_filename}.")
+        os.makedirs(os.path.dirname(archive_filename), exist_ok=True)
+        shutil.copy(filename, archive_filename)
 
         # Update the document before archiving
         metadata = metadata.copy()
-        metadata["filename"] = archived_filename
+        metadata["filename"] = archive_filename
 
         # Insert the metadata into the calib database
         # Use replace operation with upsert because old document may already exist
-        self.replace_one({"filename": archived_filename}, metadata, upsert=True)
+        self.replace_one({"filename": archive_filename}, metadata, upsert=True)
 
     # Private methods
 
