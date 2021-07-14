@@ -6,7 +6,7 @@ from astropy.wcs import WCS
 from panoptes.utils.images.fits import get_solve_field
 
 from huntsman.drp.utils.fits import parse_fits_header
-from huntsman.drp.metrics import MetricEvaluator
+from huntsman.drp.metrics.evaluator import MetricEvaluator
 
 metric_evaluator = MetricEvaluator()
 

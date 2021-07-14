@@ -6,13 +6,13 @@ from astropy import units as u
 
 from lsst.afw.geom.ellipses import Quadrupole, SeparableDistortionTraceRadius
 
-from huntsman.drp.metrics import MetricEvaluator
+from huntsman.drp.metrics.evaluator import MetricEvaluator
 
 metric_evaluator = MetricEvaluator()
 
 
 @metric_evaluator.add_function
-def background_metadata(calexp, src, **kwargs):
+def background_metadata(calexp, src, calexpBackground, **kwargs):
     """ Calculate sky background statistics.
     Args:
         task_result (dict): The result of ProcessCcdTask.
@@ -20,7 +20,7 @@ def background_metadata(calexp, src, **kwargs):
         dict: The dictionary of results
     """
     result = {}
-    bg = calexp.getBackground().getImage().getArray()
+    bg = calexpBackground.getImage().getArray()
 
     result["bg_median"] = np.median(bg)
     result["bg_std"] = bg.std()

@@ -44,5 +44,7 @@ def parse_fits_header(header, **kwargs):
 
     # Make some extra fields that are used by LSST
     md["detector"] = md["detector_num"]
+    md["exposure"] = md["exposure_id"]
+    md["visit"] = md["visit_id"]
 
     return md

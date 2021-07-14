@@ -91,6 +91,20 @@ class ButlerRepository(HuntsmanBase):
         """
         return dafButler.Butler(self.root_directory, *args, **kwargs)
 
+    def get(self, datasetType, collections=None, **kwargs):
+        """ Get an item from the Butler repository.
+        Args:
+            collections (iterable of str, optional): Search for item in these collections. If not
+                provided, will use default search collections.
+            *args, **kwargs: Parsed to butler.get.
+        Returns:
+            object: The retrieved object.
+        """
+        if collections is None:
+            collections = self.search_collections
+        butler = self.get_butler(collections=collections)
+        return butler.get(datasetType, **kwargs)
+
     def get_dimension_names(self, datasetType, required=False, **kwargs):
         """ Get dimension names in a dataset type.
         Args:

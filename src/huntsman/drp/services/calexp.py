@@ -29,7 +29,7 @@ def _process_document(document, exposure_collection, calib_collection, timeout, 
 
     # Use a directory prefix for the temporary directory
     # This is necessary as the tempfile module is apparently creating duplicates(!)
-    directory_prefix = str(document["exposure_id"])
+    directory_prefix = str(document["detector_exposure_id"])
 
     with TemporaryButlerRepository(logger=logger, config=config, prefix=directory_prefix) as br:
 
@@ -54,22 +54,29 @@ def _process_document(document, exposure_collection, calib_collection, timeout, 
         # Make the calexp
         logger.debug(f"Making calexp for {document}")
         dataId = br.document_to_dataId(document)
-        br.construct_calexps(dataId=[dataId])
+        br.construct_calexps(dataIds=[dataId])
 
         # Retrieve the calexp results
-        calexp = br.get_butler().get("calexp", dataId=dataId)
-        src = br.get_butler().get("src", dataId=dataId)
+        logger.debug(f"Reading calexp outputs for {document}")
+        dataId = br.document_to_dataId(document, datasetType="calexp")
+        outputs = {}
+        for output_name in ("calexp", "src", "calexpBackground"):
+            outputs[output_name] = br.get(output_name, dataId=dataId)
 
         # Evaluate metrics
         logger.debug(f"Calculating metrics for {document}")
-        metrics = metric_evaluator.evaluate(calexp=calexp, src=src)
+        metrics, success = metric_evaluator.evaluate(**outputs)
 
-        # Mark processing complete
-        metrics[CALEXP_METRIC_TRIGGER] = False
+    # Mark processing complete
+    metrics[CALEXP_METRIC_TRIGGER] = False
 
-        # Update the existing document with calexp metrics
-        to_update = {"metrics": {"calexp": metrics}}
-        exposure_collection.update_one(document_filter=document, to_update=to_update)
+    # Update the existing document with calexp metrics
+    to_update = {"metrics": {"calexp": metrics}}
+    exposure_collection.update_one(document_filter=document, to_update=to_update)
+
+    # Raise an exception if not success
+    if not success:
+        raise RuntimeError(f"Metric evaluation unsuccessful for {document}.")
 
 
 class CalexpQualityMonitor(ProcessQueue):
