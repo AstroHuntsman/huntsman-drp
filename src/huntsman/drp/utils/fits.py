@@ -1,11 +1,18 @@
 from astropy.io import fits
 from astro_metadata_translator import ObservationInfo
 
+from huntsman.drp.utils.date import parse_date
 from huntsman.drp.translator import HuntsmanTranslator
 
 
 def read_fits_data(filename, dtype="float32", **kwargs):
     """ Read fits image into numpy array.
+    Args:
+        filename (str): The name of ther file to read.
+        dtype (str, optional): The data type for the array. Default: float32.
+        **kwargs: Parsed to fits.getdata.
+    Returns:
+        np.array: The image array.
     """
     return fits.getdata(filename, **kwargs).astype(dtype)
 
@@ -46,5 +53,8 @@ def parse_fits_header(header, **kwargs):
     md["detector"] = md["detector_num"]
     md["exposure"] = md["exposure_id"]
     md["visit"] = md["visit_id"]
+
+    # Add generic date field
+    md["date"] = parse_date(header["DATE-OBS"])
 
     return md

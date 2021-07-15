@@ -39,7 +39,7 @@ class CalibCollection(Collection):
         """
         self.logger.debug(f"Finding best matching calibs for {document}.")
 
-        matching_keys = self.config["calibs"]["matching_columns"]
+        matching_keys = self.config["calibs"]["required_fields"]
 
         # Specify valid date range
         date = parse_date(document["observing_day"])
@@ -59,7 +59,7 @@ class CalibCollection(Collection):
 
             # Choose the one with the nearest date
             date = parse_date(document["observing_day"])
-            dates = [parse_date(_["calib_date"]) for _ in calib_docs]
+            dates = [parse_date(_["date"]) for _ in calib_docs]
             timediffs = [abs(date - d) for d in dates]
             best_calibs[calib_type] = calib_docs[np.argmin(timediffs)]
 
@@ -74,7 +74,7 @@ class CalibCollection(Collection):
         """
         # LSST calib filenames do not include calib date, so add as parent directory
         # Also store in subdirs of datasetType
-        subdir = os.path.join(date_to_ymd(metadata["calib_date"]), metadata["datasetType"])
+        subdir = os.path.join(date_to_ymd(metadata["date"]), metadata["datasetType"])
 
         # Create the archive filename
         basename = os.path.basename(filename)

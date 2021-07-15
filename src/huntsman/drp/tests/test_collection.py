@@ -19,25 +19,29 @@ def test_mongodb_wrong_host_name(config):
 
 
 def test_datatable_query_by_date(exposure_collection, config):
-    """ """
+    """ Test ability to query using datetime ranges. """
+
     # Get list of all dates in the database
-    dates = [d["observing_day"] for d in exposure_collection.find()]
+    dates = [d["date"] for d in exposure_collection.find()]
     n_files = len(dates)
 
     dates_unique = np.unique(dates)  # Sorted array of unique dates
     date_max = dates_unique[-1]
-    for date_min in dates_unique[:-1]:
+
+    for date_min in dates_unique[:-1][:3]:
+
         # Get filenames between dates
         filenames = exposure_collection.find(key="filename", date_min=date_min,
                                              date_max=date_max)
         assert len(filenames) <= n_files  # This holds because we sorted the dates
-        n_files = len(filenames)
+
         for filename in filenames:
-            # Assert date is within expected range
             header = read_fits_header(filename)
-            date = parse_date(parse_fits_header(header)["observing_day"])
+            date = parse_fits_header(header)["date"]
             assert date >= parse_date(date_min)
             assert date < parse_date(date_max)
+
+        n_files = len(filenames)
 
 
 def test_query_latest(exposure_collection, config, tol=1):

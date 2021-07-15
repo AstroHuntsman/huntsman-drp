@@ -30,6 +30,7 @@ collections:
     name: "huntsman_calibs"
     required_fields:
       - "filename"
+      - "date"
       - "datasetType"
       - "instrument"
       - "detector"
@@ -48,8 +49,8 @@ calibs:
     - flat
   validity: 30
   # These columns are for matching raw calibs with raw science frames
-  # TODO: Get these from butler?
-  matching_columns:
+  # They are defined in lsst/cp_pipe and also here for convenience
+  required_fields:
     flat:
       - instrument
       - detector

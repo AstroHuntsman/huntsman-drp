@@ -72,6 +72,7 @@ def calib_service(config, exposure_collection_lite, empty_calib_collection):
     calib_service.stop()
 
 
+@pytest.mark.skip()
 def test_master_calib_service(calib_service, config):
 
     n_calib_dates = config["exposure_sequence"]["n_days"]

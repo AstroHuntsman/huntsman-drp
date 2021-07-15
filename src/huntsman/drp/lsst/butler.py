@@ -3,6 +3,7 @@ import random
 from tempfile import TemporaryDirectory
 
 import lsst.daf.butler as dafButler
+from lsst.daf.butler import DatasetType
 from lsst.daf.butler.script.certifyCalibrations import certifyCalibrations
 
 from lsst.obs.base.utils import getInstrument
@@ -157,7 +158,7 @@ class ButlerRepository(HuntsmanBase):
             **kwargs: Parsed to self.get_butler.
         """
         filenames = set([os.path.abspath(os.path.realpath(_)) for _ in filenames])
-        self.logger.debug(f"Ingesting {len(filenames)} file(s).")
+        self.logger.debug(f"Ingesting {len(filenames)} files into {self}.")
 
         kwargs.update({"writeable": True})
         butler = self.get_butler(run=self._raw_collection, **kwargs)
@@ -191,8 +192,10 @@ class ButlerRepository(HuntsmanBase):
         self.logger.info(f"Ingesting {len(filenames)} {datasetType} calibs in"
                          f" collection: {collection}")
 
+        dimension_names = self.get_dimension_names(datasetType, required=True)
+
         utils.ingest_calibs(butler, datasetType, filenames=filenames, collection=collection,
-                            **kwargs)
+                            dimension_names=dimension_names, **kwargs)
 
         # Certify the calibs
         self._certify_calibrations(datasetType, collection, begin_date, end_date)
@@ -282,9 +285,21 @@ class ButlerRepository(HuntsmanBase):
         instrInstance = getInstrument(self._instrument_class_str, butler.registry)
         instrInstance.register(butler.registry)
 
-        # Setup camera and calibrations
+        # Setup instrument and calibrations collection
         instr = getInstrument(self._instrument_name, butler.registry)
         instr.writeCuratedCalibrations(butler, collection=self._calib_collection, labels=())
+
+        # Register calib dataset types
+        self._register_calib_datasetTypes(butler)
+
+    def _register_calib_datasetTypes(self, butler):
+        """ Register calib dataset types with the repository. """
+        universe = butler.registry.dimensions
+
+        for dataset_type, dimension_names in self.config["calibs"]["required_fields"].items():
+            datasetType = DatasetType(dataset_type, dimensions=dimension_names, universe=universe,
+                                      storageClass="ExposureF", isCalibration=True)
+            butler.registry.registerDatasetType(datasetType)
 
     def _get_datasetRefs(self, datasetType, collections=None, get_butler=False, **kwargs):
         """ Return datasetRefs for a given datasetType matching dataId.

@@ -36,13 +36,13 @@ class Collection(HuntsmanBase):
 
         # Get the fields required for new documents
         with suppress(KeyError):
-            self._required_fields = self.config[self.__class__.__name__]["required_fields"]
-
+            self._required_fields = self.config["collections"][self.__class__.__name__
+                                                               ]["required_fields"]
         # Get the fields used to create a lookup index
         # The combination of field values must be unique for each document
         with suppress(KeyError):
-            self._index_fields = self.config[self.__class__.__name__]["index_fields"]
-
+            self._index_fields = self.config["collections"][self.__class__.__name__
+                                                            ]["index_fields"]
         # Connect to the DB and initialise the collection
         self._connect()
 
@@ -308,7 +308,7 @@ class Collection(HuntsmanBase):
 
         # Create unique index
         # This leverages mongdb's server-side locking mechanism for thread-safety on inserts
-        if self._index_fields:
+        if self._index_fields is not None:
             self._collection.create_index([(k, pymongo.ASCENDING) for k in self._index_fields],
                                           unique=True)
 

@@ -1,4 +1,4 @@
-from lsst.daf.butler import DatasetType, DatasetRef, FileDataset, CollectionType
+from lsst.daf.butler import DatasetRef, FileDataset, CollectionType
 
 from huntsman.drp.utils.fits import read_fits_header, parse_fits_header
 
@@ -29,7 +29,7 @@ def makeFileDataset(datasetType, dataId, filename):
     return FileDataset(path=filename, refs=datasetRef)
 
 
-def ingest_files(butler, datasetType, datasets, collection, transfer="copy"):
+def ingest_datasets(butler, datasetType, datasets, collection, transfer="copy"):
     """ Ingest datasets into a Gen3 butler repository collection.
     Args:
         datasetType (lsst.daf.butler.DatasetType): The refcat datasetType.
@@ -37,47 +37,26 @@ def ingest_files(butler, datasetType, datasets, collection, transfer="copy"):
         collection (str): The collection to ingest into.
         transfer (str): The transfer mode. Default: "copy".
     """
-    # Register collection and datasetType
+    # Register collection
     butler.registry.registerCollection(collection, type=CollectionType.RUN)
-    butler.registry.registerDatasetType(datasetType)
-    # Ingest
+
+    # Ingest datasets
     butler.ingest(*datasets, transfer=transfer, run=collection)
 
 
-def make_calib_dataset_type(datasetTypeName, universe):
-    """ Make a DatasetType corresponding to the calib type.
-    NOTE: This is a temporary solution for ingesting master calibs.
-    Args:
-        datasetTypeName (str): The name of the datasetType.
-        universe (lsst.daf.butler.DimensionUniverse): The dimension universe.
-    Returns:
-        lsst.daf.butler.DatasetType: The DatasetType object.
-        list of str: The dimension names.
-    """
-    dimensions = ["instrument", "detector"]
-
-    if datasetTypeName == "flat":
-        dimensions.append("physical_filter")
-
-    datasetType = DatasetType(datasetTypeName, dimensions=dimensions, universe=universe,
-                              storageClass="ExposureF", isCalibration=True)
-
-    return datasetType, dimensions
-
-
-def ingest_calibs(butler, datasetTypeName, filenames, collection, **kwargs):
+def ingest_calibs(butler, datasetTypeName, filenames, collection, dimension_names, **kwargs):
     """ Ingest master calibs into a Butler collection.
     Args:
         butler (lsst.daf.butler.Butler): The butler object.
         filenames (list of str): The files to ingest.
         collection (str): The collection to ingest into.
-        **kwargs: Parsed to ingest_files.
+        **kwargs: Parsed to ingest_datasets.
     """
-    datasetType, dimension_names = make_calib_dataset_type(datasetTypeName,
-                                                           universe=butler.registry.dimensions)
+    datasetType = butler.registry.getDatasetType(datasetTypeName)
+
     datasets = []
     for filename in filenames:
         dataId = get_dataId_from_header(filename, required_keys=dimension_names)
         datasets.append(makeFileDataset(datasetType, dataId=dataId, filename=filename))
 
-    ingest_files(butler, datasetType, datasets, collection, **kwargs)
+    ingest_datasets(butler, datasetType, datasets, collection, **kwargs)

@@ -112,7 +112,7 @@ class CalibService(HuntsmanBase):
 
         if len(calib_docs) == 0:
             self.logger.warning(f"No calib documents found in {self.exposure_collection} for"
-                                f"{date}. Skipping.")
+                                f" {date}. Skipping.")
             return
 
         # Get documents matching the calib docs
@@ -177,7 +177,7 @@ class CalibService(HuntsmanBase):
                     br.construct_calibs(calib_type, dataIds=dataIds, **kwargs)
 
                     # Use butler to get the calib filename
-                    filename = br.get_filenames(calib_type, dataIds=[calibId])[0]
+                    filename = br.get_filenames(calib_type, dataId=calibId)[0]
 
                     # Archive the calib in the calib collection
                     self.logger.info(f"Archiving {calib_type} for {calib_doc}.")

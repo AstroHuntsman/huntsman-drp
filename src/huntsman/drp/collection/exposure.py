@@ -1,12 +1,10 @@
-from datetime import timedelta
-
 import numpy as np
 
 from pymongo.errors import DuplicateKeyError
 
 from huntsman.drp.utils import mongo
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
-from huntsman.drp.utils.date import parse_date, date_to_ymd
+from huntsman.drp.utils.date import parse_date
 from huntsman.drp.utils.fits import read_fits_data, read_fits_header, parse_fits_header
 from huntsman.drp.collection.collection import Collection
 from huntsman.drp.document import ExposureDocument, CalibDocument
@@ -105,9 +103,11 @@ class ExposureCollection(Collection):
         Returns:
             list of ExposureDocument: The matching raw calibs ordered by increasing time diff.
         """
+        self.logger.debug(f"Finding raw calibs for {calib_document}.")
+
         # Make the document filter
         dataset_type = calib_document["datasetType"]
-        matching_keys = self.config["calibs"]["matching_columns"][dataset_type]
+        matching_keys = self.config["calibs"]["required_fields"][dataset_type]
 
         doc_filter = {k: calib_document[k] for k in matching_keys}
 
@@ -128,7 +128,7 @@ class ExposureCollection(Collection):
 
         return documents
 
-    def get_calib_docs(self, date, quality_filter=False, **kwargs):
+    def get_calib_docs(self, date, quality_filter=True, **kwargs):
         """ Get all possible CalibDocuments from a set of ExposureDocuments.
         Args:
             date (object): The calib date.
@@ -138,6 +138,8 @@ class ExposureCollection(Collection):
         Returns:
             set of CalibDocument: The calb documents.
         """
+        self.logger.debug(f"Finding calib docs from exposure documents for {date}.")
+
         data_types = self.config["calibs"]["types"]
 
         # Get metadata for all raw calibs that are valid for this date
@@ -145,7 +147,7 @@ class ExposureCollection(Collection):
                               quality_filter=quality_filter, **kwargs)
 
         # Extract the calib docs from the set of exposure docs
-        calib_docs = set([self.raw_doc_to_calib_doc(d) for d in documents])
+        calib_docs = set([self.raw_doc_to_calib_doc(d, date=date) for d in documents])
         self.logger.debug(f"Found {len(calib_docs)} possible calib documents.")
 
         return calib_docs
@@ -161,11 +163,11 @@ class ExposureCollection(Collection):
         datasetType = document["observation_type"]
 
         # Get minimal calib metadata
-        keys = self.config["calibs"]["matching_columns"][datasetType]
+        keys = self.config["calibs"]["required_fields"][datasetType]
         calib_dict = {k: document[k] for k in keys}
 
         # Add extra required metadata
-        calib_dict["calibDate"] = date_to_ymd(date)
+        calib_dict["date"] = date
         calib_dict["datasetType"] = datasetType
 
         return CalibDocument(calib_dict)

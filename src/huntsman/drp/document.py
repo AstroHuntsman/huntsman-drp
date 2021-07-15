@@ -154,7 +154,7 @@ class ExposureDocument(Document):
 class CalibDocument(Document):
 
     # TODO: Figure out the best way of setting these from the config
-    _hash_keys = set(["datasetType", "detector_num", "instrument"])
+    _hash_keys = set(["datasetType", "detector", "instrument"])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
