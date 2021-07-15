@@ -149,7 +149,7 @@ def create_test_calib_collection(config=None):
 
             for dataId in dataIds:
                 dataId["datasetType"] = datasetType
-                dataId["calib_date"] = calib_date  # Arbitary
+                dataId["date"] = calib_date  # Arbitary
                 calibIds.append(dataId)
 
         # Archive the files

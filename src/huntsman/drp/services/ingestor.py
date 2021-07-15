@@ -4,7 +4,7 @@ from huntsman.drp.utils.ingest import list_fits_files_recursive
 __all__ = ("FileIngestor",)
 
 
-def ingest_file(filename, exposure_collection):
+def ingest_file(filename, exposure_collection, **kwargs):
     """ Ingest a file into the collection.
     Args:
         filename (str): The name of the file to ingest.
@@ -51,7 +51,7 @@ class FileIngestor(ProcessQueue):
         self.logger.debug(f"Found {len(files_in_directory)} FITS files in {self._directory}.")
 
         # Get set of all files that are ingested and pass screening
-        files_ingested = set(self.collection.find(screen=True, key="filename"))
+        files_ingested = set(self.exposure_collection.find(screen=True, key="filename"))
 
         # Identify files that require processing
         files_to_process = files_in_directory - files_ingested

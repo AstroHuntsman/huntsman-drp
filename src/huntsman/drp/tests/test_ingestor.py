@@ -20,9 +20,6 @@ def ingestor(tempdir_and_exposure_collection_with_uningested_files, config):
 
     ingestor = FileIngestor(queue_interval=10, status_interval=5, directory=tempdir, config=config)
 
-    # Skip astrometry tasks as tests running in drp-lsst container
-    ingestor._raw_metrics = [_ for _ in ingestor._raw_metrics if _ != "get_wcs"]
-
     yield ingestor
 
     ingestor.stop()
