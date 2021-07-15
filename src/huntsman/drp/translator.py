@@ -246,21 +246,6 @@ class HuntsmanTranslator(FitsTranslator):
 
     # Private methods
 
-    # TODO: Do we need this? It was originally copied from the DEcam translator
-    def _translate_from_calib_id(self, key):
-        """ Get key value from the CALIB_ID header.
-        Calibration products made with constructCalibs have some metadata saved in its FITS header
-        CALIB_ID card.
-        Args:
-            key (str): The key to retrieve.
-        Returns:
-            str: The key value.
-        """
-        data = self._header["CALIB_ID"]
-        match = re.search(r".*%s=(\S+)" % key, data)
-        self._used_these_cards("CALIB_ID")
-        return match.groups()[0]
-
     @staticmethod
     def _get_exposure_id(date):
         """ Helper method to get exposure ID from date.

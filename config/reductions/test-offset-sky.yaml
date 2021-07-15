@@ -6,7 +6,7 @@ query:
   document_filter:
     observation_type: science
     field: DoradoGroup-p0p0
-    filter:
+    physical_filter:
       in:
         - g_band
   screen: true
@@ -18,7 +18,7 @@ sky_query:
   document_filter:
     observation_type: science
     field: DoradoGroup-p0p0_sky
-    filter:
+    physical_filter:
       in:
         - g_band
   screen: true
