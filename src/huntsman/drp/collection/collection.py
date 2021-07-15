@@ -47,7 +47,7 @@ class Collection(HuntsmanBase):
         self._connect()
 
     def __str__(self):
-        return f"{self.collection_name} ({self.__class__.__name__})"
+        return f"{self.__class__.__name__} ({self.collection_name})"
 
     # Public methods
 

@@ -5,57 +5,53 @@ import pytest
 from panoptes.utils.time import CountdownTimer
 from panoptes.utils import error
 
-from huntsman.drp.utils.fits import parse_fits_header
 from huntsman.drp.utils.testing import FakeExposureSequence
 from huntsman.drp.collection import ExposureCollection, CalibCollection
-from huntsman.drp.services.calib import MasterCalibMaker
-from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
+from huntsman.drp.services.calib import CalibService
 
 
 @pytest.fixture(scope="function")
-def config_lite(config):
+def config(config):
     """ A config containing a smaller exposure sequence. """
+
     config["exposure_sequence"]["n_days"] = 1
     config["exposure_sequence"]["n_cameras"] = 1
     config["exposure_sequence"]["n_dark"] = 1
     config["exposure_sequence"]["n_bias"] = 1
     config["exposure_sequence"]["filters"] = ["g_band"]
+
+    config["collections"]["ExposureCollection"]["name"] = "fake_data_lite"
+    config["collections"]["CalibCollection"]["name"] = "calib_test"
+
+    config["calibs"]["validity"] = 9999
+
     return config
 
 
 @pytest.fixture(scope="function")
 def empty_calib_collection(config):
     """ An empty master calib collection. """
-    col = CalibCollection(config=config, collection_name="master_calib_test")
+    col = CalibCollection(config=config)
     yield col
 
     col.delete_all(really=True)
 
 
 @pytest.fixture(scope="function")
-def exposure_collection_lite(tmp_path_factory, config_lite):
+def exposure_collection_lite(tmp_path_factory, config):
     """
     Create a temporary directory populated with fake FITS images, then parse the images into the
     raw data table.
     """
     # Generate the fake data
     tempdir = tmp_path_factory.mktemp("test_exposure_sequence")
-    expseq = FakeExposureSequence(config=config_lite)
+    expseq = FakeExposureSequence(config=config)
     expseq.generate_fake_data(directory=tempdir)
 
     # Populate the database
-    exposure_collection = ExposureCollection(config=config_lite,
-                                             collection_name="fake_data_lite")
-
+    exposure_collection = ExposureCollection(config=config)
     for filename, header in expseq.header_dict.items():
-
-        # Parse the header
-        parsed_header = parse_fits_header(header)
-        parsed_header["filename"] = filename
-        parsed_header["metrics"] = {METRIC_SUCCESS_FLAG: True}
-
-        # Insert the parsed header into the DB table
-        exposure_collection.insert_one(parsed_header)
+        exposure_collection.ingest_file(filename)
 
     # Make sure table has the correct number of rows
     assert exposure_collection.count_documents() == expseq.file_count
@@ -67,14 +63,16 @@ def exposure_collection_lite(tmp_path_factory, config_lite):
 
 
 @pytest.fixture(scope="function")
-def calib_maker(config, exposure_collection_lite, empty_calib_collection):
-    calib_maker = MasterCalibMaker(config=config, exposure_collection=exposure_collection_lite,
-                                   calib_collection=empty_calib_collection)
-    yield calib_maker
-    calib_maker.stop()
+def calib_service(config, exposure_collection_lite, empty_calib_collection):
+    calib_service = CalibService(config=config)
+
+    calib_service.logger.error(f"{calib_service.validity}")
+    calib_service.logger.error(f"{config['calibs']['validity']}")
+    yield calib_service
+    calib_service.stop()
 
 
-def test_master_calib_maker(calib_maker, config):
+def test_master_calib_service(calib_service, config):
 
     n_calib_dates = config["exposure_sequence"]["n_days"]
     n_cameras = config["exposure_sequence"]["n_cameras"]
@@ -84,16 +82,16 @@ def test_master_calib_maker(calib_maker, config):
     n_bias = n_calib_dates * n_cameras
     n_dark = n_calib_dates * n_cameras
 
-    calib_collection = calib_maker._calib_collection
+    calib_collection = calib_service.calib_collection
     assert not calib_collection.find()  # Check calib table is empty
 
-    assert not calib_maker.is_running
-    calib_maker.start()
-    assert calib_maker.is_running
+    assert not calib_service.is_running
+    calib_service.start()
+    assert calib_service.is_running
 
-    timer = CountdownTimer(duration=300)
+    timer = CountdownTimer(duration=100)
     while not timer.expired():
-        calib_maker.logger.debug("Waiting for calibs...")
+        calib_service.logger.debug("Waiting for calibs...")
 
         dataset_types = calib_collection.find(key="datasetType")
 
@@ -106,7 +104,7 @@ def test_master_calib_maker(calib_maker, config):
         for filename in calib_collection.find(key="filename"):
             assert os.path.isfile(filename)
 
-        if not calib_maker.is_running:
+        if not calib_service.is_running:
             raise RuntimeError("Calib maker has stopped running. Check the logs for details.")
 
         time.sleep(10)
@@ -114,5 +112,5 @@ def test_master_calib_maker(calib_maker, config):
     if timer.expired():
         raise error.Timeout("Timeout while waiting for calibs.")
 
-    calib_maker.stop()
-    assert not calib_maker.is_running
+    calib_service.stop()
+    assert not calib_service.is_running

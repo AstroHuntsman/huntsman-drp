@@ -96,18 +96,15 @@ class ExposureCollection(Collection):
         if not success:
             raise RuntimeError(f"Metric evaluation unsuccessful for {filename}.")
 
-    def get_matching_raw_calibs(self, calib_document, calib_date, validity=None):
-        """ Return matching set of calib IDs for a given data_id and calib_date.
+    def get_matching_raw_calibs(self, calib_document, sort_date=None, **kwargs):
+        """ Return matching set of calib IDs for a given calib document.
         Args:
             calib_document (CalibDocument): The calib document to match with.
-            calib_date (object): An object that can be interpreted as a date.
-            validity (datetime.timedelta): The validity of the calibs.
+            sort_date (object, optional)
+            **kwargs
         Returns:
             list of ExposureDocument: The matching raw calibs ordered by increasing time diff.
         """
-        if validity is None:
-            validity = timedelta(days=self.config["calibs"]["validity"])
-
         # Make the document filter
         dataset_type = calib_document["datasetType"]
         matching_keys = self.config["calibs"]["matching_columns"][dataset_type]
@@ -117,25 +114,21 @@ class ExposureCollection(Collection):
         # Add observation_type to doc filter
         doc_filter["observation_type"] = dataset_type
 
-        # Add valid date range to query
-        calib_date = parse_date(calib_date)
-        date_min = calib_date - validity
-        date_max = calib_date + validity
-
         # Do the query
-        documents = self.find(doc_filter, date_min=date_min, date_max=date_max)
-        self.logger.debug(f"Found {len(documents)} matching raw calib documents for"
-                          f" {calib_document} at {calib_date}.")
+        documents = self.find(doc_filter, **kwargs)
+        self.logger.debug(f"Found {len(documents)} calib exposures matching {calib_document}.")
 
         # Sort by time difference in increasing order
         # This makes it easy to select only the nearest matches using indexing
-        timedeltas = [abs(d["date"] - calib_date) for d in documents]
-        indices = np.argsort(timedeltas)
-        documents = [documents[i] for i in indices]
+        if sort_date is not None:
+            date = parse_date(sort_date)
+            timedeltas = [abs(d["date"] - date) for d in documents]
+            indices = np.argsort(timedeltas)
+            documents = [documents[i] for i in indices]
 
         return documents
 
-    def get_calib_docs(self, date, documents=None, validity=None):
+    def get_calib_docs(self, date, quality_filter=False, **kwargs):
         """ Get all possible CalibDocuments from a set of ExposureDocuments.
         Args:
             date (object): The calib date.
@@ -147,35 +140,21 @@ class ExposureCollection(Collection):
         """
         data_types = self.config["calibs"]["types"]
 
-        # Standardise validity input
-        if validity is None:
-            validity = timedelta(days=self.config["calibs"]["validity"])
-        elif not isinstance(validity, timedelta):
-            validity = timedelta(days=validity)
-
-        # Get valid date range
-        date = parse_date(date)
-        date_min = date - validity
-        date_max = date + validity
-
         # Get metadata for all raw calibs that are valid for this date
-        if documents is None:
-            documents = self.find({"observation_type": {"in": data_types}}, date_min=date_min,
-                                  date_max=date_max, screen=True, quality_filter=True)
-        else:
-            documents = [d for d in documents if d["observation_type"] in data_types]
+        documents = self.find({"observation_type": {"in": data_types}},
+                              quality_filter=quality_filter, **kwargs)
 
         # Extract the calib docs from the set of exposure docs
-        calib_docs = set([self.raw_doc_to_calib_doc(d, date) for d in documents])
-        self.logger.info(f"Found {len(calib_docs)} calibIds for date={date}.")
+        calib_docs = set([self.raw_doc_to_calib_doc(d) for d in documents])
+        self.logger.debug(f"Found {len(calib_docs)} possible calib documents.")
 
         return calib_docs
 
-    def raw_doc_to_calib_doc(self, document, calib_date):
+    def raw_doc_to_calib_doc(self, document, date):
         """ Convert a ExposureDocument into its corresponding CalibDocument.
         Args:
             document (ExposureDocument): The raw calib document.
-            calib_date (object): The calib date.
+            date (object): The calib date.
         Returns:
             CalibDocument: The matching calib document.
         """
@@ -186,7 +165,7 @@ class ExposureCollection(Collection):
         calib_dict = {k: document[k] for k in keys}
 
         # Add extra required metadata
-        calib_dict["calibDate"] = date_to_ymd(calib_date)
+        calib_dict["calibDate"] = date_to_ymd(date)
         calib_dict["datasetType"] = datasetType
 
         return CalibDocument(calib_dict)

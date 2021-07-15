@@ -4,39 +4,54 @@ from copy import copy
 from threading import Thread, Event
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.utils.date import current_date
+from huntsman.drp.utils.date import current_date, parse_date, date_to_ymd
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.collection import ExposureCollection, CalibCollection
 
 
-class MasterCalibMaker(HuntsmanBase):
+class CalibService(HuntsmanBase):
 
-    def __init__(self, date_begin=None, validity=1, min_docs_per_calib=1, max_docs_per_calib=None,
-                 nproc=1, **kwargs):
+    def __init__(self, date_begin=None, validity=None, min_exps_per_calib=None,
+                 max_exps_per_calib=None, nproc=None, **kwargs):
         """
         Args:
             date_begin (datetime.datetime, optional): Make calibs for this date and after. If None
                 (default), use current date - validity.
-            validity (int, optional): Make calibs on this interval in days. Default: 1.
-            min_docs_per_calib (int, optional): Calibs must match with at least this many raw docs
+            validity (int, optional): Make calibs on this interval in days. Will get from config
+                if not provided, with default of 1.
+            min_exps_per_calib (int, optional): Calibs must match with at least this many raw docs
                 to be created. Default: 1.
-            max_docs_per_calib (int, optional): No more than this many raw docs will contribute to
+            max_exps_per_calib (int, optional): No more than this many raw docs will contribute to
                 a single calib. If None (default), no upper-limit is applied.
             nproc (int, optional): The number of processes to use. Default: 1.
         """
         super().__init__(**kwargs)
 
+        self._ordered_calib_types = self.config["calibs"]["types"]
+
+        # Set the validity, which determines the date period for which calibs are valid
+        validity = self.config["calibs"].get("validity", 1) if validity is None else validity
         self.validity = datetime.timedelta(days=validity)
-        self.date_begin = current_date() - self.validity if date_begin is None else date_begin
 
-        self._min_docs_per_calib = int(min_docs_per_calib)
-        self._max_docs_per_calib = int(max_docs_per_calib)
+        date_begin = current_date() - self.validity if date_begin is None else date_begin
+        # Strip off time info, just use ymd
+        self.date_begin = parse_date(date_to_ymd(date_begin))
 
-        self._nproc = int(nproc)
+        # Get calib maker config
+        config = self.config.get("calib_maker", {})
+        self._nproc = config.get("nproc", 1)
+
+        if min_exps_per_calib is None:
+            min_exps_per_calib = config.get("min_exps_per_calib", 1)
+        self._min_exps_per_calib = min_exps_per_calib
+
+        if max_exps_per_calib is None:
+            max_exps_per_calib = config.get("max_exps_per_calib", None)
+        self._max_exps_per_calib = max_exps_per_calib
 
         # Create collection client objects
-        self.exposure_collection = ExposureCollection(**kwargs)
-        self.calib_collection = CalibCollection(**kwargs)
+        self.exposure_collection = ExposureCollection(config=self.config, logger=self.logger)
+        self.calib_collection = CalibCollection(config=self.config, logger=self.logger)
 
         # Create threads
         self._stop_threads = Event()
@@ -55,7 +70,7 @@ class MasterCalibMaker(HuntsmanBase):
     @property
     def threads_stopping(self):
         """ Return True if threads should stop, else False. """
-        return self._stop_thread.is_set()
+        return self._stop_threads.is_set()
 
     # Public methods
 
@@ -77,35 +92,102 @@ class MasterCalibMaker(HuntsmanBase):
         except RuntimeError:
             pass
 
-    def process_date(self, calib_date):
+    def process_date(self, date, **kwargs):
         """ Create all master calibs for a given calib date.
         Args:
-            calib_date (object): The calib date.
+            date (object): The calib date.
         """
-        # Get valid raw docs and their corresponding set of partial calib docs
-        raw_docs, calib_docs = self.exposure_collection.get_calib_docs(
-            calib_date=calib_date,
-            validity=self._validity,
-            min_docs_per_calib=self._min_docs_per_calib,
-            max_docs_per_calib=self._max_docs_per_calib)
+        # Calculate date range from date and validity
+        date = parse_date(date)
+        date_min = date - self.validity
+        date_max = date + self.validity
 
-        # Process data in a temporary butler repo
-        with TemporaryButlerRepository() as br:
+        # Specify common find kwargs
+        find_kwargs = {"date_min": date_min,
+                       "date_max": date_max}
+        find_kwargs.update(kwargs)
 
-            # Ingest raw exposures
-            br.ingest_raw_files([_["filename"] for _ in raw_docs])
+        # Get set of calib docs we can make from the set of exposure docs
+        calib_docs = self.exposure_collection.get_calib_docs(date=date, **find_kwargs)
 
-            # Make master calibs
-            calib_docs = br.make_master_calibs(calib_docs=calib_docs,
-                                               validity=self._validity.days,
-                                               procs=self._nproc)
-            # Archive the master calibs
-            for calib_doc in calib_docs:
-                self.calib_collection.archive_master_calib(filename=calib_doc["filename"],
-                                                           metadata=calib_doc)
+        if len(calib_docs) == 0:
+            self.logger.warning(f"No calib documents found in {self.exposure_collection} for"
+                                f"{date}. Skipping.")
+            return
+
+        # Get documents matching the calib docs
+        exp_docs = []
+        for calib_doc in calib_docs:
+
+            docs = self.exposure_collection.get_matching_raw_calibs(
+                calib_doc, sort_date=date, **find_kwargs)
+
+            if self._max_exps_per_calib is not None:
+                if len(docs) > self._max_exps_per_calib:
+                    self.logger.warning(
+                        f"Number of matching exposures for calib {calib_doc} ({len(docs)})"
+                        f" exceeds maximum. Limiting to first {self._max_exps_per_calib}.")
+                    docs = docs[:self._max_exps_per_calib]
+
+            if self._min_exps_per_calib is not None:
+                if len(docs) < self._min_exps_per_calib:
+                    self.logger.warning(
+                        f"Number of matching exposures for calib {calib_doc} ({len(docs)})"
+                        f" exceeds minimum ({self._min_exps_per_calib}). Skipping.")
+                    docs = None
+
+            exp_docs.append(docs)
+
+        # Construct the calibs and archive them
+        self._process_documents(calib_docs, exp_docs, begin_date=date_min, end_date=date_max)
+
+    def _process_documents(self, calib_docs, exp_docs, **kwargs):
+        """ Create calibs from raw exposures using the LSST stack.
+        Args:
+            calib_docs (list of CalibDocument): The calibs to process.
+            exp_docs (list of ExposureDocument): THe exposures to process. Must be the same length
+                as calib_docs.
+            **kwargs: Parsed to ButlerRepository.construct_calibs.
+        """
+        with TemporaryButlerRepository(config=self.config) as br:
+
+            # Loop over calib types in order
+            for calib_type in self._ordered_calib_types:
+
+                # Loop over calib docs of the correct type
+                for calib_doc, docs in zip(calib_docs, exp_docs):
+
+                    if calib_doc["datasetType"] != calib_type:
+                        continue
+
+                    if not docs:
+                        continue
+
+                    # Ingest the raw docs
+                    br.ingest_raw_files([d["filename"] for d in docs])
+
+                    self.logger.debug("Converting documents into LSST dataIds.")
+                    calibId = br.document_to_dataId(calib_doc, datasetType=calib_type)
+                    dataIds = [br.document_to_dataId(d) for d in docs]
+
+                    # Process calibs one by one
+                    # This does not make full use of LSST quantum graph processing but gives us more
+                    # control.
+                    self.logger.info(f"Constructing {calib_type} for {calib_doc}.")
+                    br.construct_calibs(calib_type, dataIds=dataIds, **kwargs)
+
+                    # Use butler to get the calib filename
+                    filename = br.get_filenames(calib_type, dataIds=[calibId])[0]
+
+                    # Archive the calib in the calib collection
+                    self.logger.info(f"Archiving {calib_type} for {calib_doc}.")
+                    self.calib_collection.archive_master_calib(filename=filename,
+                                                               metadata=calib_doc)
 
     def sleep_until_date_is_valid(self, date, interval=5):
         """ Sleep until current_date >= date + validity.
+        This ensures required files will be present in the exposure collection before creating
+        the calibs.
         Args:
             date (datetime.datetime): The date.
             interval (float, optional): The sleep interval in seconds. Default: 5.
@@ -114,7 +196,6 @@ class MasterCalibMaker(HuntsmanBase):
         if valid_date > date:
 
             self.logger.info(f"Waiting for date: {valid_date}")
-            self._sleep_event.set()
 
             while current_date() < valid_date:
                 if self.threads_stopping:
@@ -141,6 +222,7 @@ class MasterCalibMaker(HuntsmanBase):
                 self.process_date(date)
             except Exception as err:
                 self.logger.error(f"Error making master calibs for date={date}: {err!r}")
-            # Finally, increment the date
+
+            # Increment the date to the next validity period
             finally:
-                date += self.validity
+                date += 2 * self.validity

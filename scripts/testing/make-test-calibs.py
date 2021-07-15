@@ -5,7 +5,7 @@ the testing data, or changing the LSST calib policy.
 import os
 import shutil
 
-from huntsman.drp.services.calib import MasterCalibMaker
+from huntsman.drp.services.calib import CalibService
 from huntsman.drp.collection import CalibCollection
 from huntsman.drp.utils.testing import create_test_exposure_collection
 
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     calib = CalibCollection(collection_name="calib-test")
 
     # Make the calibs
-    calib_maker = MasterCalibMaker(exposure_collection=raw, calib_collection=calib)
+    calib_maker = CalibService(exposure_collection=raw, calib_collection=calib)
     for date in calib_maker._get_unique_dates():
         calib_maker.process_date(date)
 

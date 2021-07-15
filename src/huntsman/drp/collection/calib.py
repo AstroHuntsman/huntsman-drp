@@ -1,6 +1,5 @@
 import os
 import shutil
-from datetime import timedelta
 
 import numpy as np
 
@@ -27,10 +26,11 @@ class CalibCollection(Collection):
         # Set the calib archive directory
         self.archive_dir = self.config["directories"]["calib"]
 
-    def get_matching_calibs(self, document):
+    def get_matching_calibs(self, document, **kwargs):
         """ Return best matching set of calibs for a given document.
         Args:
             document (ExposureDocument): The document to match with.
+            **kwargs: Parsed to self.find.
         Returns:
             dict: A dict of datasetType: CalibDocument.
         Raises:
@@ -39,13 +39,10 @@ class CalibCollection(Collection):
         """
         self.logger.debug(f"Finding best matching calibs for {document}.")
 
-        validity = timedelta(days=self.config["calibs"]["validity"])
         matching_keys = self.config["calibs"]["matching_columns"]
 
         # Specify valid date range
         date = parse_date(document["observing_day"])
-        date_min = date - validity
-        date_max = date + validity
 
         best_calibs = {}
         for calib_type in self.config["calibs"]["types"]:
@@ -54,21 +51,16 @@ class CalibCollection(Collection):
             doc_filter["datasetType"] = calib_type
 
             # Find matching docs within valid date range
-            calib_docs = self.find(doc_filter, date_min=date_min, date_max=date_max)
+            calib_docs = self.find(doc_filter, **kwargs)
 
-            # If none within valid range, log a warning and proceed
-            if len(calib_docs) == 0:
-                self.logger.warning(f"Best {calib_type} outside valid date range for {document}.")
-                calib_docs = self.find(doc_filter)
-
-            # If there are still no matches, raise an error
+            # If there are no matches, raise an error
             if len(calib_docs) == 0:
                 raise FileNotFoundError(f"No matching master {calib_type} for {doc_filter}.")
 
+            # Choose the one with the nearest date
+            date = parse_date(document["observing_day"])
             dates = [parse_date(_["calib_date"]) for _ in calib_docs]
             timediffs = [abs(date - d) for d in dates]
-
-            # Choose the one with the nearest date
             best_calibs[calib_type] = calib_docs[np.argmin(timediffs)]
 
         return best_calibs
