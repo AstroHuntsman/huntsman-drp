@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 
+from huntsman.drp.utils.fits import read_fits_header
+
 
 def plot_wcs_box(document, ax, linestyle="-", color="k", linewidth=1, **kwargs):
     """ Plot the boundaries of the image in WCS coordinates.
@@ -12,10 +14,11 @@ def plot_wcs_box(document, ax, linestyle="-", color="k", linewidth=1, **kwargs):
     wcs = document.get_wcs()
 
     # Get boundaries
+    header = read_fits_header(document["filename"])
     bl = wcs.pixel_to_world(0, 0)
-    br = wcs.pixel_to_world(document["NAXIS1"], 0)
-    tr = wcs.pixel_to_world(document["NAXIS1"], document["NAXIS2"])
-    tl = wcs.pixel_to_world(0, document["NAXIS2"])
+    br = wcs.pixel_to_world(header["NAXIS1"], 0)
+    tr = wcs.pixel_to_world(header["NAXIS1"], header["NAXIS2"])
+    tl = wcs.pixel_to_world(0, header["NAXIS2"])
 
     plot_kwargs = dict(linestyle=linestyle, color=color, linewidth=linewidth)
     plot_kwargs.update(kwargs)

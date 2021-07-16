@@ -16,7 +16,7 @@ def config_file_offsetsky(config):
     return os.path.join(rootdir, "config", "reductions", "test-offset-sky.yaml")
 
 
-@pytest.mark.skip()
+# @pytest.mark.skip()
 def test_lsst_reduction(exposure_collection_real_data, master_calib_collection_real_data, config,
                         config_file_lsst, testing_refcat_server):
 
@@ -29,7 +29,7 @@ def test_lsst_reduction(exposure_collection_real_data, master_calib_collection_r
 
     reduction.run(makeplots=True)
 
-
+@pytest.mark.skip()
 def test_offsetsky_reduction(exposure_collection_real_data, master_calib_collection_real_data,
                              config, config_file_offsetsky, testing_refcat_server):
 

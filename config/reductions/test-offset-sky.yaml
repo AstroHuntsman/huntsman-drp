@@ -5,7 +5,7 @@ name: example-offsetsky-reduction
 query:
   document_filter:
     observation_type: science
-    field: DoradoGroup-p0p0
+    object: DoradoGroup-p0p0
     physical_filter:
       in:
         - g_band
@@ -17,7 +17,7 @@ query:
 sky_query:
   document_filter:
     observation_type: science
-    field: DoradoGroup-p0p0_sky
+    object: DoradoGroup-p0p0_sky
     physical_filter:
       in:
         - g_band

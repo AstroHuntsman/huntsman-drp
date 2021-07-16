@@ -1,0 +1,44 @@
+description: Create calibrated exposures from raw science data.
+tasks:
+  # Perform instrument signature removal (bias, dark, flat, defects etc)
+  isr:
+    class: lsst.ip.isr.IsrTask
+    config:
+      doLinearize: false
+      doCrosstalk: false
+      doDefect: false
+      doFringe: false
+      doOverscan: false
+  # Characterise the image, making source catalogue, measuring PSF and background
+  characterizeImage:
+    class: lsst.obs.huntsman.tasks.characterizeImage.HuntsmanCharacterizeImageTask
+    config:
+      repair.doCosmicRay: false
+      python: |
+        from lsst.obs.huntsman.tasks.characterizeImage import HuntsmanSourceDetectionTask
+        config.detection.retarget(HuntsmanSourceDetectionTask)
+        config.detection.includeThresholdMultiplier = 1
+        config.doMeasurePsf = True
+        config.measurePsf.starSelector['objectSize'].doFluxLimit = False
+        config.measurePsf.starSelector['objectSize'].doSignalToNoiseLimit = True
+        config.measurePsf.starSelector['objectSize'].signalToNoiseMin = 10
+        config.measurePsf.starSelector['objectSize'].signalToNoiseMax = 50
+  # Calibrate the image by matching with the refcat and calculating mag zero point
+  calibrate:
+    class: lsst.obs.huntsman.tasks.characterizeImage.HuntsmanCalibrateTask
+    config:
+      doAstrometry: false
+      doPhotoCal: true
+      photoCal.match.matchRadius: 3
+      astromRefObjLoader.ref_dataset_name: 'skymapper_dr3'
+      photoRefObjLoader.ref_dataset_name: 'skymapper_dr3'
+      photoCal.photoCatName: 'skymapper_dr3'
+      connections.astromRefCat: 'skymapper_dr3'
+      connections.photoRefCat: 'skymapper_dr3'
+      python: |
+        config.astromRefObjLoader.filterMap = {}
+        config.photoRefObjLoader.filterMap = {}
+        config.astromRefObjLoader.filterMap['g'] = 'g_psf'
+        config.astromRefObjLoader.filterMap['r'] = 'r_psf'
+        config.photoRefObjLoader.filterMap['g'] = 'g_psf'
+        config.photoRefObjLoader.filterMap['r'] = 'r_psf'

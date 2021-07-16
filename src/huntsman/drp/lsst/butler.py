@@ -151,7 +151,7 @@ class ButlerRepository(HuntsmanBase):
             dataIds.append(dataId)
         return dataIds
 
-    def ingest_raw_files(self, filenames, transfer="symlink", **kwargs):
+    def ingest_raw_files(self, filenames, transfer="symlink", define_visits=False, **kwargs):
         """ Ingest raw files into the Butler repository.
         Args:
             filenames (iterable of str): The list of raw data filenames.
@@ -168,6 +168,9 @@ class ButlerRepository(HuntsmanBase):
 
         task = RawIngestTask(config=task_config, butler=butler)
         task.run(filenames)
+
+        if define_visits:
+            self.define_visits()
 
     def ingest_calibs(self, datasetType, filenames, collection=None, begin_date=None,
                       end_date=None, **kwargs):
@@ -212,6 +215,22 @@ class ButlerRepository(HuntsmanBase):
         self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} file(s).")
         ingestor.run(filenames)
 
+    def run_pipeline(self, pipeline_name, output_collection, input_collections=None, **kwargs):
+        """ Run a LSST pipeline.
+        Args:
+
+        Returns:
+
+        """
+        if input_collections is None:
+            input_collections = (self._raw_collection,
+                                 self._refcat_collection,
+                                 self._calib_collection)
+
+        return pipeline.pipetask_run(pipeline_name, self.root_directory,
+                                     output_collection=output_collection,
+                                     input_collections=input_collections, **kwargs)
+
     def construct_calibs(self, datasetType, dataIds=None, begin_date=None, end_date=None,
                          output_collection=None, **kwargs):
         """ Make a master calib from ingested raw exposures.
@@ -226,23 +245,20 @@ class ButlerRepository(HuntsmanBase):
 
         self.logger.info(f"Making master {datasetType}(s) from {len(dataIds)} dataIds.")
 
-        # Specify the input collections we need to make the calibs
-        input_collections = (self._raw_collection, self._calib_collection)
-
         # Make the calibs in their own collection
         if output_collection is None:
             output_collection = os.path.join(self._calib_directory, f"{datasetType}")
 
         # Make the master calibs
-        calib_type = datasetType.title()  # Capitalise first letter
-        pipeline.pipetask_run(f"construct{calib_type}", self.root_directory, dataIds=dataIds,
-                              output_collection=output_collection,
-                              input_collections=input_collections, **kwargs)
+        pipeline_name = f"construct{datasetType.title()}"
+        self.run_pipeline(pipeline_name, output_collection=output_collection,
+                          dataIds=dataIds, **kwargs)
 
         # Certify the calibs
         self._certify_calibrations(datasetType, output_collection, begin_date, end_date)
 
-    def construct_calexps(self, dataIds=None, output_collection="calexp", **kwargs):
+    def construct_calexps(self, dataIds=None, output_collection="calexp",
+                          pipeline_name="processCcd", **kwargs):
         """ Create calibrated exposures (calexps) from raw exposures.
         Args:
             dataIds (list of dict, optional): List of dataIds to process. If None (default),
@@ -255,18 +271,19 @@ class ButlerRepository(HuntsmanBase):
         if dataIds is None:
             dataIds = self.get_dataIds("raw", where="exposure.observation_type='science'")
 
-        # Specify the input collections we need to make the calexps
-        input_collections = (self._raw_collection, self._calib_collection, self._refcat_collection)
-
         # Define visits
         # TODO: Figure out what this actually does
+        self.define_visits()
+
+        # Run pipeline
+        self.run_pipeline(pipeline_name, output_collection=output_collection,
+                          dataIds=dataIds, **kwargs)
+
+    def define_visits(self):
+        """ Define visits from raw exposures. """
+        self.logger.debug(f"Defining visits in {self}.")
         defineVisits(self.root_directory, config_file=None, collections=self._raw_collection,
                      instrument=self._instrument_name)
-
-        # Run task
-        pipeline.pipetask_run("processCcd", self.root_directory, dataIds=dataIds,
-                              output_collection=output_collection,
-                              input_collections=input_collections, **kwargs)
 
     # Private methods
 

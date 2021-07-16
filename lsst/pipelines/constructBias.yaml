@@ -1,0 +1,34 @@
+# https://github.com/lsst/cp_pipe/blob/master/pipelines/cpBias.yaml
+description: Huntsman bias calibration construction.
+tasks:
+  isr:
+    class: lsst.ip.isr.IsrTask
+    config:
+      connections.ccdExposure: "raw"
+      connections.outputExposure: "cpBiasProc"
+      doBias: False
+      doVariance: True
+      doLinearize: False
+      doCrosstalk: False
+      doDefect: False
+      doNanMasking: True
+      doInterpolate: True
+      doBrighterFatter: False
+      doDark: False
+      doFlat: False
+      doApplyGains: False
+      doFringe: False
+      doOverscan: False
+      doSaturationInterpolation: True
+  cpBiasCombine:
+    class: lsst.cp.pipe.cpCombine.CalibCombineTask
+    config:
+      connections.inputExps: "cpBiasProc"
+      connections.outputData: "bias"
+      calibrationType: "bias"
+      exposureScaling: "Unity"
+contracts:
+  - isr.doBias == False
+  - cpBiasCombine.calibrationType == "bias"
+  - cpBiasCombine.exposureScaling == "Unity"
+  - cpBiasCombine.exposureScaling == "Unity"

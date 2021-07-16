@@ -58,8 +58,13 @@ def pipetask_run(pipeline_name, root_directory, input_collections=None, output_c
     """ Use the LSST pipetask cli to run a pipeline.
 
     """
+    if os.path.isabs(pipeline_name):
+        pipeline_filename = pipeline_name
+    else:
+        pipeline_filename = os.path.join(PIPELINE_DIR, pipeline_name + '.yaml')
+
     args_str = "" if args_str is None else args_str + " "
-    args_str += f"-p {os.path.join(PIPELINE_DIR, pipeline_name + '.yaml')}"
+    args_str += f"-p {pipeline_filename}"
     args_str += f" -b {root_directory}"
 
     if register_dataset_types:
