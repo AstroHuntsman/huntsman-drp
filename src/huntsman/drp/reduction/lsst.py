@@ -3,7 +3,6 @@ import yaml
 
 from huntsman.drp.reduction.base import ReductionBase
 from huntsman.drp.lsst.butler import ButlerRepository
-from huntsman.drp.lsst.utils.pipeline import pipetask_run
 
 
 class LsstReduction(ReductionBase):
@@ -50,6 +49,9 @@ class LsstReduction(ReductionBase):
 
         # Ingest reference catalogue
         self.butler_repo.ingest_reference_catalogue([self._refcat_filename])
+
+        # Create the skyMap from the ingested science files
+        self.butler_repo.construct_skymap()
 
     def reduce(self, **kwargs):
         """ Use the LSST stack to calibrate and stack exposures. """

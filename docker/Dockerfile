@@ -1,4 +1,4 @@
-ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-d_latest
+ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-w_latest
 FROM ${base_image}
 
 # Build args

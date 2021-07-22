@@ -7,8 +7,10 @@ from lsst.daf.butler import DatasetType
 from lsst.daf.butler.script.certifyCalibrations import certifyCalibrations
 
 from lsst.obs.base.utils import getInstrument
-from lsst.obs.base import RawIngestTask, RawIngestConfig
 from lsst.obs.base.script.defineVisits import defineVisits
+from lsst.obs.base import RawIngestTask
+
+from lsst.pipe.tasks.makeDiscreteSkyMap import MakeDiscreteSkyMapTask
 
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.lsst.utils import pipeline
@@ -19,13 +21,14 @@ from huntsman.drp.lsst.utils import butler as utils
 class ButlerRepository(HuntsmanBase):
     """ This class provides a convenient interface to LSST Butler functionality.
     The goal of ButlerRepository is to facilitate simple calls to LSST code, including running
-    pipelines to construct calibs and coadds.
+    pipelines to construct calibs and run pipelines.
     """
     _instrument_name = "Huntsman"  # TODO: Move to config
     _instrument_class_str = "lsst.obs.huntsman.HuntsmanCamera"  # TODO: Move to config
 
     _raw_collection = f"{_instrument_name}/raw/all"
     _refcat_collection = "refCat"
+    _skymap_collection = "skymaps"
 
     def __init__(self, directory, calib_collection=None, **kwargs):
         """
@@ -48,6 +51,7 @@ class ButlerRepository(HuntsmanBase):
             calib_collection = os.path.join(self._calib_directory, "CALIB")
         self._calib_collection = calib_collection
 
+        self._instrument = None
         self._initialise_repository()
 
     # Properties
@@ -163,10 +167,9 @@ class ButlerRepository(HuntsmanBase):
         kwargs.update({"writeable": True})
         butler = self.get_butler(run=self._raw_collection, **kwargs)
 
-        task_config = RawIngestConfig()
-        task_config.transfer = transfer
-
-        task = RawIngestTask(config=task_config, butler=butler)
+        task = self._make_task(RawIngestTask,
+                               butler=butler,
+                               config_overrides={"transfer": transfer})
         task.run(filenames)
 
         if define_visits:
@@ -225,7 +228,8 @@ class ButlerRepository(HuntsmanBase):
         if input_collections is None:
             input_collections = (self._raw_collection,
                                  self._refcat_collection,
-                                 self._calib_collection)
+                                 self._calib_collection,
+                                 self._skymap_collection)
 
         return pipeline.pipetask_run(pipeline_name, self.root_directory,
                                      output_collection=output_collection,
@@ -279,8 +283,36 @@ class ButlerRepository(HuntsmanBase):
         self.run_pipeline(pipeline_name, output_collection=output_collection,
                           dataIds=dataIds, **kwargs)
 
+    def construct_skymap(self, datasetType="raw", skymap_id="discrete", **kwargs):
+        """ Construct a skyMap from ingested science exposures.
+        NOTE: This currently cannot be done inside a LSST pipeline.
+        Args:
+            datasetType (str, optional): The dataset type name. Default: "raw".
+            skymap_id (str, optional): The name of the skymap. Default: "discrete".
+            **kwargs: Parsed to self._make_task.
+        """
+        collections = [self._raw_collection]
+        butler = self.get_butler(collections=collections, writeable=True)
+
+        # Get datasets from which to extract bounding boxes and WCS
+        datasets = self._get_datasetRefs(datasetType, where="exposure.observation_type='science'",
+                                         **kwargs)
+
+        self.logger.info(f"Constructing skyMap from {datasetType} exposures.")
+
+        wcs_bbox_tuple_list = []
+        for ref in datasets:
+            exp = butler.getDirect(ref)
+            wcs_bbox_tuple_list.append((exp.getWcs(), exp.getBBox()))
+
+        task = self._make_task(MakeDiscreteSkyMapTask, **kwargs)
+        result = task.run(wcs_bbox_tuple_list, oldSkyMap=None)
+        result.skyMap.register(skymap_id, butler)
+
     def define_visits(self):
-        """ Define visits from raw exposures. """
+        """ Define visits from raw exposures.
+        This must be called before constructing calexps.
+        """
         self.logger.debug(f"Defining visits in {self}.")
         defineVisits(self.root_directory, config_file=None, collections=self._raw_collection,
                      instrument=self._instrument_name)
@@ -305,6 +337,7 @@ class ButlerRepository(HuntsmanBase):
         # Setup instrument and calibrations collection
         instr = getInstrument(self._instrument_name, butler.registry)
         instr.writeCuratedCalibrations(butler, collection=self._calib_collection, labels=())
+        self._instrument = instr
 
         # Register calib dataset types
         self._register_calib_datasetTypes(butler)
@@ -350,6 +383,26 @@ class ButlerRepository(HuntsmanBase):
                             dataset_type_name=datasetType,
                             begin_date=begin_date,
                             end_date=end_date)
+
+    def _make_task(self, taskClass, config_overrides=None, **kwargs):
+        """ Make the task and apply instrument overrides to the config.
+        Args:
+            taskClass (Class): The task class.
+            **kwargs: Parsed to task initialiser.
+        Returns:
+            Task: The initialised Task class.
+        """
+        # Load the default instrument-specific config
+        config = taskClass.configClass
+        self._instrument.applyConfigOverrides(taskClass._DefaultName, config)
+
+        # Apply additional config overrides
+        if config_overrides:
+            for k, v in config_overrides.items():
+                setattr(config, k, v)
+
+        # Return the task instance
+        return taskClass(config=config, **kwargs)
 
 
 class TemporaryButlerRepository():

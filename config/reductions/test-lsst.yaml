@@ -24,9 +24,7 @@ pipeline:
   imports:
    - location: ${HUNTSMAN_DRP}/lsst/pipelines/ProcessCcd.yaml
   tasks:
-    makeDiscreteSkyMap:
-      class: huntsman.drp.lsst.tasks.makeDiscreteSkyMap.MakeDiscreteSkyMapTask
-    #makeWarp:
-    #  class: lsst.pipe.tasks.makeCoaddTempExp.MakeWarpTask
-    #assembleCoadd:
-    #  class: lsst.pipe.tasks.assembleCoadd.AssembleCoaddTask
+    makeWarp:
+      class: lsst.pipe.tasks.makeCoaddTempExp.MakeWarpTask
+    assembleCoadd:
+      class: lsst.pipe.tasks.assembleCoadd.AssembleCoaddTask
