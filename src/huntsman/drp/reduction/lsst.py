@@ -8,7 +8,7 @@ from huntsman.drp.lsst.butler import ButlerRepository
 class LsstReduction(ReductionBase):
     """ Data reduction using LSST stack. """
 
-    def __init__(self, pipeline=None, pipeline_kwargs=None, *args, **kwargs):
+    def __init__(self, pipeline=None, *args, **kwargs):
         super().__init__(initialise=False, *args, **kwargs)
 
         self._butler_directory = os.path.join(self.directory, "lsst")
@@ -25,7 +25,7 @@ class LsstReduction(ReductionBase):
         self._output_collection = "pipeline_outputs"
 
         # Setup task configs
-        self._pipeline_kwargs = pipeline_kwargs if pipeline_kwargs else {}
+        self._pipeline_config = {}
 
         self._initialise()
 
@@ -53,18 +53,18 @@ class LsstReduction(ReductionBase):
         # Create the skyMap from the ingested science files
         self.butler_repo.construct_skymap()
 
-    def reduce(self, **kwargs):
+    def reduce(self):
         """ Use the LSST stack to calibrate and stack exposures. """
 
         dataIds = [self.butler_repo.document_to_dataId(d) for d in self.science_docs]
 
-        # Get additional config
-        conf = self._pipeline_kwargs.copy()
-        conf.update(kwargs)
+        self.logger.info(f"Reducing {len(dataIds)} dataIds.")
 
         # Run the pipeline
-        self.butler_repo.run_pipeline(self._pipeline_filename, dataIds=dataIds,
-                                      output_collection=self._output_collection, **conf)
+        self.butler_repo.run_pipeline(self._pipeline_filename,
+                                      dataIds=dataIds,
+                                      output_collection=self._output_collection,
+                                      config=self._pipeline_config)
 
     # Private methods
 

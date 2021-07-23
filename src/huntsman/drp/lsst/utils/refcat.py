@@ -12,7 +12,7 @@ import tempfile
 from lsst.utils import getPackageDir
 from lsst.daf.butler import DatasetType, DatasetRef, FileDataset, CollectionType
 
-from huntsman.drp.lsst.tasks.ingestRefcat import HuntsmanIngestIndexedReferenceTask
+from lsst.obs.huntsman.tasks.ingestRefcat import HuntsmanIngestIndexedReferenceTask
 
 PACKAGE_NAME = "obs_huntsman"
 

@@ -25,10 +25,26 @@ sky_query:
   quality_filter: true
   limit: 1
 
-# This is the maximum time difference between target and sky exposures
+# This is the maximum allowed time difference between target and sky exposures
 timedelta_minutes: 60
 
-# This is where you put extra config items for the processing
-calexp_kwargs:
-  extra_config:
-    charImage.background.algorithm: CONSTANT
+# Define the pipeline to process the offset sky exposures
+# This is run before processing the science exposures
+offsetsky_pipeline:
+  imports:
+   - location: ${OBS_HUNTSMAN}/lsst/pipelines/ProcessCcd.yaml
+   tasks:
+     makeOffsetSkyBackground:
+       class: lsst.obs.huntsman.makeOffsetSkyBackground.MakeOffsetSkyBackgroundTask
+
+# Define the pipeline to process the science exposures
+pipeline:
+  description: "Calibrate raw exposures and make coadds"
+  tasks:
+  imports:
+   - location: ${OBS_HUNTSMAN}/lsst/pipelines/ProcessCcd.yaml
+  tasks:
+    makeWarp:
+      class: lsst.pipe.tasks.makeCoaddTempExp.MakeWarpTask
+    assembleCoadd:
+      class: lsst.pipe.tasks.assembleCoadd.AssembleCoaddTask

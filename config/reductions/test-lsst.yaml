@@ -22,7 +22,7 @@ pipeline:
   # Import default processCcd pipeline
   # More info here: https://github.com/lsst/pipe_base
   imports:
-   - location: ${HUNTSMAN_DRP}/lsst/pipelines/ProcessCcd.yaml
+   - location: ${OBS_HUNTSMAN}/lsst/pipelines/ProcessCcd.yaml
   tasks:
     makeWarp:
       class: lsst.pipe.tasks.makeCoaddTempExp.MakeWarpTask
