@@ -8,7 +8,7 @@ from huntsman.drp.lsst.butler import ButlerRepository
 class LsstReduction(ReductionBase):
     """ Data reduction using LSST stack. """
 
-    def __init__(self, pipeline=None, *args, **kwargs):
+    def __init__(self, pipeline=None, initialise=True, *args, **kwargs):
         super().__init__(initialise=False, *args, **kwargs)
 
         self._butler_directory = os.path.join(self.directory, "lsst")
@@ -27,7 +27,8 @@ class LsstReduction(ReductionBase):
         # Setup task configs
         self._pipeline_config = {}
 
-        self._initialise()
+        if initialise:
+            self._initialise()
 
     # Methods
 

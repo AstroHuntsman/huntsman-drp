@@ -54,7 +54,8 @@ def _dataIds_to_query_str(dataIds):
 
 
 def pipetask_run(pipeline_name, root_directory, input_collections=None, output_collection=None,
-                 dataIds=None, args_str=None, register_dataset_types=True, config=None, **kwargs):
+                 dataIds=None, args_str=None, register_dataset_types=True, config=None,
+                 instrument=None, **kwargs):
     """ Use the LSST pipetask cli to run a pipeline.
 
     """
@@ -67,10 +68,16 @@ def pipetask_run(pipeline_name, root_directory, input_collections=None, output_c
     args_str += f"-p {pipeline_filename}"
     args_str += f" -b {root_directory}"
 
+    # Add instrument if provided
+    # This will be used to apply instrument config overrides
+    if instrument is not None:
+        args_str += f" --instrument {instrument}"
+
     # Add config overrides to arg string
+    # These will override any existing config values
     if config is not None:
         for k, v in config.items():
-            args_str += f" -c {k}={v}"
+            args_str += f" --config {k}={v}"
 
     if register_dataset_types:
         args_str += " --register-dataset-types"

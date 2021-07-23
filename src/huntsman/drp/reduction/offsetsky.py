@@ -5,8 +5,7 @@ from datetime import timedelta
 from huntsman.drp.reduction.base import ReductionBase
 from huntsman.drp.reduction.lsst import LsstReduction
 
-EXTRA_CONFIG_SCI = {"charImage:useOffsetSky": True,
-                    "charImage:detection.reEstimateBackground": False,
+EXTRA_CONFIG_SCI = {"characterizeImage:detection.reEstimateBackground": False,
                     "calibrate:detection.reEstimateBackground": False}
 
 EXTRA_CONFIG_SKY = {"calibrate:doPhotoCal": False}
@@ -16,20 +15,23 @@ class OffsetSkyReduction(LsstReduction):
     """ Data reduction using offset sky frames to estimate background for science images. """
 
     def __init__(self, sky_query, sky_pipeline, timedelta_minutes, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+
+        super().__init__(initialise=False, *args, **kwargs)
+
+        # Store the sky pipeline
+        self.sky_pipeline = sky_pipeline
+        self._sky_pipeline_filename = os.path.join(self.directory, "sky_pipeline.yaml")
 
         self._sky_query = sky_query
         self._timedelta_minutes = timedelta_minutes
 
         self.sky_docs = {}
 
-        # Store the sky pipeline
-        self.sky_pipeline = sky_pipeline
-        self._sky_pipeline_filename = os.path.join(self.directory, "sky_pipeline.yaml")
-
         # Setup required task config
         self._sky_pipeline_config = EXTRA_CONFIG_SKY
         self._pipeline_config.update(EXTRA_CONFIG_SCI)
+
+        self._initialise()
 
     # Methods
 
@@ -55,7 +57,7 @@ class OffsetSkyReduction(LsstReduction):
         super().prepare(call_super=False)
 
         # Ingest extra sky docs
-        self._butler_repo.ingest_raw_files([d["filename"] for d in all_sky_docs])
+        self.butler_repo.ingest_raw_files([d["filename"] for d in all_sky_docs], define_visits=True)
 
     def reduce(self):
         """ Override method to measure the offset sky backgrounds before processing. """
@@ -78,7 +80,7 @@ class OffsetSkyReduction(LsstReduction):
 
     def _initialise(self):
         """ Override method to write the sky pipeline. """
-        super().initialise()
+        super()._initialise()
 
         # Write the sky pipeline to yaml file
         with open(self._sky_pipeline_filename, 'w') as f:

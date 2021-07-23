@@ -24,7 +24,7 @@ class ButlerRepository(HuntsmanBase):
     pipelines to construct calibs and run pipelines.
     """
     _instrument_name = "Huntsman"  # TODO: Move to config
-    _instrument_class_str = "lsst.obs.huntsman.HuntsmanCamera"  # TODO: Move to config
+    _instrument_class_name = "lsst.obs.huntsman.HuntsmanCamera"  # TODO: Move to config
 
     _raw_collection = f"{_instrument_name}/raw/all"
     _refcat_collection = "refCat"
@@ -226,12 +226,15 @@ class ButlerRepository(HuntsmanBase):
 
         """
         if input_collections is None:
-            input_collections = (self._raw_collection,
+            input_collections = [self._raw_collection,
                                  self._refcat_collection,
-                                 self._calib_collection,
-                                 self._skymap_collection)
+                                 self._calib_collection]
+            if os.path.isdir(os.path.join(self.root_directory, self._skymap_collection)):
+                input_collections.append(self._skymap_collection)
 
-        return pipeline.pipetask_run(pipeline_name, self.root_directory,
+        return pipeline.pipetask_run(pipeline_name,
+                                     self.root_directory,
+                                     instrument=self._instrument_class_name,
                                      output_collection=output_collection,
                                      input_collections=input_collections, **kwargs)
 
@@ -323,15 +326,19 @@ class ButlerRepository(HuntsmanBase):
         """ Initialise a new butler repository. """
         try:
             dafButler.Butler.makeRepo(self.root_directory)
+
         except FileExistsError:
             self.logger.info(f"Found existing butler repository: {self.root_directory}")
+            butler = self.get_butler(writeable=True)
+            self._instrument = getInstrument(self._instrument_name, butler.registry)
             return
+
         self.logger.info(f"Creating new butler repository: {self.root_directory}")
 
         butler = self.get_butler(writeable=True)  # Creates empty butler repo
 
         # Register the Huntsman instrument config with the repo
-        instrInstance = getInstrument(self._instrument_class_str, butler.registry)
+        instrInstance = getInstrument(self._instrument_class_name, butler.registry)
         instrInstance.register(butler.registry)
 
         # Setup instrument and calibrations collection
@@ -393,7 +400,7 @@ class ButlerRepository(HuntsmanBase):
             Task: The initialised Task class.
         """
         # Load the default instrument-specific config
-        config = taskClass.configClass
+        config = taskClass.ConfigClass()
         self._instrument.applyConfigOverrides(taskClass._DefaultName, config)
 
         # Apply additional config overrides
