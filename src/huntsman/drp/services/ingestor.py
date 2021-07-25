@@ -1,5 +1,5 @@
 from huntsman.drp.services.base import ProcessQueue
-from huntsman.drp.utils.ingest import list_fits_files_recursive
+from huntsman.drp.utils.ingest import list_fits_files_recursive, METRIC_SUCCESS_FLAG
 
 __all__ = ("FileIngestor",)
 
@@ -51,7 +51,8 @@ class FileIngestor(ProcessQueue):
         self.logger.debug(f"Found {len(files_in_directory)} FITS files in {self._directory}.")
 
         # Get set of all files that are ingested and pass screening
-        files_ingested = set(self.exposure_collection.find(screen=True, key="filename"))
+        doc_filter = {METRIC_SUCCESS_FLAG: True}
+        files_ingested = set(self.exposure_collection.find(doc_filter, key="filename"))
 
         # Identify files that require processing
         files_to_process = files_in_directory - files_ingested

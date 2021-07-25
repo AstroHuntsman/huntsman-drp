@@ -51,3 +51,25 @@ def current_date_ymd():
     """
     date = current_date()
     return date_to_ymd(date)
+
+
+def make_mongo_date_constraint(date=None, date_min=None, date_max=None):
+    """ Make a mongo date constraint.
+    Args:
+        date (object, optional): If provided, restrict to this date.
+        date_min (object, optional): If provided, use this as the minimum date (inclusive).
+        date_max (object, optional): If provided, use this as the maximum date (non-inclusive).
+    Returns:
+        dict: The date constraint.
+    """
+    # Add date range to criteria if provided
+    date_constraint = {}
+
+    if date_min is not None:
+        date_constraint.update({"greater_than_equal": parse_date(date_min)})
+    if date_max is not None:
+        date_constraint.update({"less_than": parse_date(date_max)})
+    if date is not None:
+        date_constraint.update({"equal": parse_date(date)})
+
+    return date_constraint

@@ -221,9 +221,14 @@ class ButlerRepository(HuntsmanBase):
     def run_pipeline(self, pipeline_name, output_collection, input_collections=None, **kwargs):
         """ Run a LSST pipeline.
         Args:
-
+            pipeline_name (str): The pipeline file name. If not an absolute path, assumed relative
+                to the $OBS_HUNTSMAN pipeline directory. Should not include the file extension.
+            output_collection (str): The name of the butler output collection.
+            input_collections (iterable of str, optional): The input collections to use. If not
+                provided, will attempt to determine automatically.
+            **kwargs: Parsed to pipeline.pipetask_run.
         Returns:
-
+            object: The result of the call to pipeline.pipetask_run.
         """
         if input_collections is None:
             input_collections = [self._raw_collection,
@@ -242,7 +247,16 @@ class ButlerRepository(HuntsmanBase):
                          output_collection=None, **kwargs):
         """ Make a master calib from ingested raw exposures.
         Args:
-            calib_doc (CalibDocument): The calib document of the calib to make.
+            datasetType (str): The name of the datasetType (i.e. calib type) to create.
+            dataIds (iterable of dict, optional): The list of dataIds to process. If not provided,
+                will use all ingested raw exposures of the appropriate observation type.
+            begin_date (datetime.datetime, optional): If provided, signifies the date from which
+                the produced calibs will be valid.
+            end_date (datetime.datetime): If provided, signifies the date up until which the
+                produced catlobs will be valid.
+            output_collection (str, optional): The butler output collection. If not provided,
+                will assume from the datasetType.
+            **kwargs: Parsed to self.run_pipeline.
         Returns:
             str: The filename of the newly created master calib.
         """
@@ -272,6 +286,7 @@ class ButlerRepository(HuntsmanBase):
                 will use all appropriate ingested raw files.
             output_collection (str, optional): The name of the output collection. If None (default),
                 will determine automatically.
+            pipeline_name (str, optional): The name of the pipeline to run. Default: "processCcd".
             **kwargs: Parsed to pipeline.pipetask_run.
         """
         # If dataIds not provided, make calexp using all ingested dataIds of the correct type

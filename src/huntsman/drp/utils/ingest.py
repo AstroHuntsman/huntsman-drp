@@ -11,7 +11,7 @@ def screen_success(document):
     Returns:
         bool: True if success, else False.
     """
-    return bool(document.get(f"metrics.{METRIC_SUCCESS_FLAG}", False))
+    return bool(document.get(METRIC_SUCCESS_FLAG, False))
 
 
 def list_fits_files_recursive(directory):

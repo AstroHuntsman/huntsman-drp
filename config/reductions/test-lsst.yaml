@@ -10,7 +10,6 @@ query:
     physical_filter:
       in:
         - g_band
-  screen: true
   quality_filter: true
   limit: 1
 

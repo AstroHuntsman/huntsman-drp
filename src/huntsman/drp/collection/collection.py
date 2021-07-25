@@ -6,10 +6,9 @@ import pymongo
 from pymongo.errors import ServerSelectionTimeoutError
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.utils.date import current_date, parse_date
+from huntsman.drp.utils.date import current_date, make_mongo_date_constraint
 from huntsman.drp.document import Document
 from huntsman.drp.utils.mongo import mongo_logical_and
-from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
 
 
 class Collection(HuntsmanBase):
@@ -51,26 +50,18 @@ class Collection(HuntsmanBase):
 
     # Public methods
 
-    def find(self, document_filter=None, date_min=None, date_max=None, date=None, key=None,
-             screen=False, quality_filter=False, limit=None):
+    def find(self, document_filter=None, key=None, quality_filter=False, limit=None, **kwargs):
         """Get data for one or more matches in the table.
         Args:
             document_filter (dict, optional): A dictionary containing key, value pairs to be
                 matched against other documents, by default None
-            date_min (object, optional): Constrain query to a timeframe starting at date_min,
-                by default None.
-            date_max (object, optional): Constrain query to a timeframe ending at date_max, by
-                default None.
-            date (object, optional):
-                Constrain query to specific date, by default None.
             key (str, optional):
                 Specify a specific key to be returned from the query (e.g. filename), by default
                 None.
-            screen (bool, optional): If True, only return documents that passed screening.
-                Default False.
             quality_filter (bool, optional): If True, only return documents that satisfy quality
-                cuts. Default False.
+                cuts. Default: False.
             limit (int): Limit the number of returned documents to this amount.
+            **kwargs: Parsed to make_mongo_date_constraint.
         Returns:
             result (list): List of DataIds or key values if key is specified.
         """
@@ -79,26 +70,13 @@ class Collection(HuntsmanBase):
             del document_filter["date_modified"]  # This might change so don't match with it
 
         # Add date range to criteria if provided
-        date_constraint = {}
-
-        if date_min is not None:
-            date_constraint.update({"greater_than_equal": parse_date(date_min)})
-        if date_max is not None:
-            date_constraint.update({"less_than": parse_date(date_max)})
-        if date is not None:
-            date_constraint.update({"equal": parse_date(date)})
-
+        date_constraint = make_mongo_date_constraint(**kwargs)
         if date_constraint:
             document_filter.update({self._date_key: date_constraint})
 
-        # Screen the results if necessary
-        # TODO: Move to raw exposure table
-        if screen:
-            document_filter[f"metrics.{METRIC_SUCCESS_FLAG}"] = True
-
         mongo_filter = document_filter.to_mongo(flatten=True)
 
-        # Apply quality cuts
+        # Add quality cuts to document filter
         if quality_filter:
             mongo_quality_filter = self._get_quality_filter()
             if mongo_quality_filter:
@@ -106,9 +84,10 @@ class Collection(HuntsmanBase):
 
         self.logger.debug(f"Performing mongo find operation with filter: {mongo_filter}.")
 
-        if limit is None:
-            limit = 0
-        cursor = self._collection.find(mongo_filter, {"_id": False}).limit(limit)
+        # Do the mongo query and get results
+        cursor = self._collection.find(mongo_filter, {"_id": False})
+        if limit is not None:
+            cursor = cursor.limit(limit)
         documents = list(cursor)
 
         self.logger.debug(f"Find operation returned {len(documents)} results.")

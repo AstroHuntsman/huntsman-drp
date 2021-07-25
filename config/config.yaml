@@ -85,15 +85,15 @@ quality:
     science:
       metrics:
         has_wcs: true
-    flat:
-      metrics:
-        flip_asymm_h:
-          less_than: 100
-        flip_asymm_v:
-          less_than: 60
-        well_fullfrac:
-          greater_than: 0.13
-          less_than: 0.19
+  flat:
+    metrics:
+      flip_asymm_h:
+        less_than: 100
+      flip_asymm_v:
+        less_than: 60
+      well_fullfrac:
+        greater_than: 0.13
+        less_than: 0.19
 
 plotter:
   # List of kwargs for individual plotters

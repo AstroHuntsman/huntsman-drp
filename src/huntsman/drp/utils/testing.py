@@ -11,6 +11,7 @@ from huntsman.drp.lsst.butler import ButlerRepository, TemporaryButlerRepository
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import parse_date, current_date_ymd
 from huntsman.drp.collection import ExposureCollection, CalibCollection
+from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
 
 
 EXPTIME_BIAS = 1E-32  # Minimum exposure time for ZWO cameras is > 0
@@ -104,9 +105,11 @@ def create_test_exposure_collection(config=None, clear=True):
     for filename in filenames:
         exposure_collection.ingest_file(filename)
 
+    doc_filter = {METRIC_SUCCESS_FLAG: True}
+
     assert len(exposure_collection.find()) == len(filenames)
     assert set(exposure_collection.find(key="filename")) == set(filenames)
-    assert len(exposure_collection.find(screen=True)) == len(filenames)
+    assert len(exposure_collection.find(doc_filter)) == len(filenames)
     assert all(["metrics" in d for d in exposure_collection.find()])
 
     return exposure_collection

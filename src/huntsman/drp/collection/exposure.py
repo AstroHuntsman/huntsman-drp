@@ -71,7 +71,6 @@ class ExposureCollection(Collection):
             # Get the metrics
             metrics, success = metric_evaluator.evaluate(filename, header=original_header,
                                                          data=data, **kwargs)
-        metrics[self._metric_success_flag] = success
 
         # Read the header
         # NOTE: The header is currently modified if WCS is measured
@@ -81,7 +80,7 @@ class ExposureCollection(Collection):
         # NOTE: Parsed info goes in the top-level of the mongo document
         parsed_header = parse_fits_header(header)
 
-        document = {"filename": filename}
+        document = {"filename": filename, self._metric_success_flag: success}
         document.update(parsed_header)
 
         # NOTE: Metrics go in a sub-level of the mongo document

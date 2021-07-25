@@ -9,8 +9,7 @@ query:
     physical_filter:
       in:
         - g_band
-  # screen: true
-  # quality_filter: true
+  quality_filter: true
   limit: 1
 
 # This query is used to select offset sky exposures
@@ -21,8 +20,7 @@ sky_query:
     physical_filter:
       in:
         - g_band
-  # screen: true
-  # quality_filter: true
+  quality_filter: true
   limit: 1
 
 # This is the maximum allowed time difference between target and sky exposures
@@ -45,11 +43,12 @@ pipeline:
     isr:
       class: lsst.ip.isr.IsrTask
     characterizeImage:
-      # Use specific task for characterizeImage
-      class: lsst.obs.huntsman.tasks.characterizeImageOffsetSky.CharacterizeImageOffsetSkyTask
+      class: lsst.obs.huntsman.tasks.characterizeImage.HuntsmanCharacterizeImageTask
     calibrate:
-      class: lsst.obs.huntsman.tasks.calibrate.HuntsmanCalibrateTask
+      class: lsst.obs.huntsman.tasks.offsetSkyCalibrate.OffsetSkyCalibrateTask
     makeWarp:
       class: lsst.pipe.tasks.makeCoaddTempExp.MakeWarpTask
+      config:
+        connections.calexpType: offsetSky
     assembleCoadd:
       class: lsst.pipe.tasks.assembleCoadd.AssembleCoaddTask

@@ -1,13 +1,12 @@
 from huntsman.drp.utils.date import current_date
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
 
-import pytest
-@pytest.mark.skip()
+
 def test_ingest(exposure_collection, config):
     """ Test ingest of raw files into a ButlerRepository and ensure they have the right type. """
 
-    config = config["exposure_sequence"]  # TODO: Rename
-    n_filters = len(config["filters"])
+    econfig = config["exposure_sequence"]  # TODO: Rename
+    n_filters = len(econfig["filters"])
 
     filenames = exposure_collection.find(key="filename")
 
@@ -22,24 +21,23 @@ def test_ingest(exposure_collection, config):
         assert len(data_ids) == len(filenames)
 
         # Check we have the right number of each datatype
-        n_flat = config["n_cameras"] * config["n_days"] * config["n_flat"] * n_filters
+        n_flat = econfig["n_cameras"] * econfig["n_days"] * econfig["n_flat"] * n_filters
         data_ids = br.get_dataIds("raw", where="exposure.observation_type='flat'")
         assert len(data_ids) == n_flat
 
-        n_sci = config["n_cameras"] * config["n_days"] * config["n_science"] * n_filters
+        n_sci = econfig["n_cameras"] * econfig["n_days"] * econfig["n_science"] * n_filters
         data_ids = br.get_dataIds("raw", where="exposure.observation_type='science'")
         assert len(data_ids) == n_sci
 
-        n_bias = config["n_cameras"] * config["n_days"] * config["n_bias"]
+        n_bias = econfig["n_cameras"] * econfig["n_days"] * econfig["n_bias"]
         data_ids = br.get_dataIds("raw", where="exposure.observation_type='bias'")
         assert len(data_ids) == n_bias
 
-        n_dark = config["n_cameras"] * config["n_days"] * config["n_dark"] * 2  # 2 exp times
+        n_dark = econfig["n_cameras"] * econfig["n_days"] * econfig["n_dark"] * 2  # 2 exp times
         data_ids = br.get_dataIds("raw", where="exposure.observation_type='dark'")
         assert len(data_ids) == n_dark
 
 
-@pytest.mark.skip()
 def test_make_master_calibs(exposure_collection, config):
     """ Check we can create master calibs and in the correct number. """
 

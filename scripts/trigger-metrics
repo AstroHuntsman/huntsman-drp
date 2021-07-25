@@ -28,6 +28,6 @@ if __name__ == "__main__":
         document_filter = {}
         update = UPDATE_RAW
 
-    for doc in raw.find(document_filter, screen=False, quality_filter=False):
+    for doc in raw.find(document_filter):
         with suppress(KeyError):
             raw.update_one(doc, update)
