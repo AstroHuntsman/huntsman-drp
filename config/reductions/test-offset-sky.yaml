@@ -7,7 +7,7 @@ query:
     observation_type: science
     object: DoradoGroup-p0p0
     physical_filter:
-      in:
+      "$in":
         - g_band
   quality_filter: true
   limit: 1
@@ -18,7 +18,7 @@ sky_query:
     observation_type: science
     object: DoradoGroup-p0p0_sky
     physical_filter:
-      in:
+      "$in":
         - g_band
   quality_filter: true
   limit: 1

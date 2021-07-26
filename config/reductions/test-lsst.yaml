@@ -8,7 +8,7 @@ query:
     observation_type: science
     object: DoradoGroup-p0p0
     physical_filter:
-      in:
+      "$in":
         - g_band
   quality_filter: true
   limit: 1
