@@ -104,20 +104,20 @@ def test_quality_filter(exposure_collection):
     for i, d in enumerate(documents[::-1]):
         exposure_collection.update_one(d, {"TEST_METRIC_2": i})
 
-    exposure_collection.config["quality"]["raw"]["dark"] = {"TEST_METRIC_1": {"less_than": 1}}
+    exposure_collection.config["quality"]["raw"]["dark"] = {"TEST_METRIC_1": {"$lt": 1}}
     matches = exposure_collection.find(document_filter, quality_filter=True)
     assert len(matches) == 1
 
-    exposure_collection.config["quality"]["raw"]["dark"] = {"TEST_METRIC_1": {"less_than": 2}}
+    exposure_collection.config["quality"]["raw"]["dark"] = {"TEST_METRIC_1": {"$lt": 2}}
     matches = exposure_collection.find(document_filter, quality_filter=True)
     assert len(matches) == 2
 
-    cond = {"TEST_METRIC_1": {"less_than": 1}, "TEST_METRIC_2": {"greater_than": n_docs - 2}}
+    cond = {"TEST_METRIC_1": {"$lt": 1}, "TEST_METRIC_2": {"$gt": n_docs - 2}}
     exposure_collection.config["quality"]["raw"]["dark"] = cond
     matches = exposure_collection.find(document_filter, quality_filter=True)
     assert len(matches) == 1
 
-    cond = {"TEST_METRIC_1": {"less_than": 1}, "TEST_METRIC_2": {"less_than": 1}}
+    cond = {"TEST_METRIC_1": {"$lt": 1}, "TEST_METRIC_2": {"$lt": 1}}
     exposure_collection.config["quality"]["raw"]["dark"] = cond
     matches = exposure_collection.find(document_filter, quality_filter=True)
     assert len(matches) == 0

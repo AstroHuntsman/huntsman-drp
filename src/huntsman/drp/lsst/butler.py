@@ -266,6 +266,9 @@ class ButlerRepository(HuntsmanBase):
 
         self.logger.info(f"Making master {datasetType}(s) from {len(dataIds)} dataIds.")
 
+        # Specify collections we will use as inputs
+        input_collections = (self._raw_collection, self._calib_collection)
+
         # Make the calibs in their own collection
         if output_collection is None:
             output_collection = os.path.join(self._calib_directory, f"{datasetType}")
@@ -273,7 +276,7 @@ class ButlerRepository(HuntsmanBase):
         # Make the master calibs
         pipeline_name = f"construct{datasetType.title()}"
         self.run_pipeline(pipeline_name, output_collection=output_collection,
-                          dataIds=dataIds, **kwargs)
+                          dataIds=dataIds, input_collections=input_collections, **kwargs)
 
         # Certify the calibs
         self._certify_calibrations(datasetType, output_collection, begin_date, end_date)

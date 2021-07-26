@@ -3,6 +3,7 @@ import yaml
 
 from huntsman.drp.reduction.base import ReductionBase
 from huntsman.drp.lsst.butler import ButlerRepository
+from huntsman.drp.lsst.utils.pipeline import plot_quantum_graph
 
 
 class LsstReduction(ReductionBase):
@@ -79,3 +80,7 @@ class LsstReduction(ReductionBase):
         # Write the pipeline to yaml
         with open(self._pipeline_filename, 'w') as f:
             yaml.dump(self.pipeline, f, default_flow_style=False)
+
+        # Plot the pipeline quantum graph
+        qgfilename = os.path.join(self.image_dir, "pipeline_qg.jpg")
+        plot_quantum_graph(self._pipeline_filename, qgfilename)

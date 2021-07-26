@@ -88,12 +88,12 @@ quality:
   flat:
     metrics:
       flip_asymm_h:
-        less_than: 100
+        "$lt": 100
       flip_asymm_v:
-        less_than: 60
+        "$lt": 60
       well_fullfrac:
         greater_than: 0.13
-        less_than: 0.19
+        "$lt": 0.19
 
 plotter:
   # List of kwargs for individual plotters

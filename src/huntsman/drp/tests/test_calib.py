@@ -65,9 +65,6 @@ def exposure_collection_lite(tmp_path_factory, config):
 @pytest.fixture(scope="function")
 def calib_service(config, exposure_collection_lite, empty_calib_collection):
     calib_service = CalibService(config=config)
-
-    calib_service.logger.error(f"{calib_service.validity}")
-    calib_service.logger.error(f"{config['calibs']['validity']}")
     yield calib_service
     calib_service.stop()
 

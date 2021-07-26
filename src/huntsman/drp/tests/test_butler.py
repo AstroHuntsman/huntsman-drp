@@ -44,18 +44,17 @@ def test_make_master_calibs(exposure_collection, config):
     # Get documents for a single night and a single camera
     doc = exposure_collection.find()[0]
     doc_filter = {k: doc.get(k) for k in ["header.CAM-ID", "observing_day"]}
+    doc_filter["observation_type"] = {"$nin": ["science"]}
     docs = exposure_collection.find(doc_filter)
 
     # Get corresponding calib documents
-    calib_docs = exposure_collection.get_calib_docs(current_date(), documents=docs,
-                                                    validity=9999)
-
-    for doc in docs:
-        exposure_collection.logger.info(f"{doc['observing_day']} {doc['observation_type']}")
+    calib_date = current_date()
+    calib_docs = set([exposure_collection.raw_doc_to_calib_doc(d, calib_date) for d in docs])
 
     with TemporaryButlerRepository(config=config) as br:
         br.ingest_raw_files([d["filename"] for d in docs])
 
+        # for datasetType in config["calibs"]["types"]:  # TODO: Use when defects implemented
         for datasetType in ("bias", "dark", "flat"):
 
             n_expected = len([d for d in calib_docs if d["datasetType"] == datasetType])

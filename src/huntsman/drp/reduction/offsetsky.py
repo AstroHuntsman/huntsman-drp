@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from huntsman.drp.reduction.base import ReductionBase
 from huntsman.drp.reduction.lsst import LsstReduction
+from huntsman.drp.lsst.utils.pipeline import plot_quantum_graph
 
 EXTRA_CONFIG_SCI = {"characterizeImage:detection.reEstimateBackground": False,
                     "calibrate:detection.reEstimateBackground": False}
@@ -58,6 +59,10 @@ class OffsetSkyReduction(LsstReduction):
 
         # Ingest extra sky docs
         self.butler_repo.ingest_raw_files([d["filename"] for d in all_sky_docs], define_visits=True)
+
+        # Plot the quantum graph for the offset sky observation
+        qgfilename = os.path.join(self.image_dir, "pipeline_sky_qg.jpg")
+        plot_quantum_graph(self._sky_pipeline_filename, qgfilename)
 
     def reduce(self):
         """ Override method to measure the offset sky backgrounds before processing. """

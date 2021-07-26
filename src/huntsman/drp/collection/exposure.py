@@ -142,7 +142,7 @@ class ExposureCollection(Collection):
         data_types = self.config["calibs"]["types"]
 
         # Get metadata for all raw calibs that are valid for this date
-        documents = self.find({"observation_type": {"in": data_types}},
+        documents = self.find({"observation_type": {"$in": data_types}},
                               quality_filter=quality_filter, **kwargs)
 
         # Extract the calib docs from the set of exposure docs

@@ -47,6 +47,10 @@ class ReductionBase(HuntsmanBase):
 
     # Properties
 
+    @property
+    def image_dir(self):
+        return os.path.join(self.directory, "images")
+
     # Methods
 
     def prepare(self):
@@ -89,7 +93,7 @@ class ReductionBase(HuntsmanBase):
         df = pd.read_csv(self._refcat_filename)
         ax.plot(df[ra_key].values, df[dec_key].values, "bo", markersize=1)
 
-        plt.savefig(os.path.join(self.directory, "plots", "refobjs.png"), bbox_inches="tight",
+        plt.savefig(os.path.join(self.image_dir, "refobjs.png"), bbox_inches="tight",
                     dpi=dpi)
 
     def make_reduce_plots(self):
@@ -102,7 +106,7 @@ class ReductionBase(HuntsmanBase):
         """ Abstract instance method responsible for initialising the data reduction.
         """
         os.makedirs(self.directory, exist_ok=True)
-        os.makedirs(os.path.join(self.directory, "plots"), exist_ok=True)
+        os.makedirs(self.image_dir, exist_ok=True)
 
     def _get_calibs(self, science_docs):
         """ Get matching calib docs for a set of science docs.

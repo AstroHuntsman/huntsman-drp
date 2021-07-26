@@ -1,18 +1,21 @@
 """ Temporary wrappers around cli commands until we agree on a better approach to running LSST. """
 import os
 import subprocess
+import tempfile
 
 from huntsman.drp.core import get_logger
 
+# Default search directory for pipeline files
 PIPELINE_DIR = os.path.expandvars("${OBS_HUNTSMAN}/pipelines")
 
 
 def _run_pipetask_cmd(option_str=None, command_str=None, args_str=None, logger=None):
-    """ Run a command using the pipetask cli.
+    """ Run a command using the pipetask command line interface.
     Args:
-
-    Returns:
-
+        option_str (str): The options for the pipetask CLI.
+        command_str (str): The command to run.
+        args_str (str): Arguments for the command.
+        logger (logger): The logger.
     Raises:
         subprocess.CalledProcessError: Raise this error if the command fails.
     """
@@ -27,13 +30,15 @@ def _run_pipetask_cmd(option_str=None, command_str=None, args_str=None, logger=N
         cmd += f" {args_str}"
 
     logger.debug(f"Running LSST command in subprocess: {cmd}")
-    return subprocess.check_output(cmd, shell=True)
+    subprocess.check_output(cmd, shell=True)
 
 
 def _dataIds_to_query_str(dataIds):
     """ Return a SQL-style query string from a set of dataIds.
     Args:
         dataIds (iterable): An iterable of dataIds.
+    Returns:
+        str: The dataIds string for CLI commands.
     """
     queries = []
 
@@ -53,16 +58,40 @@ def _dataIds_to_query_str(dataIds):
     return "-d " + "\"" + " OR ".join(queries) + "\""
 
 
+def parse_pipeline_name(pipeline, extension=".yaml"):
+    """ Get the absolute path to the pipeline.
+    Args:
+        pipeline (str): The pipeline name.
+        extension (str, optional): The extension. Default: ".yaml".
+    Returns:
+        str: The absolute path to the pipeline file.
+    """
+    if os.path.isabs(pipeline):
+        pipeline_name = pipeline
+    else:
+        pipeline_name = os.path.join(PIPELINE_DIR, pipeline + extension)
+    return pipeline_name
+
+
 def pipetask_run(pipeline_name, root_directory, input_collections=None, output_collection=None,
                  dataIds=None, args_str=None, register_dataset_types=True, config=None,
                  instrument=None, **kwargs):
     """ Use the LSST pipetask cli to run a pipeline.
-
+    Args:
+        pipeline_name (str): The pipeline name to run.
+        root_directory (str): The Butler root directory.
+        input_collections (str, optional): The Butler input collections.
+        output_collection (str, optional): The output collection.
+        dataIds (list of dict, optional): The dataIds to process.
+        args_str (str, optional): Extra arguments.
+        register_dataset_types (bool, optional). If True (default), register datasetTypes with
+            butler.
+        config (dict, optional): Config overrides for LSST tasks.
+        instrument (str, optional): The full python class name of the instrument. Used for
+            applying default config overrides.
+        **kwargs: Parsed to _run_pipetask_cmd.
     """
-    if os.path.isabs(pipeline_name):
-        pipeline_filename = pipeline_name
-    else:
-        pipeline_filename = os.path.join(PIPELINE_DIR, pipeline_name + '.yaml')
+    pipeline_filename = parse_pipeline_name(pipeline_name)
 
     args_str = "" if args_str is None else args_str + " "
     args_str += f"-p {pipeline_filename}"
@@ -92,3 +121,24 @@ def pipetask_run(pipeline_name, root_directory, input_collections=None, output_c
         args_str += " " + _dataIds_to_query_str(dataIds)
 
     return _run_pipetask_cmd(command_str="run", args_str=args_str, **kwargs)
+
+
+def plot_quantum_graph(pipeline, filename):
+    """ Plot the quantum graph associated with the pipeline.
+    Args:
+        pipeline (str): The pipeline name.
+        filename (str): The filename of the output plot.
+    """
+    if not filename.endswith(".jpg"):
+        raise ValueError("Filename should have jpg extension.")
+
+    pipeline = parse_pipeline_name(pipeline)
+
+    with tempfile.NamedTemporaryFile() as tf:
+
+        # Build the pipeline and write to a tempfile
+        args_str = f"-p {pipeline} --pipeline-dot {tf.name}"
+        _run_pipetask_cmd(command_str="build", args_str=args_str)
+
+        # Create the graph image from the pipeline
+        subprocess.check_output(f"dot {tf.name} -Tjpg > {filename}", shell=True)
