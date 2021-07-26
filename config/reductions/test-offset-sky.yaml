@@ -31,7 +31,7 @@ timedelta_minutes: 60
 sky_pipeline:
   description: "Calibrate raw sky exposures and make master sky images"
   imports:
-    - location: ${OBS_HUNTSMAN}/pipelines/ProcessCcd.yaml
+    - location: ${OBS_HUNTSMAN}/pipelines/processCcd.yaml
   tasks:
     makeOffsetSkyBackground:
       class: lsst.obs.huntsman.tasks.makeOffsetSkyBackground.MakeOffsetSkyBackgroundTask
