@@ -1,13 +1,13 @@
 import pytest
 from astropy.wcs import WCS
 
-from huntsman.drp.fitsutil import read_fits_header
+from huntsman.drp.utils.fits import read_fits_header
 from huntsman.drp.metrics import raw
 
 
 @pytest.fixture(scope="function")
 def filename_with_wcs(exposure_collection_real_data):
-    filename = exposure_collection_real_data.find({"dataType": "science"})[0]["filename"]
+    filename = exposure_collection_real_data.find({"observation_type": "science"})[0]["filename"]
     wcs = WCS(read_fits_header(filename))
     assert wcs.has_celestial
     return filename

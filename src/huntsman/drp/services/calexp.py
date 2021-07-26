@@ -5,7 +5,7 @@ from multiprocessing.pool import ThreadPool
 from huntsman.drp.services.base import ProcessQueue
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.refcat import RefcatClient
-from huntsman.drp.metrics.calexp import calculate_metrics
+from huntsman.drp.metrics.calexp import metric_evaluator
 
 # This is a boolean value that gets inserted into the DB
 # If it is True, the calexp will be queued for processing
@@ -16,7 +16,7 @@ CALEXP_METRIC_TRIGGER = "CALEXP_METRIC_TRIGGER"
 def _process_document(document, exposure_collection, calib_collection, timeout, **kwargs):
     """ Create a calibrated exposure (calexp) for the given data ID and store the metadata.
     Args:
-        document (RawExposureDocument): The document to process.
+        document (ExposureDocument): The document to process.
     """
     config = exposure_collection.config
     logger = calib_collection.logger
@@ -29,66 +29,54 @@ def _process_document(document, exposure_collection, calib_collection, timeout, 
 
     # Use a directory prefix for the temporary directory
     # This is necessary as the tempfile module is apparently creating duplicates(!)
-    directory_prefix = document["expId"]
+    directory_prefix = str(document["detector_exposure_id"])
 
-    with TemporaryButlerRepository(logger=logger, config=config,
-                                   directory_prefix=directory_prefix) as br:
-
-        logger.debug(f"Butler directory for {document}: {br.butler_dir}")
+    with TemporaryButlerRepository(logger=logger, config=config, prefix=directory_prefix) as br:
 
         # Ingest raw science exposure into the bulter repository
         logger.debug(f"Ingesting raw data for {document}")
-        br.ingest_raw_data([document["filename"]])
-
-        # Check the files were ingested properly
-        # This shouldn't be neccessary but helps for debugging
-        ingested_docs = br.get_dataIds("raw")
-        if len(ingested_docs) != 1:
-            raise RuntimeError(f"Unexpected number of ingested raw files: {len(ingested_docs)}")
+        br.ingest_raw_files([document["filename"]])
 
         # Ingest the corresponding master calibs
         logger.debug(f"Ingesting master calibs for {document}")
-
         for calib_type, calib_doc in calib_docs.items():
             calib_filename = calib_doc["filename"]
-
-            # Use a high validity as the calib matching is already taken care of
-            br.ingest_master_calibs(datasetType=calib_type, filenames=[calib_filename],
-                                    validity=1000)
+            br.ingest_calibs(datasetType=calib_type, filenames=[calib_filename])
 
         # Make and ingest the reference catalogue
         logger.debug(f"Making refcat for {document}")
-        refcat_client = RefcatClient(config=config, logger=logger)
-
         with tempfile.NamedTemporaryFile(prefix=directory_prefix) as tf:
-            try:
-                # Download the refcat to the tempfile
-                refcat_client.make_from_documents([document], filename=tf.name)
-            except Exception as err:
-                logger.error(f"Exception while making refcat for {document}: {err!r}")
-                raise err
-            finally:
-                # Cleanup the refcat client
-                # This *shouldn't* be necessary but seems like it might be...
-                # TODO: Parse refcat client as function arg?
-                refcat_client._proxy._pyroRelease()
+            with RefcatClient(config=config, logger=logger) as refcat_client:
 
-            br.ingest_reference_catalogue([tf.name])
+                refcat_client.make_from_documents([document], filename=tf.name)
+                br.ingest_reference_catalogue([tf.name])
 
         # Make the calexp
         logger.debug(f"Making calexp for {document}")
-        task_result = br.make_calexp(dataId=br.document_to_dataId(document))
+        dataId = br.document_to_dataId(document)
+        br.construct_calexps(dataIds=[dataId])
+
+        # Retrieve the calexp results
+        logger.debug(f"Reading calexp outputs for {document}")
+        dataId = br.document_to_dataId(document, datasetType="calexp")
+        outputs = {}
+        for output_name in ("calexp", "src", "calexpBackground"):
+            outputs[output_name] = br.get(output_name, dataId=dataId)
 
         # Evaluate metrics
         logger.debug(f"Calculating metrics for {document}")
-        metrics = calculate_metrics(task_result)
+        metrics, success = metric_evaluator.evaluate(**outputs)
 
-        # Mark processing complete
-        metrics[CALEXP_METRIC_TRIGGER] = False
+    # Mark processing complete
+    metrics[CALEXP_METRIC_TRIGGER] = False
 
-        # Update the existing document with calexp metrics
-        to_update = {"metrics": {"calexp": metrics}}
-        exposure_collection.update_one(document_filter=document, to_update=to_update)
+    # Update the existing document with calexp metrics
+    to_update = {"metrics": {"calexp": metrics}}
+    exposure_collection.update_one(document_filter=document, to_update=to_update)
+
+    # Raise an exception if not success
+    if not success:
+        raise RuntimeError(f"Metric evaluation unsuccessful for {document}.")
 
 
 class CalexpQualityMonitor(ProcessQueue):
@@ -125,7 +113,7 @@ class CalexpQualityMonitor(ProcessQueue):
 
     def _get_objs(self):
         """ Update the set of data IDs that require processing. """
-        docs = self.exposure_collection.find({"dataType": "science"}, screen=True,
+        docs = self.exposure_collection.find({"observation_type": "science"},
                                              quality_filter=True)
         return [d for d in docs if self._requires_processing(d)]
 

@@ -1,29 +1,114 @@
 directories:
   archive: ${HUNTSMAN_ARCHIVE}
+  calib: ${HUNTSMAN_ARCHIVE}/calib
   reductions: ${HUNTSMAN_ARCHIVE}/reductions
   plots: ${HUNTSMAN_ARCHIVE}/plots
 
-fits_header:
-  date_key: "DATE-OBS"
-  mappings:
-    expTime: "EXPTIME"
-    ccdTemp: "CCD-TEMP"
-    expId: "IMAGEID"
-    taiObs: "DATE-OBS"
-    field: "FIELD"
-    filter: "FILTER"
-  required_columns:
-    - "expTime"
-    - "taiObs"
-    - "field"
-    - "expId"
-    - "ccdTemp"
-    - "dateObs"
-    - "dataType"
-    - "filter"
-    - "visit"
-    - "ccd"
+# Config items for connecting to the mongodb client
+mongodb:
+  hostname: "localhost"
+  port: 27017
+  db_name: "huntsman"
 
+# Configurations for Pyro services
+pyro:
+  host: localhost  # Hostname of the Pyro server
+  port: 6563  # Port of the pyro name server
+  refcat:  # kwargs that are parsed to init function of refcat client
+    name: "refcat"
+
+# Config for collections
+collections:
+  ExposureCollection:
+    name: "huntsman_exposures"  # The name of the mongodb collection
+    required_fields:  # Required fields must be present in an inserted document
+      - filename
+    index_fields:
+      - filename
+
+  CalibCollection:
+    name: "huntsman_calibs"
+    required_fields:
+      - "filename"
+      - "date"
+      - "datasetType"
+      - "instrument"
+      - "detector"
+    required_fields_by_type:
+      flat:
+        - "physical_filter"
+    index_fields:
+      - filename
+
+# Config items for calibs
+calibs:
+  types:  # In order of creation
+    - bias
+    - dark
+    # - defects
+    - flat
+  validity: 30
+  # These columns are for matching raw calibs with raw science frames
+  # They are defined in lsst/cp_pipe and also here for convenience
+  required_fields:
+    flat:
+      - instrument
+      - detector
+      - physical_filter
+    bias:
+      - instrument
+      - detector
+    dark:
+      - instrument
+      - detector
+    defects:
+      - instrument
+      - detector
+
+refcat:
+  tap_url: http://api.skymapper.nci.org.au/aus/tap/
+  tap_table: dr3.master
+  ra_key: raj2000
+  dec_key: dej2000
+  unique_source_key: object_id
+  cone_search_radius: 1
+  parameter_ranges:
+    class_star:
+      lower: 0.9
+    g_psf:
+      upper: 15
+    flags:
+      equal: 0
+
+quality:
+  raw:
+    science:
+      metrics:
+        has_wcs: true
+  flat:
+    metrics:
+      flip_asymm_h:
+        "$lt": 100
+      flip_asymm_v:
+        "$lt": 60
+      well_fullfrac:
+        greater_than: 0.13
+        "$lt": 0.19
+
+plotter:
+  # List of kwargs for individual plotters
+  # kwargs are parsed directly to init function of each plotter
+  - directory_prefix: "default"
+    plot_configs:
+      plot_by_camera_filter:
+        - x_key: "AIRMASS"
+          y_key: "metrics.calexp.zp_mag"
+      hist_by_camera_filter:
+        - "metrics.calexp.psf_fwhm_arcsec"
+        - "metrics.calexp.zp_mag"
+
+# Camera info, mainly used by obs_huntsman
+# TODO: Move to obs_huntsman?
 cameras:
   plate_scale: 527.54167  # arcsec/mm
   default_preset: "zwo"
@@ -31,7 +116,7 @@ cameras:
     zwo:
       width: 5496
       height: 3672
-      saturation: 4095
+      saturation: 4094
       gain: 1.145
       read_noise: 2.4
       pixel_size: 0.0024  # mm (?)
@@ -56,81 +141,3 @@ cameras:
     - camera_name: "TESTCAM03"
       width: 800
       height: 800
-
-mongodb:
-  hostname: "localhost"
-  port: 27017
-  db_name: "huntsman"
-  collections:
-    RawExposureCollection:
-      name: "raw_exposures"
-      unique_keys:
-        - "filename"
-    MasterCalibCollection:
-      name: "master_calibs"
-      unique_keys:
-        - "filename"  # Let obs_huntsman handle unique calib file naming
-
-calibs:
-  types:  # Order might be important...
-    - bias
-    - dark
-    - flat
-  validity: 30
-  matching_columns:  # These columns are for matching raw calibs with raw science frames
-    flat:
-      - filter
-      - ccd
-    bias:
-      - ccd
-    dark:
-      - ccd
-
-refcat:
-  tap_url: http://api.skymapper.nci.org.au/aus/tap/
-  tap_table: dr3.master
-  ra_key: raj2000
-  dec_key: dej2000
-  unique_source_key: object_id
-  cone_search_radius: 1
-  parameter_ranges:
-    class_star:
-      lower: 0.9
-    g_psf:
-      upper: 15
-    flags:
-      equal: 0
-
-quality:
-  raw:
-    science:
-      metrics:
-        has_wcs: true
-    flat:
-      metrics:
-        flip_asymm_h:
-          less_than: 100
-        flip_asymm_v:
-          less_than: 60
-        well_fullfrac:
-          greater_than: 0.13
-          less_than: 0.19
-
-# Configurations for Pyro services
-pyro:
-  host: localhost  # Hostname of the Pyro server
-  port: 6563  # Port of the pyro name server
-  refcat:  # kwargs that are parsed to init function of refcat client
-    name: "refcat"
-
-plotter:
-  # List of kwargs for individual plotters
-  # kwargs are parsed directly to init function of each plotter
-  - directory_prefix: "default"
-    plot_configs:
-      plot_by_camera_filter:
-        - x_key: "AIRMASS"
-          y_key: "metrics.calexp.zp_mag"
-      hist_by_camera_filter:
-        - "metrics.calexp.psf_fwhm_arcsec"
-        - "metrics.calexp.zp_mag"

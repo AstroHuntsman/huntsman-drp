@@ -2,18 +2,16 @@ from contextlib import suppress
 
 from astropy import stats
 from astropy.wcs import WCS
-from astropy import units as u
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 
 from panoptes.utils.images.fits import get_solve_field
 
-from huntsman.drp.fitsutil import FitsHeaderTranslator
-from huntsman.drp.utils.date import parse_date
+from huntsman.drp.utils.fits import parse_fits_header
+from huntsman.drp.metrics.evaluator import MetricEvaluator
 
-# TODO: Move this to config?
-RAW_METRICS = ("get_wcs", "clipped_stats", "flipped_asymmetry")
+metric_evaluator = MetricEvaluator()
 
 
+@metric_evaluator.add_function
 def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=False, **kwargs):
     """ Function to call get_solve_field on a file and verify if a WCS solution could be found.
     Args:
@@ -25,10 +23,9 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=Fal
     Returns:
         dict: dictionary containing metadata.
     """
-    # Skip if dataType is not science
-    # TODO: Move this logic outside this function
-    parsed_header = FitsHeaderTranslator().parse_header(header)
-    if parsed_header['dataType'] != "science":
+    # Skip if observation_type is not science
+    parsed_header = parse_fits_header(header)
+    if parsed_header["observation_type"] != "science":
         return {"has_wcs": False}
 
     # If there is already a WCS then don't make another one unless remake_wcs=True
@@ -72,6 +69,7 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=Fal
     return result
 
 
+@metric_evaluator.add_function
 def clipped_stats(filename, data, header):
     """Return sigma-clipped image statistics.
     Args:
@@ -92,6 +90,7 @@ def clipped_stats(filename, data, header):
             "well_fullfrac": well_fullfrac}
 
 
+@metric_evaluator.add_function
 def flipped_asymmetry(filename, data, header):
     """ Calculate the asymmetry statistics by flipping data in x and y directions.
     Args:
@@ -108,33 +107,3 @@ def flipped_asymmetry(filename, data, header):
     data_flip = data[::-1, :]
     std_vertical = (data - data_flip).std()
     return {"flip_asymm_h": std_horizontal, "flip_asymm_v": std_vertical}
-
-
-def alt_az(filename, data, header):
-    """ Get the alt az of the observation from the header.
-    Args:
-        filename (str): The filename.
-        data (np.array): The data array.
-        header (abc.Mapping): The parsed FITS header.
-    Returns:
-        dict: The dict containing the metrics.
-    """
-    # Get the ra / dec of the observation
-    ra = header["RA-MNT"] * u.deg
-    dec = header["DEC-MNT"] * u.deg
-    radec = SkyCoord(ra=ra, dec=dec)
-
-    # Get the location of the observation
-    lat = header["LAT-OBS"] * u.deg
-    lon = header["LONG-OBS"] * u.deg
-    elevation = header["ELEV-OBS"] * u.m
-    location = EarthLocation(lat=lat, lon=lon, height=elevation)
-
-    # Create the Alt/Az frame
-    obstime = parse_date(header["DATE-OBS"])
-    frame = AltAz(obstime=obstime, location=location)
-
-    # Perform the transform
-    altaz = radec.transform_to(frame)
-
-    return {"alt": altaz.alt, "az": altaz.az}

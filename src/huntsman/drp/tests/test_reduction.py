@@ -29,7 +29,7 @@ def test_lsst_reduction(exposure_collection_real_data, master_calib_collection_r
 
     reduction.run(makeplots=True)
 
-
+# @pytest.mark.skip()
 def test_offsetsky_reduction(exposure_collection_real_data, master_calib_collection_real_data,
                              config, config_file_offsetsky, testing_refcat_server):
 

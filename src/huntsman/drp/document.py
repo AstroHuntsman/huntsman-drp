@@ -8,9 +8,7 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.wcs import WCS
 
-from huntsman.drp.core import get_config
-from huntsman.drp.utils.date import parse_date
-from huntsman.drp.fitsutil import read_fits_header
+from huntsman.drp.utils.fits import read_fits_header
 from huntsman.drp.utils.mongo import encode_mongo_filter, unflatten_dict
 
 
@@ -18,9 +16,11 @@ class Document(abc.Mapping):
     """ A dataId behaves like a dictionary but makes it easier to compare between dataIds.
     DataId objects are hashable, whereas dictionaries are not. This allows them to be used in sets.
     """
-    _required_keys = set()
+    # Hash keys is an ordered set, the corresponding values are used to uniquely identify the doc
+    # TODO: Figure out the best way of setting these from the config
+    _hash_keys = set()
 
-    def __init__(self, document, validate=True, copy=False, unflatten=True, **kwargs):
+    def __init__(self, document, copy=False, unflatten=True, **kwargs):
         super().__init__()
 
         if document is None:
@@ -35,21 +35,17 @@ class Document(abc.Mapping):
         if unflatten:
             document = unflatten_dict(document)
 
-        # Check all the required information is present
-        if validate and self._required_keys:
-            self._validate_document(document)
-
         self._document = document
 
     # Special methods
 
     def __eq__(self, o):
         with suppress(KeyError):
-            return all([self[k] == o[k] for k in self._required_keys])
+            return all([self[k] == o[k] for k in self._hash_keys])
         return False
 
     def __hash__(self):
-        return hash(tuple([self[k] for k in self._required_keys]))
+        return hash(tuple([self[k] for k in self._hash_keys]))
 
     def __getitem__(self, key):
         return self._document[key]
@@ -67,13 +63,13 @@ class Document(abc.Mapping):
         return len(self._document)
 
     def __str__(self):
-        if self._required_keys:
-            return str({k: self._document[k] for k in self._required_keys})
+        if self._hash_keys:
+            return str({k: self._document[k] for k in self._hash_keys})
         return str(self._document)
 
     def __repr__(self):
-        if self._required_keys:
-            return repr({k: self._document[k] for k in self._required_keys})
+        if self._hash_keys:
+            return repr({k: self._document[k] for k in self._hash_keys})
         return repr(self._document)
 
     # Public methods
@@ -115,7 +111,7 @@ class Document(abc.Mapping):
         Returns:
             dict: The encoded document.
         """
-        doc = {k: self[k] for k in self._required_keys}
+        doc = {k: self[k] for k in self._hash_keys}
         return encode_mongo_filter(doc)
 
     def copy(self):
@@ -125,39 +121,22 @@ class Document(abc.Mapping):
         """
         return deepcopy(self)
 
-    # Private methods
 
-    def _validate_document(self, document):
-        """
-        """
-        if not all([k in document for k in self._required_keys]):
-            missing_keys = [k for k in self._required_keys if k not in document.keys()]
-            raise ValueError(f"Document missing required keys: {missing_keys}.")
+class ExposureDocument(Document):
 
+    # TODO: Figure out the best way of setting these from the config
+    _hash_keys = set(["filename"])
 
-class RawExposureDocument(Document):
-
-    _required_keys = set(["filename"])
-
-    def __init__(self, document, config=None, **kwargs):
-
-        if config is None:
-            config = get_config()  # Do not store the config as we will be making many DataIds
-
-        self._required_keys.update(config["fits_header"]["required_columns"])
-
-        super().__init__(document=document, **kwargs)
-
-        if "date" not in self.keys():
-            self["date"] = parse_date(self["dateObs"])
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def get_central_skycoord(self):
         """ Return the central celestial coordinate of the exposure using the WCS info.
         Returns:
             astropy.coordinates.SkyCoord: The central coordinate.
         """
-        ra = self["metrics"]["ra_centre"] * u.deg
-        dec = self["metrics"]["dec_centre"] * u.deg
+        ra = self["ra"] * u.deg
+        dec = self["dec"] * u.deg
         return SkyCoord(ra=ra, dec=dec)
 
     def get_wcs(self):
@@ -174,24 +153,12 @@ class RawExposureDocument(Document):
 
 class CalibDocument(Document):
 
-    _required_keys = set(["calibDate", "datasetType", "filename", "ccd"])
-
-    _required_keys_type = {"flat": ("filter",)}
+    # TODO: Figure out the best way of setting these from the config
+    _hash_keys = set(["datasetType", "detector", "instrument"])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if "date" not in self.keys():
-            self["date"] = parse_date(self["calibDate"])
-
-    def _validate_document(self, document):
-        """
-        """
-        super()._validate_document(document)
-
-        keys = self._required_keys_type.get(document["datasetType"], None)
-        if not keys:
-            return
-
-        if not all([k in document for k in keys]):
-            raise ValueError(f"Document does not contain all required keys: {keys}.")
+        if self["datasetType"] == "flat":
+            self._hash_keys = self._hash_keys.copy()
+            self._hash_keys.add("physical_filter")

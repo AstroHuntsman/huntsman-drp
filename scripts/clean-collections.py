@@ -3,11 +3,11 @@ Simple script to delete files in the DB that don't actually exist. Useful when m
 """
 import os
 
-from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
+from huntsman.drp.collection import ExposureCollection, CalibCollection
 
 if __name__ == "__main__":
 
-    collections = (RawExposureCollection(), MasterCalibCollection())
+    collections = (ExposureCollection(), CalibCollection())
 
     for collection in collections:
 

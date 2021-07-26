@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 from panoptes.utils.time import CountdownTimer
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
+from huntsman.drp.collection import ExposureCollection, CalibCollection
+
+FILTER_KEY = "physical_filter"
 
 
 class Plotter(HuntsmanBase):
@@ -31,8 +33,8 @@ class Plotter(HuntsmanBase):
 
         self._plot_configs = {} if not plot_configs else plot_configs
 
-        self._exposure_collection = RawExposureCollection(config=self.config)
-        self._calib_collection = MasterCalibCollection(config=self.config)
+        self._exposure_collection = ExposureCollection(config=self.config)
+        self._calib_collection = CalibCollection(config=self.config)
 
         find_kwargs = {} if find_kwargs is None else find_kwargs
         self._rawdocs = self._exposure_collection.find(**find_kwargs)
@@ -112,10 +114,10 @@ class Plotter(HuntsmanBase):
             y_key (str): Flattened name of the document field to plot on the y-axis.
             **kwargs: Parsed to self.plot_by_camera.
         """
-        filter_names = set([d["filter"] for d in self._rawdocs])
+        filter_names = set([d[FILTER_KEY] for d in self._rawdocs])
 
         for filter_name in filter_names:
-            docs = [d for d in self._rawdocs if d["filter"] == filter_name]
+            docs = [d for d in self._rawdocs if d[FILTER_KEY] == filter_name]
             basename = f"{x_key}_{y_key}-{filter_name}"
             self.plot_by_camera(x_key, y_key, basename=basename, docs=docs, **kwargs)
 
@@ -157,10 +159,10 @@ class Plotter(HuntsmanBase):
             key (str): The flattened key to plot.
             **kwargs: Parsed to self.plot_hist_by_camera.
         """
-        filter_names = set([d["filter"] for d in self._rawdocs])
+        filter_names = set([d[FILTER_KEY] for d in self._rawdocs])
 
         for filter_name in filter_names:
-            docs = [d for d in self._rawdocs if d["filter"] == filter_name]
+            docs = [d for d in self._rawdocs if d[FILTER_KEY] == filter_name]
             basename = f"{key}-{filter_name}"
             self.plot_hist_by_camera(key, basename=basename, docs=docs, **kwargs)
 
@@ -172,14 +174,12 @@ class Plotter(HuntsmanBase):
             dict: Dict of camera_name: list of docs.
         """
         # Get camera names corresponding to CCD numbers
-        cam_configs = self.config["cameras"]["devices"]
-        # +1 because ccd numbering starts at 1
-        camdict = {i + 1: cam_configs[i]["camera_name"] for i in range(len(cam_configs))}
+        cam_names = [c["camera_name"] for c in self.config["cameras"]["devices"]]
 
         docs_by_camera = {}
-        for ccd, cam_name in camdict.items():
+        for cam_name in cam_names:
 
-            camera_docs = [d for d in docs if d["ccd"] == ccd]
+            camera_docs = [d for d in docs if d["detector_name"] == cam_name]
             # Drop any cameras with no documents (e.g. testing cameras)
             if not camera_docs:
                 self.logger.debug(f"No matching documents for camera {cam_name}.")

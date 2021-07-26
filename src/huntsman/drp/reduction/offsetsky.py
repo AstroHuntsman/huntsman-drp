@@ -1,56 +1,44 @@
-"""
-https://github.com/lsst/meas_algorithms/blob/master/python/lsst/meas/algorithms/subtractBackground.py
-https://github.com/lsst/afw/blob/master/python/lsst/afw/math/_backgroundList.py
-https://github.com/lsst/meas_algorithms/blob/master/python/lsst/meas/algorithms/detection.py
-
-NOTES:
-  - RMS level used in source detection is measured from the image *not* the sky background
-"""
-from copy import deepcopy
+import os
+import yaml
 from datetime import timedelta
-
-import numpy as np
-
-import lsst.afw.image
 
 from huntsman.drp.reduction.base import ReductionBase
 from huntsman.drp.reduction.lsst import LsstReduction
+from huntsman.drp.lsst.utils.pipeline import plot_quantum_graph
 
-EXTRA_CALEXP_CONFIG = {"charImage.useOffsetSky": True,
-                       "charImage.detection.reEstimateBackground": False,
-                       "calibrate.detection.reEstimateBackground": False}
+EXTRA_CONFIG_SCI = {"characterizeImage:detection.reEstimateBackground": False,
+                    "calibrate:detection.reEstimateBackground": False}
 
-EXTRA_CALEXP_CONFIG_SKY = {"calibrate.doPhotoCal": False}
+EXTRA_CONFIG_SKY = {"calibrate:doPhotoCal": False}
 
 
 class OffsetSkyReduction(LsstReduction):
     """ Data reduction using offset sky frames to estimate background for science images. """
 
-    def __init__(self, sky_query, timedelta_minutes, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, sky_query, sky_pipeline, timedelta_minutes, *args, **kwargs):
+
+        super().__init__(initialise=False, *args, **kwargs)
+
+        # Store the sky pipeline
+        self.sky_pipeline = sky_pipeline
+        self._sky_pipeline_filename = os.path.join(self.directory, "sky_pipeline.yaml")
 
         self._sky_query = sky_query
         self._timedelta_minutes = timedelta_minutes
 
         self.sky_docs = {}
 
-        # Make sure required reduction kwargs are set for sky calexps
-        self._calexp_kwargs_sky = deepcopy(self._calexp_kwargs)
-        extra_config_sky = deepcopy(self._calexp_kwargs_sky.get("extra_config", {}))
-        extra_config_sky.update(EXTRA_CALEXP_CONFIG_SKY)
-        self._calexp_kwargs_sky["extra_config"] = extra_config_sky
+        # Setup required task config
+        self._sky_pipeline_config = EXTRA_CONFIG_SKY
+        self._pipeline_config.update(EXTRA_CONFIG_SCI)
 
-        # Make sure required reduction kwargs are set for science calexps
-        extra_config = self._calexp_kwargs.get("extra_config", {})
-        extra_config.update(EXTRA_CALEXP_CONFIG)
-        self._calexp_kwargs["extra_config"] = extra_config
+        self._initialise()
 
-        # We need to allow LSST to overwrite the existing config file
-        self._calexp_kwargs["clobber_config"] = True
+    # Methods
 
     def prepare(self):
-        """ Override method to get matching sky offset docs and their associated calibs.
-        """
+        """ Override method to get matching sky offset docs and their associated calibs. """
+
         # Use base prepare method to set science docs, calibs and make reference catalogue
         ReductionBase.prepare(self)
 
@@ -70,61 +58,45 @@ class OffsetSkyReduction(LsstReduction):
         super().prepare(call_super=False)
 
         # Ingest extra sky docs
-        self._butler_repo.ingest_raw_data([d["filename"] for d in all_sky_docs])
+        self.butler_repo.ingest_raw_files([d["filename"] for d in all_sky_docs], define_visits=True)
+
+        # Plot the quantum graph for the offset sky observation
+        qgfilename = os.path.join(self.image_dir, "pipeline_sky_qg.jpg")
+        plot_quantum_graph(self._sky_pipeline_filename, qgfilename)
 
     def reduce(self):
         """ Override method to measure the offset sky backgrounds before processing. """
 
-        self.logger.info(f"Measuring sky backgrounds for {len(self.sky_docs)} sky offset images.")
-        self.measure_backgrounds()
+        # Get dataIds for sky documents
+        dataIds = [self.butler_repo.document_to_dataId(d) for d in self.sky_docs]
 
-        self.logger.info(f"Making master sky images for {len(self.science_docs)} science images.")
-        for doc in self.science_docs:
-            self.make_master_background(doc, self.sky_docs[doc])
+        self.logger.info(f"Making offset sky images from {len(dataIds)} dataIds.")
 
+        # Run the pipeline
+        self.butler_repo.run_pipeline(self._sky_pipeline_filename,
+                                      dataIds=dataIds,
+                                      output_collection=self._output_collection,
+                                      config=self._sky_pipeline_config)
+
+        # Reduce the science exposures
         super().reduce()
 
-    def measure_backgrounds(self):
-        """ Measure background for each sky image. """
+    # Private methods
 
-        # Get dataIds to reduce
-        dataIds = [self._butler_repo.document_to_dataId(doc) for doc in self._get_all_sky_docs()]
+    def _initialise(self):
+        """ Override method to write the sky pipeline. """
+        super()._initialise()
 
-        # Process the dataIds
-        self._butler_repo.make_calexps(dataIds=dataIds, **self._calexp_kwargs_sky)
-
-    def make_master_background(self, document, matching_sky_docs, rerun="default"):
-        """ Get a master background image for the specific document and persist using butler. """
-
-        # Get background images from LSST
-        bg_list = []
-        for doc in matching_sky_docs:
-            dataId = self._butler_repo.document_to_dataId(doc)
-            bg = self._butler_repo.get("calexpBackground", dataId=dataId, rerun=rerun)
-
-            # Get the full-sized BG image as a np.array
-            bg_list.append(bg.getImage().getArray())
-
-        # Combine the sky images
-        bg_master = np.median(bg_list, axis=1)
-
-        # Package into an LSST-friendly object
-        image = lsst.afw.image.ImageF(bg_master)
-        exposure = lsst.afw.image.ExposureF(image.getBBox())
-        exposure.setImage(image)
-
-        # Use butler to persist the image using a custom datasetType (specified in policy)
-        dataId = self._butler_repo.document_to_dataId(document)
-        butler = self._butler_repo.get_butler(rerun=rerun)
-        dataRef = butler.dataRef(datasetType="raw", dataId=dataId)
-        dataRef.put(exposure, "offsetBackground")
+        # Write the sky pipeline to yaml file
+        with open(self._sky_pipeline_filename, 'w') as f:
+            yaml.dump(self.sky_pipeline, f, default_flow_style=False)
 
     def _get_matching_sky_docs(self, document):
         """ Get list of documents to measure the offset sky background with.
         Args:
-            document (RawExposureDocument): The raw exposure document to match with.
+            document (ExposureDocument): The raw exposure document to match with.
         Returns:
-            list of RawExposureDocument: The matching documents.
+            list of ExposureDocument: The matching documents.
         """
         td = timedelta(minutes=self._timedelta_minutes)
         date_min = document["date"] - td

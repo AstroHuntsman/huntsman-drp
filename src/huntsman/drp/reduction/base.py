@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from huntsman.drp.utils import normalise_path, plotting
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
+from huntsman.drp.collection import ExposureCollection, CalibCollection
 from huntsman.drp.refcat import RefcatClient
 
 
@@ -32,11 +32,11 @@ class ReductionBase(HuntsmanBase):
         self._refcat_filename = os.path.join(self.directory, "refcat.csv")
 
         if not exposure_collection:
-            exposure_collection = RawExposureCollection(config=self.config)
+            exposure_collection = ExposureCollection(config=self.config)
         self._exposure_collection = exposure_collection
 
         if not calib_collection:
-            calib_collection = MasterCalibCollection(config=self.config)
+            calib_collection = CalibCollection(config=self.config)
         self._calib_collection = calib_collection
 
         self.science_docs = self._exposure_collection.find(**self._query)
@@ -46,6 +46,10 @@ class ReductionBase(HuntsmanBase):
             self._initialise()
 
     # Properties
+
+    @property
+    def image_dir(self):
+        return os.path.join(self.directory, "images")
 
     # Methods
 
@@ -89,7 +93,7 @@ class ReductionBase(HuntsmanBase):
         df = pd.read_csv(self._refcat_filename)
         ax.plot(df[ra_key].values, df[dec_key].values, "bo", markersize=1)
 
-        plt.savefig(os.path.join(self.directory, "plots", "refobjs.png"), bbox_inches="tight",
+        plt.savefig(os.path.join(self.image_dir, "refobjs.png"), bbox_inches="tight",
                     dpi=dpi)
 
     def make_reduce_plots(self):
@@ -102,12 +106,12 @@ class ReductionBase(HuntsmanBase):
         """ Abstract instance method responsible for initialising the data reduction.
         """
         os.makedirs(self.directory, exist_ok=True)
-        os.makedirs(os.path.join(self.directory, "plots"), exist_ok=True)
+        os.makedirs(self.image_dir, exist_ok=True)
 
     def _get_calibs(self, science_docs):
         """ Get matching calib docs for a set of science docs.
         Args:
-            science_docs (list of RawExposureDocument): The list of science docs to match with.
+            science_docs (list of ExposureDocument): The list of science docs to match with.
         Returns:
             dict of set: Dictionary of calib type: set of matching calib documents.
         """

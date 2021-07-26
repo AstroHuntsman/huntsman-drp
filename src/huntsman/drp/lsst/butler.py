@@ -1,580 +1,450 @@
-"""
-NOTES:
- -  The correct way to create a Butler instance:
-    https://github.com/lsst/pipe_base/blob/master/python/lsst/pipe/base/argumentParser.py#L678
-"""
 import os
-import sqlite3
-from contextlib import suppress
+import random
 from tempfile import TemporaryDirectory
 
-import lsst.daf.persistence as dafPersist
+import lsst.daf.butler as dafButler
+from lsst.daf.butler import DatasetType
+from lsst.daf.butler.script.certifyCalibrations import certifyCalibrations
+
+from lsst.obs.base.utils import getInstrument
+from lsst.obs.base.script.defineVisits import defineVisits
+from lsst.obs.base import RawIngestTask
+
+from lsst.pipe.tasks.makeDiscreteSkyMap import MakeDiscreteSkyMapTask
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.lsst import tasks
-import huntsman.drp.lsst.utils.butler as utils
-from huntsman.drp.lsst.utils.coadd import get_skymap_ids
-from huntsman.drp.lsst.utils.calib import get_calib_filename
+from huntsman.drp.lsst.utils import pipeline
+from huntsman.drp.lsst.utils.refcat import RefcatIngestor
+from huntsman.drp.lsst.utils import butler as utils
 
 
 class ButlerRepository(HuntsmanBase):
+    """ This class provides a convenient interface to LSST Butler functionality.
+    The goal of ButlerRepository is to facilitate simple calls to LSST code, including running
+    pipelines to construct calibs and run pipelines.
+    """
+    _instrument_name = "Huntsman"  # TODO: Move to config
+    _instrument_class_name = "lsst.obs.huntsman.HuntsmanCamera"  # TODO: Move to config
 
-    _mapper = "lsst.obs.huntsman.HuntsmanMapper"
+    _raw_collection = f"{_instrument_name}/raw/all"
+    _refcat_collection = "refCat"
+    _skymap_collection = "skymaps"
 
-    def __init__(self, directory, calib_dir=None, initialise=True, calib_validity=1000, **kwargs):
+    def __init__(self, directory, calib_collection=None, **kwargs):
         """
         Args:
             directory (str): The path of the butler reposity.
-            calib_dir (str, optional): The path of the butler calib repository. If None (default),
-                will create a new CALIB directory under the butler repository root.
-            initialise (bool, optional): If True (default), initialise the butler reposity
-                with required files.
         """
         super().__init__(**kwargs)
 
-        self._ordered_calib_types = self.config["calibs"]["types"]
-
         if directory is not None:
             directory = os.path.abspath(directory)
-        self.butler_dir = directory
+        self.root_directory = directory
 
-        if (calib_dir is None) and (directory is not None):
-            calib_dir = os.path.join(self.butler_dir, "CALIB")
-        self._calib_dir = calib_dir
+        # Calib directory relative to root
+        # This is where new calibs will be created
+        self._calib_directory = os.path.join("Huntsman", "calib")
 
-        self._calib_validity = calib_validity
+        # Calib collection relative to root
+        # This is where calibs are registered
+        if calib_collection is None:
+            calib_collection = os.path.join(self._calib_directory, "CALIB")
+        self._calib_collection = calib_collection
 
-        if self.butler_dir is None:
-            self._refcat_filename = None
-        else:
-            self._refcat_filename = os.path.join(self.butler_dir, "refcat_raw", "refcat_raw.csv")
+        self._instrument = None
+        self._initialise_repository()
 
-        # Load the policy file
-        self._policy = utils.load_policy()
-
-        # Initialise the butler repository
-        self._butlers = {}  # One butler for each rerun
-        if initialise:
-            self._initialise()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args, **kwargs):
-        pass
+    # Properties
 
     @property
-    def calib_dir(self):
-        return self._calib_dir
+    def search_collections(self):
+        """ Get default search collections. """
+        butler = self.get_butler()
+        collections = set()
 
-    @property
-    def status(self):
-        # TODO: Information here about number of ingested files etc
-        raise NotImplementedError
+        # Temporary workaround because we cannot query CALIBRATION collections yet
+        # TODO: Remove when implemented in LSST code
+        for collection in butler.registry.queryCollections():
 
-    def document_to_dataId(self, document):
-        """ Extract an LSST dataId from a RawExposureDocument.
+            collection_type = butler.registry.getCollectionType(collection).name
+
+            if collection_type not in ("CALIBRATION", "CHAINED"):
+                collections.add(collection)
+
+        return collections
+
+    # Methods
+
+    def document_to_dataId(self, document, datasetType="raw"):
+        """ Extract an LSST dataId from a Document.
         Args:
-            document (RawExposureDocument): The document to convert.
+            document (Document): The document to convert.
         Returns:
             dict: The corresponding dataId.
         """
-        return {k: document[k] for k in self.get_keys("raw")}
+        try:
+            return {k: document[k] for k in self.get_dimension_names(datasetType, required=True)}
+        except KeyError as err:
+            raise KeyError(f"Unable to determine dataId from {document}: {err!r}")
 
-    def get_butler(self, rerun=None):
-        """ Get a butler object for a given rerun.
-        We cache created butlers to avoid the overhead of having to re-create them each time.
+    def get_butler(self, *args, **kwargs):
+        """ Get a butler object for this repository.
         Args:
-            rerun (str, optional): The rerun name. If None, the butler is created for the root
-                butler directory.
+            *args, **kwargs: Parsed to dafButler.Butler.
         Returns:
             butler: The butler object.
         """
-        try:
-            return self._butlers[rerun]
-        except KeyError:
-            self.logger.debug(f"Creating new butler object for rerun={rerun}.")
+        return dafButler.Butler(self.root_directory, *args, **kwargs)
 
-            if rerun is None:
-                butler_dir = self.butler_dir
-            else:
-                butler_dir = os.path.join(self.butler_dir, "rerun", rerun)
-            os.makedirs(butler_dir, exist_ok=True)
-
-            inputs = {"root": butler_dir}
-            outputs = {'root': butler_dir, 'mode': 'rw'}
-
-            if rerun:
-                outputs["cfgRoot"] = self.butler_dir
-
-            butler_kwargs = {"mapperArgs": {"calibRoot": self._calib_dir}}
-            inputs.update(butler_kwargs)
-            outputs.update(butler_kwargs)
-
-            self._butlers[rerun] = dafPersist.Butler(inputs=inputs, outputs=outputs)
-
-        return self._butlers[rerun]
-
-    def get(self, datasetType, dataId=None, rerun=None, **kwargs):
-        """ Get a dataset from the butler repository.
+    def get(self, datasetType, collections=None, **kwargs):
+        """ Get an item from the Butler repository.
         Args:
-            datasetType (str): The dataset type (raw, flat, bias etc.).
-            dataId (dict): The data ID that uniquely specifies a file.
-            rerun (str, optional): The rerun name. If None (default), will use the root butler
-                directory.
+            collections (iterable of str, optional): Search for item in these collections. If not
+                provided, will use default search collections.
+            *args, **kwargs: Parsed to butler.get.
         Returns:
-            object: The dataset.
+            object: The retrieved object.
         """
-        butler = self.get_butler(rerun=rerun)
-        return butler.get(datasetType, dataId=dataId, **kwargs)
+        if collections is None:
+            collections = self.search_collections
+        butler = self.get_butler(collections=collections)
+        return butler.get(datasetType, **kwargs)
 
-    def get_keys(self, datasetType, **kwargs):
-        """ Get set of keys required to uniquely identify ingested data.
+    def get_dimension_names(self, datasetType, required=False, **kwargs):
+        """ Get dimension names in a dataset type.
         Args:
             datasetType (str): The dataset type (raw, flat, bias etc.).
+            required (bool, optional): If True, only return dimensions that are required in the
+                dataId. Default: False.
         Returns:
             list of str: A list of keys.
         """
         butler = self.get_butler(**kwargs)
-        return list(butler.getKeys(datasetType))
+        datasetTypeInstance = butler.registry.getDatasetType(datasetType)
+        dimensions = datasetTypeInstance.dimensions
+        if required:
+            dimensions = dimensions.required
+        return [d.name for d in dimensions]
 
-    def get_filename(self, datasetType, dataId, **kwargs):
-        """ Get the filename for a data ID of data type.
+    def get_filenames(self, datasetType, **kwargs):
+        """ Get filenames matching a datasetType and dataId.
         Args:
             datasetType (str): The dataset type (raw, flat, bias etc.).
-            dataId (dict): The data ID that uniquely specifies a file.
         Returns:
-            str: The filename.
+            list of str: The filenames.
         """
-        return self.get(datasetType + "_filename", dataId=dataId, **kwargs)[0]
+        datasetRefs, butler = self._get_datasetRefs(datasetType, get_butler=True, **kwargs)
+        return [butler.getURI(ref).path for ref in datasetRefs]
 
-    def get_metadata(self, datasetType, keys=None, dataId=None, **kwargs):
-        """ Get metadata for a dataset.
-        Args:
-            datasetType (str): The dataset type (e.g. raw, flat, calexp).
-            keys (list of str, optional): The keys contained in the metadata. If not provided,
-                will use default keys for datasetType.
-            dataId (optional): A list of dataIds to query on.
-        """
-        if keys is None:
-            keys = self.get_keys(datasetType, **kwargs)
-
-        butler = self.get_butler(**kwargs)
-        md = butler.queryMetadata(datasetType, format=keys, dataId=dataId)
-
-        if len(keys) == 1:  # Butler doesn't return a consistent data structure if len(keys)=1
-            return [{keys[0]: _} for _ in md]
-
-        return [{k: v for k, v in zip(keys, _)} for _ in md]
-
-    def get_dataIds(self, datasetType, dataId=None, extra_keys=None, **kwargs):
+    def get_dataIds(self, datasetType, as_dict=True, **kwargs):
         """ Get ingested dataIds for a given datasetType.
         Args:
             datasetType (str): The datasetType (raw, bias, flat etc.).
-            dataId (dict, optional): A complete or partial dataId to match with.
-            extra_keys (list, optional): List of additional keys to be included in the dataIds.
+            as_dict (bool, optional): If True, return as a dictionary rather than dataId object.
+                Default: True.
+            **kwargs: Parsed to self._get_datasetRefs.
         Returns:
             list of dict: A list of dataIds.
         """
-        butler = self.get_butler(**kwargs)
+        datasetRefs = self._get_datasetRefs(datasetType, **kwargs)
+        dataIds = []
+        for datasetRef in datasetRefs:
+            dataId = datasetRef.dataId
+            if as_dict:
+                dataId = dataId.to_simple().dict()["dataId"]
+            dataIds.append(dataId)
+        return dataIds
 
-        keys = list(butler.getKeys(datasetType).keys())
-        if extra_keys is not None:
-            keys.extend(extra_keys)
-
-        # Work-around to have consistent query behaviour for calibs
-        # TODO: Figure out how to do this properly with butler
-        if datasetType in self._ordered_calib_types:
-            results = []
-            for md in self._get_calib_metadata(datasetType):
-                if dataId is not None:
-                    if not all([k in md for k in dataId.keys()]):
-                        continue
-                    elif not all(md[k] == dataId[k] for k in dataId.keys()):
-                        continue
-                results.append({k: md[k] for k in keys})
-            return results
-
-        return self.get_metadata(datasetType, keys=keys, dataId=dataId)
-
-    def get_calexp_dataIds(self, rerun="default", filter_name=None, **kwargs):
-        """ Convenience function to get dataIds for calexps.
-        Args:
-            rerun (str, optional): The rerun name. Default: "default".
-            filter_name (str, optional): If given, only return data Ids for this filter.
-            **kwargs: Parsed to self.get_dataIds.
-        Returns:
-            list of dict: The list of dataIds.
-        """
-        dataId = {"dataType": "science"}
-        if filter_name is not None:
-            dataId["filter"] = filter_name
-
-        return self.get_dataIds("calexp", dataId=dataId, rerun=rerun, **kwargs)
-
-    def get_calexps(self, dataIds=None, rerun="default", **kwargs):
-        """ Convenience function to get calexp objects for a given rerun.
-        Args:
-            dataIds (list, optional): If provided, get calexps for these dataIds only.
-            rerun (str, optional): The rerun name. Default: "default".
-            **kwargs: Parsed to self.get_calexp_dataIds.
-        Returns:
-            list of lsst.afw.image.exposure: The list of calexp objects.
-        """
-        if dataIds is None:
-            dataIds = self.get_calexp_dataIds(rerun=rerun, **kwargs)
-
-        calexps = [self.get("calexp", dataId=d, rerun=rerun) for d in dataIds]
-        if len(calexps) != len(dataIds):
-            raise RuntimeError("Number of dataIds does not match the number of calexps.")
-
-        return calexps, dataIds
-
-    def ingest_raw_data(self, filenames, **kwargs):
-        """ Ingest raw data into the repository.
+    def ingest_raw_files(self, filenames, transfer="symlink", define_visits=False, **kwargs):
+        """ Ingest raw files into the Butler repository.
         Args:
             filenames (iterable of str): The list of raw data filenames.
+            **kwargs: Parsed to self.get_butler.
         """
         filenames = set([os.path.abspath(os.path.realpath(_)) for _ in filenames])
+        self.logger.debug(f"Ingesting {len(filenames)} files into {self}.")
 
-        self.logger.debug(f"Ingesting {len(filenames)} file(s).")
+        kwargs.update({"writeable": True})
+        butler = self.get_butler(run=self._raw_collection, **kwargs)
 
-        tasks.ingest_raw_data(filenames, butler_dir=self.butler_dir, **kwargs)
+        task = self._make_task(RawIngestTask,
+                               butler=butler,
+                               config_overrides={"transfer": transfer})
+        task.run(filenames)
 
-    def ingest_reference_catalogue(self, filenames):
+        if define_visits:
+            self.define_visits()
+
+    def ingest_calibs(self, datasetType, filenames, collection=None, begin_date=None,
+                      end_date=None, **kwargs):
+        """ Ingest pre-prepared master calibs into the Butler repository.
+        Calibs ingested by a single call to this function are assumed to be valid over the same
+        date range. Calibs that differ by date should be stored in separate collections for now.
+        Args:
+            datasetType (str): The dataset type (e.g. bias, flat).
+            filenames (list of str): The files to ingest.
+            collection (str, optional): The collection to ingest into.
+            **kwargs: Parsed to utils.ingest_calibs.
+        """
+        butler = self.get_butler(writeable=True)
+
+        # Define the collection that the calibs will be ingested into
+        # NOTE: There is nothing in the path to distinguish between dates, so use random for now
+        if collection is None:
+            randstr = f"{random.randint(0, 1E+6):06d}"
+            collection = os.path.join(self._calib_directory, "calib", "ingest", randstr,
+                                      datasetType)
+
+        self.logger.info(f"Ingesting {len(filenames)} {datasetType} calibs in"
+                         f" collection: {collection}")
+
+        dimension_names = self.get_dimension_names(datasetType, required=True)
+
+        utils.ingest_calibs(butler, datasetType, filenames=filenames, collection=collection,
+                            dimension_names=dimension_names, **kwargs)
+
+        # Certify the calibs
+        self._certify_calibrations(datasetType, collection, begin_date, end_date)
+
+    def ingest_reference_catalogue(self, filenames, **kwargs):
         """ Ingest the reference catalogue into the repository.
         Args:
-            filenames (iterable of str): The list of filenames containing reference data.
+            filenames (iterable of str): A list of filenames containing reference catalogue.
+            **kwargs: Parsed to self.get_butler.
         """
+        butler = self.get_butler(writeable=True, **kwargs)
+        ingestor = RefcatIngestor(butler=butler, collection=self._refcat_collection)
+
         self.logger.debug(f"Ingesting reference catalogue from {len(filenames)} file(s).")
-        tasks.ingest_reference_catalogue(self.butler_dir, filenames)
+        ingestor.run(filenames)
 
-    def ingest_master_calibs(self, datasetType, filenames, validity=None):
-        """ Ingest the master calibs into the butler repository.
+    def run_pipeline(self, pipeline_name, output_collection, input_collections=None, **kwargs):
+        """ Run a LSST pipeline.
         Args:
-            datasetType (str): The calib dataset type (e.g. bias, flat).
-            filenames (list of str): The files to ingest.
-            validity (int, optional): How many days the calibs remain valid for. Default 1000.
+            pipeline_name (str): The pipeline file name. If not an absolute path, assumed relative
+                to the $OBS_HUNTSMAN pipeline directory. Should not include the file extension.
+            output_collection (str): The name of the butler output collection.
+            input_collections (iterable of str, optional): The input collections to use. If not
+                provided, will attempt to determine automatically.
+            **kwargs: Parsed to pipeline.pipetask_run.
+        Returns:
+            object: The result of the call to pipeline.pipetask_run.
         """
-        filenames = set([os.path.abspath(os.path.realpath(_)) for _ in filenames])
+        if input_collections is None:
+            input_collections = [self._raw_collection,
+                                 self._refcat_collection,
+                                 self._calib_collection]
+            if os.path.isdir(os.path.join(self.root_directory, self._skymap_collection)):
+                input_collections.append(self._skymap_collection)
 
-        if not filenames:
-            self.logger.warning(f"No master {datasetType} files to ingest.")
-            return
+        return pipeline.pipetask_run(pipeline_name,
+                                     self.root_directory,
+                                     instrument=self._instrument_class_name,
+                                     output_collection=output_collection,
+                                     input_collections=input_collections, **kwargs)
 
-        if validity is None:
-            validity = self._calib_validity
-
-        self.logger.info(f"Ingesting {len(filenames)} master {datasetType} calib(s) with validity="
-                         f"{validity}.")
-        tasks.ingest_master_calibs(datasetType, filenames, butler_dir=self.butler_dir,
-                                   calib_dir=self.calib_dir, validity=validity)
-
-    def make_master_calib(self, calib_doc, rerun="default", validity=None, **kwargs):
+    def construct_calibs(self, datasetType, dataIds=None, begin_date=None, end_date=None,
+                         output_collection=None, **kwargs):
         """ Make a master calib from ingested raw exposures.
         Args:
-            datasetType (str): The calib datasetType (e.g. bias, dark, flat).
-            calib_doc (CalibDocument): The calib document of the calib to make.
-            rerun (str, optional): The name of the rerun. Default is "default".
-            validity (int, optional): The calib validity in days.
-            **kwargs: Parsed to tasks.make_master_calib.
+            datasetType (str): The name of the datasetType (i.e. calib type) to create.
+            dataIds (iterable of dict, optional): The list of dataIds to process. If not provided,
+                will use all ingested raw exposures of the appropriate observation type.
+            begin_date (datetime.datetime, optional): If provided, signifies the date from which
+                the produced calibs will be valid.
+            end_date (datetime.datetime): If provided, signifies the date up until which the
+                produced catlobs will be valid.
+            output_collection (str, optional): The butler output collection. If not provided,
+                will assume from the datasetType.
+            **kwargs: Parsed to self.run_pipeline.
         Returns:
             str: The filename of the newly created master calib.
         """
-        datasetType = calib_doc["datasetType"]
-        calibId = self._calib_doc_to_calibId(calib_doc)
-
-        # Get dataIds applicable to this calibId
-        dataIds = self.calibId_to_dataIds(datasetType, calibId, with_calib_date=True)
-
-        self.logger.info(f"Making master calib for calibId={calibId} from {len(dataIds)} dataIds.")
-
-        # Make the master calib
-        tasks.make_master_calib(datasetType, calibId, dataIds, butler_dir=self.butler_dir,
-                                calib_dir=self.calib_dir, rerun=rerun, **kwargs)
-
-        directory = os.path.join(self.butler_dir, "rerun", rerun)
-        filename = get_calib_filename(calib_doc, directory=directory, config=self.config)
-
-        # Check the calib exists
-        if not os.path.isfile(filename):
-            raise FileNotFoundError(f"Master calib not found: {calibId}, filename={filename}")
-
-        # Ingest the calib
-        self.ingest_master_calibs(datasetType, [filename], validity=validity)
-
-        return filename
-
-    def make_master_calibs(self, calib_docs, **kwargs):
-        """ Make master calibs for a list of calib documents.
-        Args:
-            calib_docs (list of CalibDocument): The list of calib documents to make.
-            **kwargs: Parsed to tasks.make_master_calib.
-        Returns:
-            dict: Dictionay containing lists of filename for each datasetType.
-        """
-        docs = []
-        for datasetType in self._ordered_calib_types:  # Order is important
-
-            for calib_doc in [c for c in calib_docs if c["datasetType"] == datasetType]:
-                try:
-                    filename = self.make_master_calib(calib_doc, **kwargs)
-
-                    # Update the filename
-                    doc = calib_doc.copy()
-                    doc["filename"] = filename
-                    docs.append(doc)
-
-                except Exception as err:
-                    self.logger.error(f"Problem making calib for calibId={calib_doc}: {err!r}")
-
-        return docs
-
-    def make_calexp(self, dataId, rerun="default", **kwargs):
-        """ Make calibrated exposure using the LSST stack.
-        Args:
-            rerun (str, optional): The name of the rerun. Default is "default".
-        """
-        self.logger.info(f"Making calexp for {dataId}.")
-
-        return tasks.make_calexp(dataId, rerun=rerun, butler_dir=self.butler_dir,
-                                 calib_dir=self.calib_dir, **kwargs)
-
-    def make_calexps(self, dataIds=None, rerun="default", remake_existing=True, **kwargs):
-        """ Make calibrated exposures (calexps) using the LSST stack.
-        Args:
-            dataIds (list of dict): List of dataIds to process. If None (default), will process
-                all ingested science exposures.
-            rerun (str, optional): The name of the rerun. Default is "default".
-            remake_existing (bool, optional): If True (default), remake calexps that already exist.
-            **kwargs: Parsed to `tasks.make_calexps`.
-        """
-        # Get dataIds for the raw science frames
-        # TODO: Remove extra keys as this should be taken care of by policy now
+        # If dataIds not provided, make calib using all ingested dataIds of the correct type
         if dataIds is None:
-            dataIds = self.get_dataIds(datasetType="raw", dataId={'dataType': "science"},
-                                       extra_keys=["filter"])
+            dataIds = self.get_dataIds("raw", where=f"exposure.observation_type='{datasetType}'")
 
-        if not remake_existing:
-            dataIds_to_skip = []
-            for dataId in dataIds:
-                try:
-                    calexp = self.get("calexp", dataId=dataId, rerun=rerun)
-                    if calexp:
-                        dataIds_to_skip.append(dataId)
-                except Exception:
-                    pass
-            dataIds = [d for d in dataIds if d not in dataIds_to_skip]
+        self.logger.info(f"Making master {datasetType}(s) from {len(dataIds)} dataIds.")
 
-        self.logger.info(f"Making calexp(s) from {len(dataIds)} dataId(s).")
+        # Specify collections we will use as inputs
+        input_collections = (self._raw_collection, self._calib_collection)
 
-        # Process the science frames in parallel using LSST taskRunner
-        tasks.make_calexps(dataIds, rerun=rerun, butler_dir=self.butler_dir,
-                           calib_dir=self.calib_dir, doReturnResults=False, **kwargs)
+        # Make the calibs in their own collection
+        if output_collection is None:
+            output_collection = os.path.join(self._calib_directory, f"{datasetType}")
 
-        # Check if we have the right number of calexps
-        if not len(self.get_calexps(rerun=rerun, dataIds=dataIds)[0]) == len(dataIds):
-            raise RuntimeError("Number of calexps does not match the number of dataIds.")
+        # Make the master calibs
+        pipeline_name = f"construct{datasetType.title()}"
+        self.run_pipeline(pipeline_name, output_collection=output_collection,
+                          dataIds=dataIds, input_collections=input_collections, **kwargs)
 
-        self.logger.debug("Finished making calexps.")
+        # Certify the calibs
+        self._certify_calibrations(datasetType, output_collection, begin_date, end_date)
 
-    def make_coadd(self, dataIds=None, filter_names=None, rerun="default:coadd", **kwargs):
-        """ Make a coadd from all the calexps in this repository.
-        See: https://pipelines.lsst.io/getting-started/coaddition.html
+    def construct_calexps(self, dataIds=None, output_collection="calexp",
+                          pipeline_name="processCcd", **kwargs):
+        """ Create calibrated exposures (calexps) from raw exposures.
         Args:
-            filter_names (list, optional): The list of filter names to process. If not given,
-                all filters will be independently processed.
-            rerun (str, optional): The rerun name. Default is "default:coadd".
-            dataIds (list, optional): The list of dataIds to process. If None (default), all files
-                will be processed.
+            dataIds (list of dict, optional): List of dataIds to process. If None (default),
+                will use all appropriate ingested raw files.
+            output_collection (str, optional): The name of the output collection. If None (default),
+                will determine automatically.
+            pipeline_name (str, optional): The name of the pipeline to run. Default: "processCcd".
+            **kwargs: Parsed to pipeline.pipetask_run.
         """
+        # If dataIds not provided, make calexp using all ingested dataIds of the correct type
         if dataIds is None:
-            dataIds = self.get_dataIds("raw")
+            dataIds = self.get_dataIds("raw", where="exposure.observation_type='science'")
 
-        # Make the skymap in a chained rerun
-        # The skymap is a discretisation of the sky and defines the shapes and sizes of coadd tiles
-        self.logger.info(f"Creating sky map with rerun: {rerun}.")
-        tasks.make_discrete_sky_map(self.butler_dir, calib_dir=self.calib_dir, rerun=rerun,
-                                    dataIds=dataIds)
+        # Define visits
+        # TODO: Figure out what this actually does
+        self.define_visits()
 
-        # Get the output rerun
-        rerun_out = rerun.split(":")[-1]
+        # Run pipeline
+        self.run_pipeline(pipeline_name, output_collection=output_collection,
+                          dataIds=dataIds, **kwargs)
 
-        # Get the tract / patch indices from the skymap
-        # A skymap ID consists of a tractId and associated patchIds
-        skymapIds = self._get_skymap_ids(rerun=rerun_out)
-
-        # Process all filters if filter_names is not provided
-        if filter_names is None:
-            md = self.get_metadata("calexp", keys=["filter"], dataId={"dataType": "science"})
-            filter_names = list(set([_["filter"] for _ in md]))
-
-        self.logger.info(f"Creating coadd in {len(filter_names)} filter(s).")
-
-        for filter_name in filter_names:
-
-            self.logger.info(f"Creating coadd in {filter_name} filter from"
-                             f" {len(skymapIds)} tracts.")
-
-            dataIds_filter = [d for d in dataIds if d["filter"] == filter_name]
-
-            task_kwargs = dict(butler_dir=self.butler_dir, calib_dir=self.calib_dir,
-                               rerun=rerun_out, skymapIds=skymapIds, dataIds=dataIds_filter,
-                               filter_name=filter_name)
-
-            # Warp the calexps onto skymap
-            tasks.make_coadd_temp_exp(**task_kwargs)
-
-            # Combine the warped calexps
-            tasks.assemble_coadd(**task_kwargs)
-
-        # Check all tracts and patches exist in each filter
-        self._verify_coadd(rerun=rerun_out, filter_names=filter_names, skymapIds=skymapIds)
-
-        self.logger.info("Successfully created coadd.")
-
-    def calibId_to_dataIds(self, datasetType, calibId, limit=False, with_calib_date=False):
-        """ Find all matching dataIds given a calibId.
+    def construct_skymap(self, datasetType="raw", skymap_id="discrete", **kwargs):
+        """ Construct a skyMap from ingested science exposures.
+        NOTE: This currently cannot be done inside a LSST pipeline.
         Args:
-            calibId (dict): The calibId.
-            limit (bool): If True, limit the number of returned dataIds to a maximum value
-                indicated by self._max_dataIds_per_calib. This avoids long processing times and
-                apparently also segfaults. Default: False.
-        Returns:
-            list of dict: All matching dataIds.
+            datasetType (str, optional): The dataset type name. Default: "raw".
+            skymap_id (str, optional): The name of the skymap. Default: "discrete".
+            **kwargs: Parsed to self._make_task.
         """
-        dataIds = utils.calibId_to_dataIds(datasetType, calibId, butler=self.get_butler())
+        collections = [self._raw_collection]
+        butler = self.get_butler(collections=collections, writeable=True)
 
-        if with_calib_date:
-            for dataId in dataIds:
-                dataId["calibDate"] = calibId["calibDate"]
+        # Get datasets from which to extract bounding boxes and WCS
+        datasets = self._get_datasetRefs(datasetType, where="exposure.observation_type='science'",
+                                         **kwargs)
 
-        return dataIds
+        self.logger.info(f"Constructing skyMap from {datasetType} exposures.")
+
+        wcs_bbox_tuple_list = []
+        for ref in datasets:
+            exp = butler.getDirect(ref)
+            wcs_bbox_tuple_list.append((exp.getWcs(), exp.getBBox()))
+
+        task = self._make_task(MakeDiscreteSkyMapTask, **kwargs)
+        result = task.run(wcs_bbox_tuple_list, oldSkyMap=None)
+        result.skyMap.register(skymap_id, butler)
+
+    def define_visits(self):
+        """ Define visits from raw exposures.
+        This must be called before constructing calexps.
+        """
+        self.logger.debug(f"Defining visits in {self}.")
+        defineVisits(self.root_directory, config_file=None, collections=self._raw_collection,
+                     instrument=self._instrument_name)
 
     # Private methods
 
-    def _initialise(self):
-        """Initialise a new butler repository."""
+    def _initialise_repository(self):
+        """ Initialise a new butler repository. """
+        try:
+            dafButler.Butler.makeRepo(self.root_directory)
 
-        # Add the mapper file to each subdirectory, making directory if necessary
-        for subdir in ["", "CALIB"]:
-            dir = os.path.join(self.butler_dir, subdir)
+        except FileExistsError:
+            self.logger.info(f"Found existing butler repository: {self.root_directory}")
+            butler = self.get_butler(writeable=True)
+            self._instrument = getInstrument(self._instrument_name, butler.registry)
+            return
 
-            with suppress(FileExistsError):
-                os.mkdir(dir)
+        self.logger.info(f"Creating new butler repository: {self.root_directory}")
 
-            filename_mapper = os.path.join(dir, "_mapper")
-            with open(filename_mapper, "w") as f:
-                f.write(self._mapper)
+        butler = self.get_butler(writeable=True)  # Creates empty butler repo
 
-    def _get_skymap_ids(self, rerun):
-        """ Get the sky map IDs, which consist of a tract ID and associated patch IDs.
+        # Register the Huntsman instrument config with the repo
+        instrInstance = getInstrument(self._instrument_class_name, butler.registry)
+        instrInstance.register(butler.registry)
+
+        # Setup instrument and calibrations collection
+        instr = getInstrument(self._instrument_name, butler.registry)
+        instr.writeCuratedCalibrations(butler, collection=self._calib_collection, labels=())
+        self._instrument = instr
+
+        # Register calib dataset types
+        self._register_calib_datasetTypes(butler)
+
+    def _register_calib_datasetTypes(self, butler):
+        """ Register calib dataset types with the repository. """
+        universe = butler.registry.dimensions
+
+        for dataset_type, dimension_names in self.config["calibs"]["required_fields"].items():
+            datasetType = DatasetType(dataset_type, dimensions=dimension_names, universe=universe,
+                                      storageClass="ExposureF", isCalibration=True)
+            butler.registry.registerDatasetType(datasetType)
+
+    def _get_datasetRefs(self, datasetType, collections=None, get_butler=False, **kwargs):
+        """ Return datasetRefs for a given datasetType matching dataId.
         Args:
-            rerun (str): The rerun name.
+            datasetType (str): The datasetType.
+            dataId (dict, optional): If given, returned datasetRefs match with this dataId.
+            get_butler (bool, optional): If True, also return the Butler object. Default: False.
+            **kwargs: Parsed to self.get_butler.
         Returns:
-            dict: A dict of tractId: [patchIds].
+            lsst.daf.butler.registry.queries.ChainedDatasetQueryResults: The query results.
         """
-        skymap = self.get("deepCoadd_skyMap", rerun=rerun)
-        return get_skymap_ids(skymap)
+        if collections is None:
+            collections = self.search_collections
+        butler = self.get_butler(collections=collections)
 
-    def _verify_coadd(self, skymapIds, filter_names, rerun):
-        """ Verify all the coadd patches exist and can be found by the Butler.
-        Args:
-            rerun (str): The rerun name.
-            filter_names (list of str): The list of filter names to check.
-        Raises:
-            Exception: An unspecified exception is raised if there is a problem with the coadd.
+        datasetRefs = butler.registry.queryDatasets(
+            datasetType=datasetType, collections=collections, **kwargs)
+
+        if get_butler:
+            return datasetRefs, butler
+        return datasetRefs
+
+    def _certify_calibrations(self, datasetType, collection, begin_date, end_date):
+        """ Certify the calibs in a collection.
+        This associates them with the repository's calib collection and a date validity range.
         """
-        self.logger.info("Verifying coadd.")
+        certifyCalibrations(repo=self.root_directory,
+                            input_collection=collection,
+                            output_collection=self._calib_collection,
+                            search_all_inputs=False,
+                            dataset_type_name=datasetType,
+                            begin_date=begin_date,
+                            end_date=end_date)
 
-        butler = self.get_butler(rerun=rerun)
-
-        for filter_name in filter_names:
-            for skymapId in skymapIds:
-
-                tractId = skymapId["tractId"]
-                patchIds = skymapId["patchIds"]
-
-                for patchId in patchIds:
-                    dataId = {"tract": tractId, "patch": patchId, "filter": filter_name}
-                    try:
-                        butler.get("deepCoadd", dataId=dataId)
-                    except Exception as err:
-                        self.logger.error(f"Error encountered while verifying coadd: {err!r}")
-                        raise err
-
-    def _calib_doc_to_calibId(self, calib_doc, **kwargs):
-        """ Convert a CalibDocument into a LSST-style calibId.
+    def _make_task(self, taskClass, config_overrides=None, **kwargs):
+        """ Make the task and apply instrument overrides to the config.
         Args:
-            calib_doc (CalibDocument): The calib document.
+            taskClass (Class): The task class.
+            **kwargs: Parsed to task initialiser.
         Returns:
-            dict: The calibId.
+            Task: The initialised Task class.
         """
-        datasetType = calib_doc["datasetType"]
-        required_keys = self.get_keys(datasetType, **kwargs)
-        return {k: calib_doc[k] for k in required_keys}
+        # Load the default instrument-specific config
+        config = taskClass.ConfigClass()
+        self._instrument.applyConfigOverrides(taskClass._DefaultName, config)
 
-    def _get_calib_metadata(self, datasetType, keys_ignore=None):
-        """ Query the ingested calibs.
-        TODO: Figure out how to do this properly with Butler.
-        Args:
-            datasetType (str): The dataset type (e.g. bias, dark, flat).
-            keys_ignore (list of str, optional): If provided, drop these keys from result.
-        Returns:
-            list of dict: The query result in column: value.
-        """
-        # Access the sqlite DB
-        conn = sqlite3.connect(os.path.join(self.calib_dir, "calibRegistry.sqlite3"))
-        c = conn.cursor()
+        # Apply additional config overrides
+        if config_overrides:
+            for k, v in config_overrides.items():
+                setattr(config, k, v)
 
-        # Query the calibs
-        result = c.execute(f"SELECT * from {datasetType}")
-        metadata_list = []
-
-        for row in result:
-            d = {}
-            for idx, col in enumerate(c.description):
-                d[col[0]] = row[idx]
-            metadata_list.append(d)
-        c.close()
-
-        if keys_ignore is not None:
-            keys_keep = [k for k in metadata_list[0].keys() if k not in keys_ignore]
-            metadata_list = [{k: _[k] for k in keys_keep} for _ in metadata_list]
-
-        return metadata_list
+        # Return the task instance
+        return taskClass(config=config, **kwargs)
 
 
-class TemporaryButlerRepository(ButlerRepository):
-    """ Create a new Butler repository in a temporary directory."""
+class TemporaryButlerRepository():
+    """ Class to return a ButlerRepository in a temporary directory.
+    Used as a context manager.
+    """
 
-    def __init__(self, directory_prefix=None, **kwargs):
-        """
-        Args:
-            directory_prefix (str): String to prefix the name of the temporary directory.
-                Default: None.
-            **kwargs: Parsed to ButlerRepository init function.
-        """
-        self._directory_prefix = directory_prefix
-        super().__init__(directory=None, initialise=False, **kwargs)
+    def __init__(self, prefix=None,  *args, **kwargs):
+        self._args = args
+        self._kwargs = kwargs
+        self._prefix = prefix
+        self._tempdir = None
 
     def __enter__(self):
-        """Create temporary directory and initialise as a butler repository."""
-        self._tempdir = TemporaryDirectory(prefix=self._directory_prefix)
-        self.butler_dir = self._tempdir.name
-        self._refcat_filename = os.path.join(self.butler_dir, "refcat_raw", "refcat_raw.csv")
-        self._initialise()
-        return self
+        self._tempdir = TemporaryDirectory(prefix=self._prefix)
+        return ButlerRepository(self._tempdir.name, *self._args, **self._kwargs)
 
     def __exit__(self, *args, **kwargs):
-        """Close temporary directory."""
-        self._butlers = {}
         self._tempdir.cleanup()
-        self.butler_dir = None
-        self._refcat_filename = None
-
-    @property
-    def calib_dir(self):
-        if self.butler_dir is None:
-            return None
-        return os.path.join(self.butler_dir, "CALIB")
+        self._tempdir = None

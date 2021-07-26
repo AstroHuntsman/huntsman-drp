@@ -21,7 +21,7 @@ from abc import ABC, abstractmethod
 from panoptes.utils.time import CountdownTimer
 
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
+from huntsman.drp.collection import ExposureCollection, CalibCollection
 
 
 def _wrap_process_func(i, func):
@@ -93,9 +93,9 @@ def _init_pool(function, config, in_queue, out_queue, stp_queue):
     output_queue = out_queue
     stop_queue = stp_queue
 
-    exposure_collection = RawExposureCollection(config=config)
+    exposure_collection = ExposureCollection(config=config)
 
-    calib_collection = MasterCalibCollection(config=config)
+    calib_collection = CalibCollection(config=config)
 
 
 class ProcessQueue(HuntsmanBase, ABC):
@@ -123,10 +123,10 @@ class ProcessQueue(HuntsmanBase, ABC):
 
         # Setup the exposure collections
         if exposure_collection is None:
-            exposure_collection = RawExposureCollection(config=self.config, logger=self.logger)
+            exposure_collection = ExposureCollection(config=self.config, logger=self.logger)
 
         # Setup the collections
-        self.exposure_collection = RawExposureCollection(config=self.config, logger=self.logger)
+        self.exposure_collection = ExposureCollection(config=self.config, logger=self.logger)
 
         # Sleep intervals
         self._queue_interval = queue_interval

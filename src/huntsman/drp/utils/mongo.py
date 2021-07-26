@@ -12,16 +12,6 @@ MONGO_ENCODINGS = {np.bool_: bool,
                    np.int32: int,
                    np.int64: int}
 
-# These are responsible for converting string keys into equivalent mongoDB operators
-MONGO_OPERATORS = {"equal": "$eq",
-                   "not_equal": "$ne",
-                   "greater_than": "$gt",
-                   "greater_than_equal": "$gte",
-                   "less_than": "$lt",
-                   "less_than_equal": "$lte",
-                   "in": "$in",
-                   "not_in": "$nin"}
-
 
 def flatten_dict(d, **kwargs):
     """ Flatten a nested dictionary, for example to dot notation.
@@ -118,23 +108,22 @@ def encode_mongo_filter(document_filter):
 
         encoded_value = encode_mongo_document(constraint)
 
-        # Extract the key, operator pair from the flattened key
+        # Check if a mongo operator was specified
         split = k.split(".")
-        try:
-            operator = MONGO_OPERATORS[split[-1]]
-        except KeyError:
+        if split[-1].startswith("$"):
+            operator = split[-1]
+            key = ".".join(split[:-1])
+            mongo_query[key][operator] = encoded_value
+        # If no operator specified, use direct equality
+        else:
             mongo_query[k] = encoded_value
             continue
-
-        # Add the constraint to the constraint dict for this key
-        key = ".".join(split[:-1])
-        mongo_query[key][operator] = encoded_value
 
     return dict(mongo_query)
 
 
 def mongo_logical_or(document_filters):
-    """
+    """ Combine document filters with logical or operation.
     """
     if not any(document_filters):
         return None
@@ -142,7 +131,7 @@ def mongo_logical_or(document_filters):
 
 
 def mongo_logical_and(document_filters):
-    """
+    """ Combine document filters with logical and operation.
     """
     if not any(document_filters):
         return None

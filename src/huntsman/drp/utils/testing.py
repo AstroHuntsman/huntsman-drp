@@ -9,10 +9,9 @@ from astropy import units as u
 from huntsman.drp.core import get_config
 from huntsman.drp.lsst.butler import ButlerRepository, TemporaryButlerRepository
 from huntsman.drp.base import HuntsmanBase
-from huntsman.drp.utils.date import parse_date
-from huntsman.drp.collection import RawExposureCollection, MasterCalibCollection
-from huntsman.drp.services.ingestor import ingest_file
-from huntsman.drp.lsst.utils.calib import get_calib_filename
+from huntsman.drp.utils.date import parse_date, current_date_ymd
+from huntsman.drp.collection import ExposureCollection, CalibCollection
+from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
 
 
 EXPTIME_BIAS = 1E-32  # Minimum exposure time for ZWO cameras is > 0
@@ -72,7 +71,7 @@ def create_test_bulter_repository(directory, config=None, with_calibs=False, **k
     filenames = get_testdata_fits_filenames(config=config)
 
     # Ingest test data into butler repository
-    br.ingest_raw_data(filenames)
+    br.ingest_raw_files(filenames)
 
     # Ingest the refcat
     refcat_filename = get_refcat_filename(config)
@@ -84,31 +83,33 @@ def create_test_bulter_repository(directory, config=None, with_calibs=False, **k
         for datasetType in config["calibs"]["types"]:
             dir = os.path.join(rootdir, datasetType)
             filenames = [y for x in os.walk(dir) for y in glob(os.path.join(x[0], '*.fits'))]
-            br.ingest_master_calibs(datasetType, filenames)
+            br.ingest_calibs(datasetType, filenames)
 
     return br
 
 
 def create_test_exposure_collection(config=None, clear=True):
-    """ Ingest real testing images into a RawExposureCollection
+    """ Ingest real testing images into a ExposureCollection
     """
     if config is None:
         config = get_config(testing=True)
 
     filenames = get_testdata_fits_filenames(config)
 
-    exposure_collection = RawExposureCollection(config=config)
+    exposure_collection = ExposureCollection(config=config)
     if clear:
         exposure_collection.delete_all(really=True)
         assert not exposure_collection.find()
 
     # Make and start FileIngestor object
     for filename in filenames:
-        ingest_file(filename, config=config)
+        exposure_collection.ingest_file(filename)
+
+    doc_filter = {METRIC_SUCCESS_FLAG: True}
 
     assert len(exposure_collection.find()) == len(filenames)
     assert set(exposure_collection.find(key="filename")) == set(filenames)
-    assert len(exposure_collection.find(screen=True)) == len(filenames)
+    assert len(exposure_collection.find(doc_filter)) == len(filenames)
     assert all(["metrics" in d for d in exposure_collection.find()])
 
     return exposure_collection
@@ -116,14 +117,18 @@ def create_test_exposure_collection(config=None, clear=True):
 
 def create_test_calib_collection(config=None):
     """ Make a calib collection out of ready-made master calibs. """
+
     if config is None:
         config = get_config()
 
-    calib_collection = MasterCalibCollection(config=config, collection_name="calib-test")
+    calib_collection = CalibCollection(config=config, collection_name="calib-test")
     calib_collection.delete_all(really=True)
     assert not calib_collection.find()
 
     rootdir = os.path.join(config["directories"]["root"], "tests", "data", "calib")
+
+    # Use arbitary calib date
+    calib_date = current_date_ymd()
 
     # Use a butler instance to ingest master calibs and get metadata
     calibIds = []
@@ -136,17 +141,19 @@ def create_test_calib_collection(config=None):
             fnames = [y for x in os.walk(dir) for y in glob(os.path.join(x[0], '*.fits'))]
 
             # Ingest calibs
-            br.ingest_master_calibs(datasetType, fnames)
+            br.ingest_calibs(datasetType, fnames)
 
-            # Get the calibIds
-            mds = br.get_dataIds(datasetType)
-            for md in mds:
-                md["datasetType"] = datasetType
-            calibIds.extend(mds)
+            # Get the calib dataIds
+            dataIds = br.get_dataIds(datasetType)
 
             # Get the corresponding ordered filenames
-            fnames = [get_calib_filename(_, config=config, directory=br.calib_dir) for _ in mds]
+            fnames = [br.get_filenames(datasetType, dataId=_)[0] for _ in dataIds]
             filenames.extend(fnames)
+
+            for dataId in dataIds:
+                dataId["datasetType"] = datasetType
+                dataId["date"] = calib_date  # Arbitary
+                calibIds.append(dataId)
 
         # Archive the files
         for filename, calibId in zip(filenames, calibIds):
@@ -159,7 +166,7 @@ def create_test_calib_collection(config=None):
 # Fake test data
 
 
-def make_hdu(data, date, cam_name, exposure_time, field, image_type, ccd_temp=0, filter="Blank",
+def make_hdu(data, date, cam_name, exposure_time, field, image_type, ccd_temp=0, filter="blank",
              imageId="TestImageId", ra=10, dec=-20, airmass=1, pixel_size=1):
     """Make a HDU with a minimal header for DRP to function."""
     hdu = fits.PrimaryHDU(data)
@@ -179,6 +186,9 @@ def make_hdu(data, date, cam_name, exposure_time, field, image_type, ccd_temp=0,
     hdu.header["CD1_2"] = 0
     hdu.header["CD2_1"] = 0
     hdu.header["BITDEPTH"] = 12
+    hdu.header["LAT-OBS"] = -31.16
+    hdu.header["LONG-OBS"] = 149.13
+    hdu.header["ELEV-OBS"] = 1160
     return hdu
 
 

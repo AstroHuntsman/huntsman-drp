@@ -1,17 +1,29 @@
 type: huntsman.drp.reduction.lsst.LsstReduction
 name: example-reduction
 
+# Define the query which is used to get raw science docs from the DB
+# The fields correspond to kwargs in Collection.find
 query:
   document_filter:
-    dataType: science
-    field: DoradoGroup-p0p0
-    filter:
-      in:
+    observation_type: science
+    object: DoradoGroup-p0p0
+    physical_filter:
+      "$in":
         - g_band
-  screen: true
   quality_filter: true
   limit: 1
 
-calexp_kwargs:
-  extra_config:
-    charImage.background.algorithm: CONSTANT
+# Define the LSST pipeline used to make calibrated exposures
+# Examples can be found here: https://github.com/lsst/ap_pipe
+pipeline:
+  description: "Calibrate raw exposures and make coadds"
+  tasks:
+  # Import default processCcd pipeline
+  # More info here: https://github.com/lsst/pipe_base
+  imports:
+   - location: ${OBS_HUNTSMAN}/pipelines/ProcessCcd.yaml
+  tasks:
+    makeWarp:
+      class: lsst.pipe.tasks.makeCoaddTempExp.MakeWarpTask
+    assembleCoadd:
+      class: lsst.pipe.tasks.assembleCoadd.AssembleCoaddTask

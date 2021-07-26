@@ -3,9 +3,9 @@ import copy
 from datetime import timedelta
 import numpy as np
 
+from huntsman.drp.collection import ExposureCollection
 from huntsman.drp.utils.date import current_date, parse_date
-from huntsman.drp.fitsutil import FitsHeaderTranslator, read_fits_header
-from huntsman.drp.collection import RawExposureCollection
+from huntsman.drp.utils.fits import read_fits_header, parse_fits_header
 
 from pymongo.errors import ServerSelectionTimeoutError, DuplicateKeyError
 
@@ -15,31 +15,33 @@ def test_mongodb_wrong_host_name(config):
     modified_config = copy.deepcopy(config)
     modified_config["mongodb"]["hostname"] = "nonExistantHostName"
     with pytest.raises(ServerSelectionTimeoutError):
-        RawExposureCollection(config=modified_config)
+        ExposureCollection(config=modified_config)
 
 
 def test_datatable_query_by_date(exposure_collection, config):
-    """ """
-    fits_header_translator = FitsHeaderTranslator(config=config)
+    """ Test ability to query using datetime ranges. """
 
     # Get list of all dates in the database
-    dates = [d["dateObs"] for d in exposure_collection.find()]
+    dates = [d["date"] for d in exposure_collection.find()]
     n_files = len(dates)
 
     dates_unique = np.unique(dates)  # Sorted array of unique dates
     date_max = dates_unique[-1]
-    for date_min in dates_unique[:-1]:
+
+    for date_min in dates_unique[:-1][:3]:
+
         # Get filenames between dates
         filenames = exposure_collection.find(key="filename", date_min=date_min,
                                              date_max=date_max)
         assert len(filenames) <= n_files  # This holds because we sorted the dates
-        n_files = len(filenames)
+
         for filename in filenames:
-            # Assert date is within expected range
             header = read_fits_header(filename)
-            date = parse_date(fits_header_translator.translate_dateObs(header))
+            date = parse_fits_header(header)["date"]
             assert date >= parse_date(date_min)
             assert date < parse_date(date_max)
+
+        n_files = len(filenames)
 
 
 def test_query_latest(exposure_collection, config, tol=1):
@@ -93,7 +95,7 @@ def test_update_file_data_bad_filename(exposure_collection):
 def test_quality_filter(exposure_collection):
     """
     """
-    document_filter = {"dataType": "dark"}
+    document_filter = {"observation_type": "dark"}
     documents = exposure_collection.find(document_filter)
     n_docs = len(documents)
 
@@ -102,20 +104,20 @@ def test_quality_filter(exposure_collection):
     for i, d in enumerate(documents[::-1]):
         exposure_collection.update_one(d, {"TEST_METRIC_2": i})
 
-    exposure_collection.config["quality"]["raw"]["dark"] = {"TEST_METRIC_1": {"less_than": 1}}
+    exposure_collection.config["quality"]["raw"]["dark"] = {"TEST_METRIC_1": {"$lt": 1}}
     matches = exposure_collection.find(document_filter, quality_filter=True)
     assert len(matches) == 1
 
-    exposure_collection.config["quality"]["raw"]["dark"] = {"TEST_METRIC_1": {"less_than": 2}}
+    exposure_collection.config["quality"]["raw"]["dark"] = {"TEST_METRIC_1": {"$lt": 2}}
     matches = exposure_collection.find(document_filter, quality_filter=True)
     assert len(matches) == 2
 
-    cond = {"TEST_METRIC_1": {"less_than": 1}, "TEST_METRIC_2": {"greater_than": n_docs - 2}}
+    cond = {"TEST_METRIC_1": {"$lt": 1}, "TEST_METRIC_2": {"$gt": n_docs - 2}}
     exposure_collection.config["quality"]["raw"]["dark"] = cond
     matches = exposure_collection.find(document_filter, quality_filter=True)
     assert len(matches) == 1
 
-    cond = {"TEST_METRIC_1": {"less_than": 1}, "TEST_METRIC_2": {"less_than": 1}}
+    cond = {"TEST_METRIC_1": {"$lt": 1}, "TEST_METRIC_2": {"$lt": 1}}
     exposure_collection.config["quality"]["raw"]["dark"] = cond
     matches = exposure_collection.find(document_filter, quality_filter=True)
     assert len(matches) == 0

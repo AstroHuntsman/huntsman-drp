@@ -1,7 +1,7 @@
 import os
 
 METRICS = "clipped_stats", "flipped_asymmetry"  # TODO: Refactor!
-METRIC_SUCCESS_FLAG = "screen_success"
+METRIC_SUCCESS_FLAG = "RAW_METRIC_SUCCESS"
 
 
 def screen_success(document):
@@ -11,8 +11,8 @@ def screen_success(document):
     Returns:
         bool: True if success, else False.
     """
-    return bool(document.get(f"metrics.{METRIC_SUCCESS_FLAG}", False))
-    
+    return bool(document.get(METRIC_SUCCESS_FLAG, False))
+
 
 def list_fits_files_recursive(directory):
     """Returns list of all files contained within a top level directory, including files

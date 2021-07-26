@@ -14,14 +14,11 @@ def ingestor(tempdir_and_exposure_collection_with_uningested_files, config):
 
     # Make sure the ingestor uses the correct collection
     raw_name = exposure_collection.collection_name
-    config["mongodb"]["collections"]["RawExposureCollection"]["name"] = raw_name
+    config["mongodb"]["collections"]["ExposureCollection"]["name"] = raw_name
 
     tempdir, exposure_collection = tempdir_and_exposure_collection_with_uningested_files
 
     ingestor = FileIngestor(queue_interval=10, status_interval=5, directory=tempdir, config=config)
-
-    # Skip astrometry tasks as tests running in drp-lsst container
-    ingestor._raw_metrics = [_ for _ in ingestor._raw_metrics if _ != "get_wcs"]
 
     yield ingestor
 
@@ -62,7 +59,7 @@ def test_file_ingestor(ingestor, tempdir_and_exposure_collection_with_uningested
 
     for md in exposure_collection.find():
         ingestor.logger.info(f"{md}")
-        assert md.get(f"metrics.{METRIC_SUCCESS_FLAG}", False)
+        assert md.get(METRIC_SUCCESS_FLAG, False)
         assert screen_success(md)
 
     for metric_value in md["metrics"].values():

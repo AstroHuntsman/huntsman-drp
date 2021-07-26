@@ -192,6 +192,12 @@ class RefcatClient(HuntsmanBase):
         uri = ns.name_server.lookup(pyro_name)
         self._proxy = Proxy(uri)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self._proxy._pyroRelease()
+
     def make_reference_catalogue(self, *args, **kwargs):
         """ Thread-safe implementation of refcat query.
         Args:
@@ -218,12 +224,12 @@ class RefcatClient(HuntsmanBase):
     def make_from_documents(self, documents, **kwargs):
         """ Convenience function to make a reference catalogue from a list of documents.
         Args:
-            documents (list of RawExposureDocument): The raw exposure documents.
+            documents (list of ExposureDocument): The raw exposure documents.
             **kwargs: Parsed to self.make_reference_catalogue.
         Returns:
             pd.DataFrame: The reference catalogue.
         """
-        coords = [d.get_central_skycoord() for d in documents if d["dataType"] == "science"]
+        coords = [d.get_central_skycoord() for d in documents if d["observation_type"] == "science"]
         return self.make_reference_catalogue(coords=coords, **kwargs)
 
 

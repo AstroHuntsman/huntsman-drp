@@ -3,7 +3,7 @@
 import argparse
 from contextlib import suppress
 
-from huntsman.drp.collection import RawExposureCollection
+from huntsman.drp.collection import ExposureCollection
 
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
 from huntsman.drp.services.calexp import CALEXP_METRIC_TRIGGER
@@ -19,15 +19,15 @@ if __name__ == "__main__":
                         help="If provided, update calexp metrics instead of raw metrics.")
     args = parser.parse_args()
 
-    raw = RawExposureCollection()
+    raw = ExposureCollection()
 
     if args.calexp:
-        document_filter = {"dataType": "science"}
+        document_filter = {"observation_type": "science"}
         update = UPDATE_CALEXP
     else:
         document_filter = {}
         update = UPDATE_RAW
 
-    for doc in raw.find(document_filter, screen=False, quality_filter=False):
+    for doc in raw.find(document_filter):
         with suppress(KeyError):
             raw.update_one(doc, update)

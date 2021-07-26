@@ -3,8 +3,7 @@ import time
 from copy import deepcopy
 
 from huntsman.drp.core import get_config
-from huntsman.drp.fitsutil import FitsHeaderTranslator
-from huntsman.drp.collection import RawExposureCollection
+from huntsman.drp.collection import ExposureCollection
 from huntsman.drp import refcat as rc
 from huntsman.drp.utils import testing
 
@@ -69,25 +68,18 @@ def exposure_collection(tmp_path_factory, config):
     Create a temporary directory populated with fake FITS images, then parse the images into the
     raw data table.
     """
-    fits_header_translator = FitsHeaderTranslator(config=config)
-
     # Generate the fake data
     tempdir = tmp_path_factory.mktemp("test_exposure_sequence")
     expseq = testing.FakeExposureSequence(config=config)
     expseq.generate_fake_data(directory=tempdir)
 
-    # Populate the database
-    exposure_collection = RawExposureCollection(config=config, collection_name="fake_data")
+    # Prepare the database
+    exposure_collection = ExposureCollection(config=config, collection_name="fake_data")
     exposure_collection.delete_all(really=True)
 
+    # Ingest the data into the collection
     for filename, header in expseq.header_dict.items():
-
-        # Parse the header
-        parsed_header = fits_header_translator.parse_header(header)
-        parsed_header["filename"] = filename
-
-        # Insert the parsed header into the DB table
-        exposure_collection.insert_one(parsed_header)
+        exposure_collection.ingest_file(filename=filename)
 
     # Make sure table has the correct number of rows
     assert exposure_collection.count_documents() == expseq.file_count
@@ -135,8 +127,6 @@ def tempdir_and_exposure_collection_with_uningested_files(tmp_path_factory, conf
     Create a temporary directory populated with fake FITS images, then parse the images into the
     raw data table.
     """
-    fits_header_translator = FitsHeaderTranslator(config=config)
-
     # Clear the exposure collection of any existing documents
     exposure_collection.delete_all(really=True)
 
@@ -151,14 +141,8 @@ def tempdir_and_exposure_collection_with_uningested_files(tmp_path_factory, conf
     for filename, header in expseq.header_dict.items():
         if n >= n_stop:
             break
+        exposure_collection.ingest_file(filename=filename)
         n += 1
-
-        # Parse the header
-        parsed_header = fits_header_translator.parse_header(header)
-        parsed_header["filename"] = filename
-
-        # Insert the parsed header into the DB table
-        exposure_collection.insert_one(parsed_header)
 
     # Make sure table has the correct number of rows
     assert exposure_collection.count_documents() == n_stop

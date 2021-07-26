@@ -1,58 +1,62 @@
-from lsst.daf.persistence.policy import Policy
+from lsst.daf.butler import DatasetRef, FileDataset, CollectionType
+
+from huntsman.drp.utils.fits import read_fits_header, parse_fits_header
 
 
-def load_policy():
-    """ Load the LSST policy.
-    Returns:
-        lsst.daf.persistence.policy.Policy: The policy object.
-    """
-    policy_filename = Policy.defaultPolicyFile("obs_huntsman", "HuntsmanMapper.yaml",
-                                               relativePath="policy")
-    return Policy(policy_filename)
-
-
-def get_filename_template(datasetType):
-    """ Get the filename template for a specific datatype.
+def get_dataId_from_header(filename, required_keys):
+    """ Attempt to get the dataId from its FITS header.
+    NOTE: This is a temporary solution for ingesting master calibs.
     Args:
-        datasetType (str):
-            The dataset type as specified in the policy file. e.g. `exposures.raw`
-            or `calibrations.flat`.
+        filename (str): The filename.
+        required_keys (iterable of str): The keys to extract.
     Returns:
-        str: The filename template.
+        dict: The dataId.
     """
-    policy = load_policy()
-    policy_key = datasetType + ".template"
-
-    template = policy[policy_key]
-    if template is None:
-        raise KeyError(f"Template not found for {datasetType}.")
-
-    return template
+    parsed_header = parse_fits_header(read_fits_header(filename))
+    return {k: parsed_header[k] for k in required_keys}
 
 
-def calibId_to_dataIds(datasetType, calibId, butler):
-    """ Get ingested dataIds that match a calibId of a given datasetType.
+def makeFileDataset(datasetType, dataId, filename):
+    """ Make a new FileDataset.
     Args:
-        datasetType (str): The calib type, e.g. flat, bias.
-        CalibId (dict): The calibId.
-        butler (lsst.daf.persistence.butler.Butler): The butler object.
+        datasetType (lsst.daf.butler.DatasetType): The DatasetType object.
+        dataId (dict): The dataId.
+        filename (str): The filename.
     Returns:
-        list of dict: A list of matching dataIds.
+        lsst.daf.butler.FileDataset: The FileDataset object.
     """
-    raw_keys = list(butler.getKeys("raw"))
-    calib_keys = list(butler.getKeys(datasetType))
+    datasetRef = DatasetRef(datasetType, dataId)
+    return FileDataset(path=filename, refs=datasetRef)
 
-    # Use these keys to match calibIds to dataIds
-    matching_keys = [k for k in raw_keys if k in calib_keys]
 
-    # Get all dataIds inside the butler repo of the correct dataType
-    values = butler.queryMetadata("raw", format=raw_keys, dataId={"dataType": datasetType})
-    dataIds_all = [{k: v for k, v in zip(raw_keys, vals)} for vals in values]
+def ingest_datasets(butler, datasetType, datasets, collection, transfer="copy"):
+    """ Ingest datasets into a Gen3 butler repository collection.
+    Args:
+        datasetType (lsst.daf.butler.DatasetType): The refcat datasetType.
+        datasets (list of lsst.daf.butler.FileDataset): The refcat datasets.
+        collection (str): The collection to ingest into.
+        transfer (str): The transfer mode. Default: "copy".
+    """
+    # Register collection
+    butler.registry.registerCollection(collection, type=CollectionType.RUN)
 
-    # Get matching dataIds
-    dataIds = []
-    for dataId in dataIds_all:
-        if all([dataId[k] == calibId[k] for k in matching_keys]):
-            dataIds.append(dataId)
+    # Ingest datasets
+    butler.ingest(*datasets, transfer=transfer, run=collection)
 
-    return dataIds
+
+def ingest_calibs(butler, datasetTypeName, filenames, collection, dimension_names, **kwargs):
+    """ Ingest master calibs into a Butler collection.
+    Args:
+        butler (lsst.daf.butler.Butler): The butler object.
+        filenames (list of str): The files to ingest.
+        collection (str): The collection to ingest into.
+        **kwargs: Parsed to ingest_datasets.
+    """
+    datasetType = butler.registry.getDatasetType(datasetTypeName)
+
+    datasets = []
+    for filename in filenames:
+        dataId = get_dataId_from_header(filename, required_keys=dimension_names)
+        datasets.append(makeFileDataset(datasetType, dataId=dataId, filename=filename))
+
+    ingest_datasets(butler, datasetType, datasets, collection, **kwargs)
