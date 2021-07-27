@@ -1,3 +1,5 @@
+from contextlib import suppress
+
 from astropy.io import fits
 from astro_metadata_translator import ObservationInfo
 
@@ -40,10 +42,12 @@ def parse_fits_header(header, **kwargs):
     md = ObservationInfo(header, translator_class=HuntsmanTranslator, **kwargs).to_simple()
 
     # Extract simplified AltAz
-    md["alt"], md["az"] = md.pop("altaz_begin")
+    with suppress(KeyError):
+        md["alt"], md["az"] = md.pop("altaz_begin")
 
     # Extract simplified RaDec
-    md["ra"], md["dec"] = md.pop("tracking_radec")
+    with suppress(KeyError):
+        md["ra"], md["dec"] = md.pop("tracking_radec")
 
     # Remove other keys that cannot be stored in mongo DB
     for key in md.keys():
@@ -55,6 +59,7 @@ def parse_fits_header(header, **kwargs):
     md["visit"] = md["visit_id"]
 
     # Add generic date field
-    md["date"] = parse_date(header["DATE-OBS"])
+    with suppress(KeyError):
+        md["date"] = parse_date(header["DATE-OBS"])
 
     return md

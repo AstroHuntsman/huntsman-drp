@@ -52,12 +52,14 @@ def test_make_master_calibs(exposure_collection, config):
     calib_docs = set([exposure_collection.raw_doc_to_calib_doc(d, calib_date) for d in docs])
 
     with TemporaryButlerRepository(config=config) as br:
+
         br.ingest_raw_files([d["filename"] for d in docs])
 
-        # for datasetType in config["calibs"]["types"]:  # TODO: Use when defects implemented
-        for datasetType in ("bias", "dark", "flat"):
+        for datasetType in config["calibs"]["types"]:
 
-            n_expected = len([d for d in calib_docs if d["datasetType"] == datasetType])
+            # Defects are made from raw darks
+            datasetType2 = "dark" if datasetType == "defects" else datasetType
+            n_expected = len([d for d in calib_docs if d["datasetType"] == datasetType2])
             assert n_expected > 0
 
             # Make the calibs

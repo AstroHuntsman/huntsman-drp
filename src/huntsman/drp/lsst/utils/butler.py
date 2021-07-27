@@ -1,3 +1,4 @@
+from contextlib import suppress
 from lsst.daf.butler import DatasetRef, FileDataset, CollectionType
 
 from huntsman.drp.utils.fits import read_fits_header, parse_fits_header
@@ -12,8 +13,24 @@ def get_dataId_from_header(filename, required_keys):
     Returns:
         dict: The dataId.
     """
-    parsed_header = parse_fits_header(read_fits_header(filename))
-    return {k: parsed_header[k] for k in required_keys}
+    # Attempt to read the dataId by parsing the FITS header
+    with suppress(KeyError):
+        parsed_header = parse_fits_header(read_fits_header(filename))
+        return {k: parsed_header[k] for k in required_keys}
+
+    # Attempt to read the dataId from the CALIB_ID keyword
+    i = 0
+    while True:
+        try:
+            header = read_fits_header(filename, ext=i)
+            if "CALIB_ID" in header:
+                calibId = {x[0]: x[1] for x in [y.split("=") for y in header["CALIB_ID"].split()]}
+                return {k: calibId[k] for k in required_keys}
+        except IndexError:
+            break
+        i += 1
+
+    raise RuntimeError(f"Unable to determine dataId for calib: {filename}.")
 
 
 def makeFileDataset(datasetType, dataId, filename):

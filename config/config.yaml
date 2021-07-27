@@ -44,8 +44,8 @@ collections:
 calibs:
   types:  # In order of creation
     - bias
+    - defects
     - dark
-    # - defects
     - flat
   validity: 30
   # These columns are for matching raw calibs with raw science frames

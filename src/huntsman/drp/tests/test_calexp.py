@@ -19,7 +19,7 @@ def test_calexp_quality_monitor(exposure_collection_real_data, master_calib_coll
     m.start()
 
     i = 0
-    timeout = 180
+    timeout = 240
     try:
         while (i < timeout) and (m.status["processed"] != n_to_process) and m.is_running:
             i += 1

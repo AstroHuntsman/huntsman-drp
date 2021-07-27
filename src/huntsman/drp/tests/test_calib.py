@@ -78,6 +78,7 @@ def test_master_calib_service(calib_service, config):
     n_flats = n_calib_dates * n_filters * n_cameras
     n_bias = n_calib_dates * n_cameras
     n_dark = n_calib_dates * n_cameras
+    n_defect = n_dark
 
     calib_collection = calib_service.calib_collection
     assert not calib_collection.find()  # Check calib table is empty
@@ -86,7 +87,7 @@ def test_master_calib_service(calib_service, config):
     calib_service.start()
     assert calib_service.is_running
 
-    timer = CountdownTimer(duration=100)
+    timer = CountdownTimer(duration=120)
     while not timer.expired():
         calib_service.logger.debug("Waiting for calibs...")
 
@@ -96,7 +97,8 @@ def test_master_calib_service(calib_service, config):
         if len([d for d in dataset_types if d == "flat"]) == n_flats:
             if len([d for d in dataset_types if d == "bias"]) == n_bias:
                 if len([d for d in dataset_types if d == "dark"]) == n_dark:
-                    break
+                    if len([d for d in dataset_types if d == "defects"]) == n_defect:
+                        break
 
         for filename in calib_collection.find(key="filename"):
             assert os.path.isfile(filename)

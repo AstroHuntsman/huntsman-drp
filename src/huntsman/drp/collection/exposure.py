@@ -104,14 +104,15 @@ class ExposureCollection(Collection):
         """
         self.logger.debug(f"Finding raw calibs for {calib_document}.")
 
-        # Make the document filter
         dataset_type = calib_document["datasetType"]
-        matching_keys = self.config["calibs"]["required_fields"][dataset_type]
 
+        # Make the document filter
+        matching_keys = self.config["calibs"]["required_fields"][dataset_type]
         doc_filter = {k: calib_document[k] for k in matching_keys}
 
         # Add observation_type to doc filter
-        doc_filter["observation_type"] = dataset_type
+        # NOTE: Defects are made from dark exposures
+        doc_filter["observation_type"] = "dark" if dataset_type == "defects" else dataset_type
 
         # Do the query
         documents = self.find(doc_filter, **kwargs)
@@ -148,6 +149,16 @@ class ExposureCollection(Collection):
         # Extract the calib docs from the set of exposure docs
         calib_docs = set([self.raw_doc_to_calib_doc(d, date=date) for d in documents])
         self.logger.debug(f"Found {len(calib_docs)} possible calib documents.")
+
+        # Get defects docs by copying darks
+        # NOTE: This assumes a one-to-one correspondence between darks and defects
+        defects_docs = []
+        for doc in calib_docs:
+            if doc["datasetType"] == "dark":
+                doc = doc.copy()
+                doc["datasetType"] = "defects"
+                defects_docs.append(doc)
+        calib_docs.update(defects_docs)
 
         return calib_docs
 
