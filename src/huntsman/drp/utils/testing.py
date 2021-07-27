@@ -125,7 +125,7 @@ def create_test_calib_collection(config=None):
     calib_collection.delete_all(really=True)
     assert not calib_collection.find()
 
-    rootdir = os.path.join(config["directories"]["root"], "tests", "data", "calib")
+    calibdir = os.path.join(config["directories"]["root"], "tests", "data", "calib")
 
     # Use arbitary calib date
     calib_date = current_date_ymd()
@@ -137,8 +137,8 @@ def create_test_calib_collection(config=None):
 
         for datasetType in config["calibs"]["types"]:
 
-            dir = os.path.join(rootdir, datasetType)
-            fnames = [y for x in os.walk(dir) for y in glob(os.path.join(x[0], '*.fits'))]
+            globstr = f'*/{datasetType}/*.fits'
+            fnames = [y for x in os.walk(calibdir) for y in glob(os.path.join(x[0], globstr))]
 
             # Ingest calibs
             br.ingest_calibs(datasetType, fnames)

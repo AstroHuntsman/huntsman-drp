@@ -155,10 +155,13 @@ class ButlerRepository(HuntsmanBase):
             dataIds.append(dataId)
         return dataIds
 
-    def ingest_raw_files(self, filenames, transfer="symlink", define_visits=False, **kwargs):
+    def ingest_raw_files(self, filenames, transfer="symlink", define_visits=False,
+                         skip_existing=True, **kwargs):
         """ Ingest raw files into the Butler repository.
         Args:
             filenames (iterable of str): The list of raw data filenames.
+            skip_existing (bool, optional): If True (default), do not attempt to ingest exposures
+                that are already present. Else, an error is raised.
             **kwargs: Parsed to self.get_butler.
         """
         filenames = set([os.path.abspath(os.path.realpath(_)) for _ in filenames])
@@ -170,7 +173,7 @@ class ButlerRepository(HuntsmanBase):
         task = self._make_task(RawIngestTask,
                                butler=butler,
                                config_overrides={"transfer": transfer})
-        task.run(filenames)
+        task.run(filenames, skip_existing_exposures=skip_existing)
 
         if define_visits:
             self.define_visits()
@@ -262,7 +265,12 @@ class ButlerRepository(HuntsmanBase):
         """
         # If dataIds not provided, make calib using all ingested dataIds of the correct type
         if dataIds is None:
-            dataIds = self.get_dataIds("raw", where=f"exposure.observation_type='{datasetType}'")
+            # Defects are made from darks
+            if datasetType == "defects":
+                dataIds = self.get_dataIds("raw", where="exposure.observation_type='dark'")
+            else:
+                dataIds = self.get_dataIds(
+                        "raw", where=f"exposure.observation_type='{datasetType}'")
 
         self.logger.info(f"Making master {datasetType}(s) from {len(dataIds)} dataIds.")
 
@@ -368,12 +376,18 @@ class ButlerRepository(HuntsmanBase):
         self._register_calib_datasetTypes(butler)
 
     def _register_calib_datasetTypes(self, butler):
-        """ Register calib dataset types with the repository. """
+        """ Register calib dataset types with the repository.
+        This is necessary because we want to ingest master calibs into new butler repositories,
+        where datasetTypes may not already be defined.
+        """
         universe = butler.registry.dimensions
 
         for dataset_type, dimension_names in self.config["calibs"]["required_fields"].items():
+            storageClass = "Defects" if dataset_type == "defects" else "ExposureF"
+            # Create DatasetType instance
             datasetType = DatasetType(dataset_type, dimensions=dimension_names, universe=universe,
-                                      storageClass="ExposureF", isCalibration=True)
+                                      storageClass=storageClass, isCalibration=True)
+            # Register datasetType with Butler registry
             butler.registry.registerDatasetType(datasetType)
 
     def _get_datasetRefs(self, datasetType, collections=None, get_butler=False, **kwargs):
