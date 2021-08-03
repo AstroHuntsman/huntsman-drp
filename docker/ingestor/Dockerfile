@@ -20,19 +20,14 @@ RUN apt-get update -y && \
     # Create the conda env
     conda install numpy astropy ipython pymongo matplotlib pyyaml pandas && \
     # Install extra packages
-    pip install astroquery panoptes-utils astro_metadata_translator && \
+    pip install astroquery panoptes-utils && \
     # Downgrade coverage version to avoid pytest issues
     pip uninstall -y coverage && \
     pip install coverage==4.5.4 && \
     # Make huntsman directories
     mkdir -p "${HUNTSMAN_LOG_DIR}"
-
-# Install astro_metadata_translator from source
-# TODO: Cleanup
-RUN conda init bash && \
-    . ~/.bashrc && \
+    # Install astro_metadata_translator from source && \
     cd /home && \
-    pip uninstall -y astro_metadata_translator && \
     git clone https://github.com/lsst/astro_metadata_translator.git && \
     cd astro_metadata_translator && \
     pip install -e .
