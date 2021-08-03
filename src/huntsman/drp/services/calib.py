@@ -30,7 +30,7 @@ class CalibService(HuntsmanBase):
         """
         super().__init__(**kwargs)
 
-        self._ordered_calib_types = self.config["calibs"]["types"]
+        self.nproc = nproc
 
         # Set the validity, which determines the frquency that calibs are made
         self.validity = datetime.timedelta(days=validity)
@@ -40,7 +40,7 @@ class CalibService(HuntsmanBase):
         self.date_begin = parse_date(date_to_ymd(date_begin))
 
         # Private attributes
-        self._nproc = nproc
+        self._ordered_calib_types = self.config["calibs"]["types"]
         self._min_exps_per_calib = min_exps_per_calib
         self._max_exps_per_calib = max_exps_per_calib
 
@@ -169,7 +169,7 @@ class CalibService(HuntsmanBase):
                     # This does not make full use of LSST quantum graph processing but gives us more
                     # control.
                     self.logger.info(f"Constructing {calib_type} for {calib_doc}.")
-                    br.construct_calibs(calib_type, dataIds=dataIds, **kwargs)
+                    br.construct_calibs(calib_type, dataIds=dataIds, nproc=self.nproc, **kwargs)
 
                     # Use butler to get the calib filename
                     filename = br.get_filenames(calib_type, dataId=calibId)[0]
