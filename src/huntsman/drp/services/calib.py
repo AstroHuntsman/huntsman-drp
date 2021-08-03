@@ -9,6 +9,9 @@ from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.collection import ExposureCollection, CalibCollection
 
 
+__all__ = ("CalibService",)
+
+
 class CalibService(HuntsmanBase):
 
     def __init__(self, date_begin=None, validity=1, min_exps_per_calib=1,

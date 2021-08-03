@@ -170,10 +170,22 @@ class ButlerRepository(HuntsmanBase):
         kwargs.update({"writeable": True})
         butler = self.get_butler(run=self._raw_collection, **kwargs)
 
+        # Define callback for failed ingestion
+        def on_ingest_failure(rawExposureData, exception):
+            dataId = rawExposureData.dataId
+            self.logger.warning(f"Failure during butler ingestion: {dataId}: {exception!r}")
+
+        # Create the configured task instance
         task = self._make_task(RawIngestTask,
                                butler=butler,
-                               config_overrides={"transfer": transfer})
-        task.run(filenames, skip_existing_exposures=skip_existing)
+                               config_overrides={"transfer": transfer},
+                               on_ingest_failure=on_ingest_failure)
+
+        # Ingest the files. If there is an error on one file, other files will still be ingested
+        try:
+            task.run(filenames, skip_existing_exposures=skip_existing)
+        except RuntimeError as err:
+            self.logger.warning(f"{err}")
 
         if define_visits:
             self.define_visits()

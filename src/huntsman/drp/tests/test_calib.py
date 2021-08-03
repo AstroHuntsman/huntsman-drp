@@ -7,7 +7,7 @@ from panoptes.utils import error
 
 from huntsman.drp.utils.testing import FakeExposureSequence
 from huntsman.drp.collection import ExposureCollection, CalibCollection
-from huntsman.drp.utils.service import create_service
+from huntsman.drp.services import CalibService
 
 
 @pytest.fixture(scope="function")
@@ -29,7 +29,7 @@ def config(config):
 @pytest.fixture(scope="function")
 def empty_calib_collection(config):
     """ An empty master calib collection. """
-    col = CalibCollection(config=config)
+    col = CalibCollection.from_config(config)
     yield col
 
     col.delete_all(really=True)
@@ -62,7 +62,7 @@ def exposure_collection_lite(tmp_path_factory, config):
 
 @pytest.fixture(scope="function")
 def calib_service(config, exposure_collection_lite, empty_calib_collection):
-    calib_service = create_service("huntsman.drp.services.calib.CalibService", config=config)
+    calib_service = CalibService.from_config(config)
     yield calib_service
     calib_service.stop()
 

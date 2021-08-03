@@ -7,6 +7,8 @@ from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.refcat import RefcatClient
 from huntsman.drp.metrics.calexp import metric_evaluator
 
+__all__ = ("CalexpQualityMonitor",)
+
 # This is a boolean value that gets inserted into the DB
 # If it is True, the calexp will be queued for processing
 # This allows us to trigger re-processing without having to delete existing information
