@@ -25,7 +25,7 @@ RUN apt-get update -y && \
     pip uninstall -y coverage && \
     pip install coverage==4.5.4 && \
     # Make huntsman directories
-    mkdir -p "${HUNTSMAN_LOG_DIR}"
+    mkdir -p "${HUNTSMAN_LOG_DIR}" && \
     # Install astro_metadata_translator from source && \
     cd /home && \
     git clone https://github.com/lsst/astro_metadata_translator.git && \
