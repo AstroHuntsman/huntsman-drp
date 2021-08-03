@@ -7,7 +7,7 @@ from panoptes.utils import error
 
 from huntsman.drp.utils.testing import FakeExposureSequence
 from huntsman.drp.collection import ExposureCollection, CalibCollection
-from huntsman.drp.services.calib import CalibService
+from huntsman.drp.utils.service import create_service
 
 
 @pytest.fixture(scope="function")
@@ -22,8 +22,6 @@ def config(config):
 
     config["collections"]["ExposureCollection"]["name"] = "fake_data_lite"
     config["collections"]["CalibCollection"]["name"] = "calib_test"
-
-    config["calibs"]["validity"] = 9999
 
     return config
 
@@ -64,7 +62,7 @@ def exposure_collection_lite(tmp_path_factory, config):
 
 @pytest.fixture(scope="function")
 def calib_service(config, exposure_collection_lite, empty_calib_collection):
-    calib_service = CalibService(config=config)
+    calib_service = create_service("huntsman.drp.services.calib.CalibService", config=config)
     yield calib_service
     calib_service.stop()
 

@@ -8,7 +8,7 @@ import os
 import argparse
 
 from huntsman.drp.core import get_config, get_logger
-from huntsman.drp.utils import load_module
+from huntsman.drp.utils.service import create_service
 
 
 CONFIG = get_config()
@@ -16,7 +16,7 @@ LOGGER = get_logger()
 
 
 def set_niceness():
-    # Set niceness level
+    """ Set niceness level from config """
     niceness = CONFIG.get("niceness", None)
     LOGGER.info(f"Setting niceness to: {niceness}")
     if niceness:
@@ -24,6 +24,7 @@ def set_niceness():
 
 
 def wait_for_nameserver():
+    """ Wrapper to catch ImportError if Pyro is not installed. """
     try:
         from huntsman.drp.utils.pyro import wait_for_nameserver
         wait_for_nameserver(config=CONFIG, logger=LOGGER)
@@ -41,11 +42,6 @@ if __name__ == "__main__":
 
     wait_for_nameserver()
 
-    ServiceClass = load_module(args.service_type)
-
-    service_name = args.service_type.split(".")[-1]
-    service_kwargs = CONFIG.get(service_name, {})
-
-    service = ServiceClass(config=CONFIG, logger=LOGGER, **service_kwargs)
+    service = create_service(args.service_type, config=CONFIG, logger=LOGGER)
 
     service.start()
