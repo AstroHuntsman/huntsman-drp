@@ -11,8 +11,8 @@ from huntsman.drp.collection import ExposureCollection, CalibCollection
 
 class CalibService(HuntsmanBase):
 
-    def __init__(self, date_begin=None, validity=None, min_exps_per_calib=None,
-                 max_exps_per_calib=None, nproc=None, **kwargs):
+    def __init__(self, date_begin=None, validity=1, min_exps_per_calib=1,
+                 max_exps_per_calib=None, nproc=1, **kwargs):
         """
         Args:
             date_begin (datetime.datetime, optional): Make calibs for this date and after. If None
@@ -29,24 +29,16 @@ class CalibService(HuntsmanBase):
 
         self._ordered_calib_types = self.config["calibs"]["types"]
 
-        # Set the validity, which determines the date period for which calibs are valid
-        validity = self.config["calibs"].get("validity", 1) if validity is None else validity
+        # Set the validity, which determines the frquency that calibs are made
         self.validity = datetime.timedelta(days=validity)
 
+        # Set the start date for the calibs
         date_begin = current_date() - self.validity if date_begin is None else date_begin
-        # Strip off time info, just use ymd
         self.date_begin = parse_date(date_to_ymd(date_begin))
 
-        # Get calib maker config
-        config = self.config.get("calib_maker", {})
-        self._nproc = config.get("nproc", 1)
-
-        if min_exps_per_calib is None:
-            min_exps_per_calib = config.get("min_exps_per_calib", 1)
+        # Private attributes
+        self._nproc = nproc
         self._min_exps_per_calib = min_exps_per_calib
-
-        if max_exps_per_calib is None:
-            max_exps_per_calib = config.get("max_exps_per_calib", None)
         self._max_exps_per_calib = max_exps_per_calib
 
         # Create collection client objects

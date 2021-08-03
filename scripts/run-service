@@ -43,6 +43,9 @@ if __name__ == "__main__":
 
     ServiceClass = load_module(args.service_type)
 
-    service = ServiceClass(config=CONFIG, logger=LOGGER)
+    service_name = args.service_type.split(".")[-1]
+    service_kwargs = CONFIG.get(service_name, {})
+
+    service = ServiceClass(config=CONFIG, logger=LOGGER, **service_kwargs)
 
     service.start()
