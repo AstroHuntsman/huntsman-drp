@@ -190,9 +190,17 @@ class CalibService(HuntsmanBase):
                     dataIds = [br.document_to_dataId(d) for d in docs]
 
                     # Process calibs one by one
-                    # This does not make full use of LSST quantum graph but gives us more control.
+                    # This does not make full use of LSST quantum graph but gives us more control
                     self.logger.info(f"Constructing {calib_type} for {calib_doc}.")
-                    br.construct_calibs(calib_type, dataIds=dataIds, nproc=self.nproc, **kwargs)
+                    try:
+                        br.construct_calibs(calib_type, dataIds=dataIds, nproc=self.nproc, **kwargs)
+
+                    # Log error and continue making the other calibs
+                    # This may lead to further errors down the line but it is the best we can do
+                    except Exception as err:
+                        self.logger.error(
+                            f"Error while constructing {calib_type} for {calib_doc}: {err!r}")
+                        continue
 
                     # Use butler to get the calib filename
                     filename = br.get_filenames(calib_type, dataId=calibId)[0]
