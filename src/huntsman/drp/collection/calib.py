@@ -72,12 +72,22 @@ class CalibCollection(Collection):
                 dir.
             metadata (abc.Mapping): The calib metadata to be stored in the document.
         """
+        datasetType = metadata["datasetType"]
+
         # LSST calib filenames do not include calib date, so add as parent directory
         # Also store in subdirs of datasetType
-        subdir = os.path.join(date_to_ymd(metadata["date"]), metadata["datasetType"])
+        date_ymd = date_to_ymd(metadata["date"])
+        subdir = os.path.join(date_ymd, datasetType)
+
+        # Get ordered fields used to create archived filename
+        required_fields = sorted(self.config["calibs"]["required_fields"][datasetType])
 
         # Create the archive filename
-        basename = os.path.basename(filename)
+        ext = os.path.splitext(filename)[-1]
+        basename = datasetType + "_"
+        basename += "_".join([str(metadata[k]) for k in required_fields])
+        basename += "_" + date_ymd
+        basename += ext
         archive_filename = os.path.join(self.archive_dir, subdir, basename)
 
         # Copy the file into the calib archive, overwriting if necessary

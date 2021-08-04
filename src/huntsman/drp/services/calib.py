@@ -128,7 +128,7 @@ class CalibService(HuntsmanBase):
                 if len(docs) < self._min_exps_per_calib:
                     self.logger.warning(
                         f"Number of matching exposures for calib {calib_doc} ({len(docs)})"
-                        f" exceeds minimum ({self._min_exps_per_calib}). Skipping.")
+                        f" lower than minimum ({self._min_exps_per_calib}). Skipping.")
                     docs = None
 
             exp_docs.append(docs)

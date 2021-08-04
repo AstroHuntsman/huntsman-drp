@@ -50,6 +50,7 @@ calibs:
     - flat
   # These columns are for matching raw calibs with raw science frames
   # They are defined in lsst/cp_pipe and also here for convenience
+  # If these are changed then all of the archived calibs will need to be renamed
   required_fields:
     flat:
       - instrument
