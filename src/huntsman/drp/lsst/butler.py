@@ -54,6 +54,9 @@ class ButlerRepository(HuntsmanBase):
         self._instrument = None
         self._initialise_repository()
 
+    def __str__(self):
+        return f"{self.__class__.__name__} ({self.root_directory})"
+
     # Properties
 
     @property

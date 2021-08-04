@@ -122,10 +122,14 @@ class CalibService(HuntsmanBase):
         else:
             calib_docs_process = []
             for calib_doc in calib_docs:
-                if os.path.isfile(self.calib_collection.get_calib_filename(calib_doc)):
+                # Get the archived filename. This may not actually exist yet.
+                filename = self.calib_collection.get_calib_filename(calib_doc)
+                if os.path.isfile(filename):
+                    calib_doc["filename"] = filename
                     calib_docs_ingest.append(calib_doc)
                 else:
                     calib_docs_process.append(calib_doc)
+            self.logger.debug(f"Skipping {len(calib_docs_ingest)} existing calibs.")
 
         # Get documents matching the calib docs
         exp_docs = []
@@ -166,7 +170,7 @@ class CalibService(HuntsmanBase):
 
             # Ingest master calibs that we are not processing
             if calib_docs_ingest:
-                br.ingest_calib_docs(calib_docs)
+                br.ingest_calib_docs(calib_docs_ingest)
 
             # Loop over calib types in order
             for calib_type in self._ordered_calib_types:
