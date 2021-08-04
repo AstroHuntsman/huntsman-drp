@@ -40,6 +40,9 @@ class FileIngestor(ProcessQueue):
         self._directory = directory
         self.logger.debug(f"Ingesting files in directory: {self._directory}")
 
+        # Create container for failed files
+        self.files_failed = set()
+
     def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """
         return super()._async_process_objects(process_func=ingest_file)
@@ -55,7 +58,12 @@ class FileIngestor(ProcessQueue):
         files_ingested = set(self.exposure_collection.find(doc_filter, key="filename"))
 
         # Identify files that require processing
-        files_to_process = files_in_directory - files_ingested
+        files_to_process = files_in_directory - files_ingested - self.files_failed
         self.logger.debug(f"Found {len(files_to_process)} files requiring processing.")
 
         return files_to_process
+
+    def _on_failure(self, filename):
+        """ Callback function for failed file ingestion. """
+        self.logger.debug(f"Adding {filename} to failed files.")
+        self.files_failed.add(filename)

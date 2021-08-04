@@ -303,6 +303,12 @@ class ProcessQueue(HuntsmanBase, ABC):
         obj = result["obj"]
         success = result["success"]
 
+        if hasattr(self, "on_failure"):
+            try:
+                self._on_failure(obj)
+            except Exception as err:
+                self.logger.error(f"Error in on_failure callback for {obj}: {err!r}")
+
         success_or_fail = "success" if success else "fail"
         self.logger.info(f"Finished processing {obj} ({success_or_fail}).")
 
