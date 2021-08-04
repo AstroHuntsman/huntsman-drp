@@ -117,6 +117,12 @@ class CalibService(HuntsmanBase):
                                 f" {date}. Skipping.")
             return
 
+        # Check that some bias frames exist
+        # This allows us to quickly skip dates that we cannot process
+        if not any([d["datasetType"] == "bias" for d in calib_docs]):
+            self.logger.warning(f"No possible bias calibs for date={date}. Skipping.")
+            return
+
         # Figure out which calibs we can ingest / skip processing
         calib_docs_ingest = []
         if self.remake_existing:

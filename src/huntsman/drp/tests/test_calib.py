@@ -85,7 +85,7 @@ def test_master_calib_service(calib_service, config):
     calib_service.start()
     assert calib_service.is_running
 
-    timer = CountdownTimer(duration=120)
+    timer = CountdownTimer(duration=180)
     while not timer.expired():
         calib_service.logger.debug("Waiting for calibs...")
 
