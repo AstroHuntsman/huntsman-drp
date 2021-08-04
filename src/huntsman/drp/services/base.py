@@ -222,7 +222,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         self.logger.debug("Starting status thread.")
 
         while True:
-            if self._stop:
+            if self.threads_stopping:
                 self.logger.debug("Stopping status thread.")
                 break
 
@@ -235,7 +235,7 @@ class ProcessQueue(HuntsmanBase, ABC):
             # Sleep before reporting status again
             timer = CountdownTimer(duration=self._status_interval)
             while not timer.expired():
-                if self._stop:
+                if self.threads_stopping:
                     break
                 time.sleep(1)
 
@@ -246,7 +246,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         self.logger.debug("Starting queue thread.")
 
         while True:
-            if self._stop:
+            if self.threads_stopping:
                 self.logger.debug("Stopping queue thread.")
                 break
 
@@ -261,7 +261,7 @@ class ProcessQueue(HuntsmanBase, ABC):
 
             timer = CountdownTimer(duration=self._queue_interval)
             while not timer.expired():
-                if self._stop:
+                if self.threads_stopping:
                     break
                 time.sleep(1)
 

@@ -189,6 +189,10 @@ class CalibService(ProcessQueue):
                     elif not docs:
                         continue
 
+                    # Break out of loop if necessary
+                    if self.threads_stopping:
+                        return
+
                     # Ingest the raw docs
                     br.ingest_raw_files([d["filename"] for d in docs])
 
@@ -230,8 +234,10 @@ class CalibService(ProcessQueue):
 
         return valid_dates
 
-    def _async_process_objects(self, *args, **kwargs):
+    def _async_process_objects(self):
         """ Wrapper for abstract method.
         NOTE: We can use class method here only because we are using ThreadPool not Pool.
         """
-        return super()._async_process_objects(process_func=self.process_date)
+        def process_func(date, calib_collection, exposure_collection):
+            return self.process_date(date)
+        return super()._async_process_objects(process_func=process_func)
