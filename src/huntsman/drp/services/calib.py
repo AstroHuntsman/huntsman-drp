@@ -97,6 +97,8 @@ class CalibService(HuntsmanBase):
         Args:
             date (object): The calib date.
         """
+        self.logger.info(f"Preparing to construct calibs for {date}.")
+
         # Calculate date range from date and validity
         date = parse_date(date)
         date_min = date - self.validity
@@ -138,6 +140,8 @@ class CalibService(HuntsmanBase):
             docs = self.exposure_collection.get_matching_raw_calibs(
                 calib_doc, sort_date=date, **find_kwargs)
 
+            self.logger.debug(f"Found {len(docs)} raw exposures for calib {calib_doc}")
+
             # Limit the number of documents per calib
             if self._max_exps_per_calib is not None:
                 if len(docs) > self._max_exps_per_calib:
@@ -157,6 +161,7 @@ class CalibService(HuntsmanBase):
             exp_docs.append(docs)
 
         # Construct the calibs and archive them
+        self.logger.info(f"Constructing calibs for {date}.")
         self._process_documents(calib_docs_process, exp_docs, calib_docs_ingest=calib_docs_ingest,
                                 begin_date=date_min, end_date=date_max)
 
