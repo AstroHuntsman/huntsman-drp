@@ -228,6 +228,17 @@ class ButlerRepository(HuntsmanBase):
         # Certify the calibs
         self._certify_calibrations(datasetType, collection, begin_date, end_date)
 
+    def ingest_calib_docs(self, calib_docs, **kwargs):
+        """ Convenience function to ingest master calibs from calib documents.
+        Args:
+            calib_docs (list): The list of CalibDocuments.
+            **kwargs: Parsed to self.ingest_calibs.
+        """
+        datasetTypes = set([d["datasetType"] for d in calib_docs])
+        for datasetType in datasetTypes:
+            filenames = [d["filename"] for d in calib_docs if d["datasetType"] == datasetType]
+            self.ingest_calibs(datasetType, filenames, **kwargs)
+
     def ingest_reference_catalogue(self, filenames, **kwargs):
         """ Ingest the reference catalogue into the repository.
         Args:

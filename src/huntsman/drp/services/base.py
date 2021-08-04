@@ -303,7 +303,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         obj = result["obj"]
         success = result["success"]
 
-        if hasattr(self, "on_failure"):
+        if hasattr(self, "_on_failure"):
             try:
                 self._on_failure(obj)
             except Exception as err:

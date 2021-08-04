@@ -1,3 +1,4 @@
+import os
 import time
 import datetime
 from copy import copy
@@ -15,7 +16,7 @@ __all__ = ("CalibService",)
 class CalibService(HuntsmanBase):
 
     def __init__(self, date_begin=None, validity=1, min_exps_per_calib=1,
-                 max_exps_per_calib=None, nproc=1, **kwargs):
+                 max_exps_per_calib=None, nproc=1, remake_existing=False, **kwargs):
         """
         Args:
             date_begin (datetime.datetime, optional): Make calibs for this date and after. If None
@@ -27,10 +28,14 @@ class CalibService(HuntsmanBase):
             max_exps_per_calib (int, optional): No more than this many raw docs will contribute to
                 a single calib. If None (default), no upper-limit is applied.
             nproc (int, optional): The number of processes to use. Default: 1.
+            remake_existing (bool, optional): If True, remake existing calibs. Default: False.
         """
         super().__init__(**kwargs)
 
         self.nproc = nproc
+
+        # If this is true then existing calibs will be remade
+        self.remake_existing = bool(remake_existing)
 
         # Set the validity, which determines the frquency that calibs are made
         self.validity = datetime.timedelta(days=validity)
@@ -110,9 +115,21 @@ class CalibService(HuntsmanBase):
                                 f" {date}. Skipping.")
             return
 
+        # Figure out which calibs we can ingest / skip processing
+        calib_docs_ingest = []
+        if self.remake_existing:
+            calib_docs_process = calib_docs
+        else:
+            calib_docs_process = []
+            for calib_doc in calib_docs:
+                if os.path.isfile(self.calib_collection.get_calib_filename(calib_doc)):
+                    calib_docs_ingest.append(calib_doc)
+                else:
+                    calib_docs_process.append(calib_doc)
+
         # Get documents matching the calib docs
         exp_docs = []
-        for calib_doc in calib_docs:
+        for calib_doc in calib_docs_process:
 
             docs = self.exposure_collection.get_matching_raw_calibs(
                 calib_doc, sort_date=date, **find_kwargs)
@@ -134,9 +151,10 @@ class CalibService(HuntsmanBase):
             exp_docs.append(docs)
 
         # Construct the calibs and archive them
-        self._process_documents(calib_docs, exp_docs, begin_date=date_min, end_date=date_max)
+        self._process_documents(calib_docs_process, exp_docs, calib_docs_ingest=calib_docs_ingest,
+                                begin_date=date_min, end_date=date_max)
 
-    def _process_documents(self, calib_docs, exp_docs, **kwargs):
+    def _process_documents(self, calib_docs, exp_docs, calib_docs_ingest=None, **kwargs):
         """ Create calibs from raw exposures using the LSST stack.
         Args:
             calib_docs (list of CalibDocument): The calibs to process.
@@ -146,16 +164,18 @@ class CalibService(HuntsmanBase):
         """
         with TemporaryButlerRepository(config=self.config) as br:
 
+            # Ingest master calibs that we are not processing
+            if calib_docs_ingest:
+                br.ingest_calib_docs(calib_docs)
+
             # Loop over calib types in order
             for calib_type in self._ordered_calib_types:
 
                 # Loop over calib docs of the correct type
                 for calib_doc, docs in zip(calib_docs, exp_docs):
-
                     if calib_doc["datasetType"] != calib_type:
                         continue
-
-                    if not docs:
+                    elif not docs:
                         continue
 
                     # Ingest the raw docs
@@ -166,8 +186,7 @@ class CalibService(HuntsmanBase):
                     dataIds = [br.document_to_dataId(d) for d in docs]
 
                     # Process calibs one by one
-                    # This does not make full use of LSST quantum graph processing but gives us more
-                    # control.
+                    # This does not make full use of LSST quantum graph but gives us more control.
                     self.logger.info(f"Constructing {calib_type} for {calib_doc}.")
                     br.construct_calibs(calib_type, dataIds=dataIds, nproc=self.nproc, **kwargs)
 

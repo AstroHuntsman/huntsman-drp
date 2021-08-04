@@ -65,12 +65,13 @@ class CalibCollection(Collection):
 
         return best_calibs
 
-    def archive_master_calib(self, filename, metadata):
-        """ Copy the FITS files into the archive directory and update the entry in the DB.
+    def get_calib_filename(self, metadata, extension=".fits"):
+        """ Get the archived calib filename from metadata.
         Args:
-            filename (str): The filename of the calib to archive, which is copied into the archive
-                dir.
-            metadata (abc.Mapping): The calib metadata to be stored in the document.
+            metadata (dict): The calib metadata.
+            extension (str, optional): The file extension. Default: '.fits'.
+        Returns:
+            str: The archived filename.
         """
         datasetType = metadata["datasetType"]
 
@@ -83,12 +84,21 @@ class CalibCollection(Collection):
         required_fields = sorted(self.config["calibs"]["required_fields"][datasetType])
 
         # Create the archive filename
-        ext = os.path.splitext(filename)[-1]
         basename = datasetType + "_"
         basename += "_".join([str(metadata[k]) for k in required_fields])
-        basename += "_" + date_ymd
-        basename += ext
-        archive_filename = os.path.join(self.archive_dir, subdir, basename)
+        basename += "_" + date_ymd + extension
+
+        return os.path.join(self.archive_dir, subdir, basename)
+
+    def archive_master_calib(self, filename, metadata):
+        """ Copy the FITS files into the archive directory and update the entry in the DB.
+        Args:
+            filename (str): The filename of the calib to archive, which is copied into the archive
+                dir.
+            metadata (abc.Mapping): The calib metadata to be stored in the document.
+        """
+        extension = os.path.splitext(filename)[-1]
+        archive_filename = self.get_calib_filename(metadata, extension=extension)
 
         # Copy the file into the calib archive, overwriting if necessary
         self.logger.debug(f"Copying {filename} to {archive_filename}.")
