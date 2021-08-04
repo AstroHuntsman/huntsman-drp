@@ -243,4 +243,4 @@ class CalibService(HuntsmanBase):
 
             # Increment the date to the next validity period
             finally:
-                date += 2 * self.validity
+                date += self.validity
