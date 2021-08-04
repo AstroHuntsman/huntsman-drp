@@ -1,6 +1,6 @@
 import time
 
-from huntsman.drp.services.calexp import QualityMonitor
+from huntsman.drp.services.quality import QualityMonitor
 
 
 def test_calexp_quality_monitor(exposure_collection_real_data, master_calib_collection_real_data,

@@ -6,7 +6,7 @@ from contextlib import suppress
 from huntsman.drp.collection import ExposureCollection
 
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
-from huntsman.drp.services.calexp import CALEXP_METRIC_TRIGGER
+from huntsman.drp.services.quality import CALEXP_METRIC_TRIGGER
 
 UPDATE_RAW = {f"metrics.{METRIC_SUCCESS_FLAG}": False}
 UPDATE_CALEXP = {f"metrics.calexp.{CALEXP_METRIC_TRIGGER}": True}
