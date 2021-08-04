@@ -138,6 +138,7 @@ class CalibService(HuntsmanBase):
             docs = self.exposure_collection.get_matching_raw_calibs(
                 calib_doc, sort_date=date, **find_kwargs)
 
+            # Limit the number of documents per calib
             if self._max_exps_per_calib is not None:
                 if len(docs) > self._max_exps_per_calib:
                     self.logger.warning(
@@ -145,6 +146,7 @@ class CalibService(HuntsmanBase):
                         f" exceeds maximum. Limiting to first {self._max_exps_per_calib}.")
                     docs = docs[:self._max_exps_per_calib]
 
+            # Make sure there are enough exposures to make the calib
             if self._min_exps_per_calib is not None:
                 if len(docs) < self._min_exps_per_calib:
                     self.logger.warning(
