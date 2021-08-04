@@ -151,7 +151,7 @@ class ButlerRepository(HuntsmanBase):
         for datasetRef in datasetRefs:
             dataId = datasetRef.dataId
             if as_dict:
-                dataId = dataId.to_simple().dict()["dataId"]
+                dataId = utils.dataId_to_dict(dataId)
             dataIds.append(dataId)
         return dataIds
 
@@ -163,6 +163,8 @@ class ButlerRepository(HuntsmanBase):
             skip_existing (bool, optional): If True (default), do not attempt to ingest exposures
                 that are already present. Else, an error is raised.
             **kwargs: Parsed to self.get_butler.
+        Returns:
+            list of dict: List of failed dataIds.
         """
         filenames = set([os.path.abspath(os.path.realpath(_)) for _ in filenames])
         self.logger.debug(f"Ingesting {len(filenames)} files into {self}.")
@@ -170,10 +172,13 @@ class ButlerRepository(HuntsmanBase):
         kwargs.update({"writeable": True})
         butler = self.get_butler(run=self._raw_collection, **kwargs)
 
+        failed_dataIds = []
+
         # Define callback for failed ingestion
         def on_ingest_failure(rawExposureData, exception):
-            dataId = rawExposureData.dataId
+            dataId = utils.dataId_to_dict(rawExposureData.dataId)
             self.logger.warning(f"Failure during butler ingestion: {dataId}: {exception!r}")
+            failed_dataIds.append(dataId)
 
         # Create the configured task instance
         task = self._make_task(RawIngestTask,
@@ -185,10 +190,12 @@ class ButlerRepository(HuntsmanBase):
         try:
             task.run(filenames, skip_existing_exposures=skip_existing)
         except RuntimeError as err:
-            self.logger.warning(f"{err}")
+            self.logger.error(f"{err}. Proceeding anyway.")
 
         if define_visits:
             self.define_visits()
+
+        return failed_dataIds
 
     def ingest_calibs(self, datasetType, filenames, collection=None, begin_date=None,
                       end_date=None, **kwargs):

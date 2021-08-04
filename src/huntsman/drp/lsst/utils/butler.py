@@ -4,6 +4,16 @@ from lsst.daf.butler import DatasetRef, FileDataset, CollectionType
 from huntsman.drp.utils.fits import read_fits_header, parse_fits_header
 
 
+def dataId_to_dict(dataId):
+    """ Parse an LSST dataId to a dictionary.
+    Args:
+        dataId (dataId): The LSST dataId object.
+    Returns:
+        dict: The dictionary version of the dataId.
+    """
+    return dataId.to_simple().dict()["dataId"]
+
+
 def get_dataId_from_header(filename, required_keys):
     """ Attempt to get the dataId from its FITS header.
     NOTE: This is a temporary solution for ingesting master calibs.
