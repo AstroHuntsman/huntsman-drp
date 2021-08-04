@@ -131,7 +131,7 @@ class CalibService(HuntsmanBase):
                     calib_docs_ingest.append(calib_doc)
                 else:
                     calib_docs_process.append(calib_doc)
-            self.logger.debug(f"Skipping {len(calib_docs_ingest)} existing calibs.")
+            self.logger.debug(f"Skipping {len(calib_docs_ingest)} existing calibs for {date}.")
 
         # Get documents matching the calib docs
         exp_docs = []
