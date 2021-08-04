@@ -119,7 +119,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         """
         super().__init__(*args, **kwargs)
 
-        self._nproc = 1 if not nproc else int(nproc)
+        self.nproc = 1 if not nproc else int(nproc)
 
         # Setup the exposure collections
         if exposure_collection is None:
@@ -192,7 +192,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         self.logger.info(f"Stopping {self}.")
         self._stop = True
 
-        for _ in range(self._nproc):
+        for _ in range(self.nproc):
             self._stop_queue.put("stop")
 
         if blocking:
@@ -266,7 +266,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         Args:
             process_func (Function): Univariate function to parallelise.
         """
-        self.logger.debug(f"Starting processing with {self._nproc} processes.")
+        self.logger.debug(f"Starting processing with {self.nproc} processes.")
 
         wrapped_func = partial(_wrap_process_func, func=process_func)
 
@@ -277,10 +277,10 @@ class ProcessQueue(HuntsmanBase, ABC):
                           self._stop_queue)
 
         # Avoid Pool context manager to make multiprocessing coverage work
-        pool = self._pool_class(self._nproc, initializer=_init_pool, initargs=pool_init_args)
+        pool = self._pool_class(self.nproc, initializer=_init_pool, initargs=pool_init_args)
 
         try:
-            pool.map_async(wrapped_func, range(self._nproc))
+            pool.map_async(wrapped_func, range(self.nproc))
 
             while not (self._stop and self._output_queue.empty()):
                 self._process_results()

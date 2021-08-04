@@ -1,6 +1,6 @@
 import time
 
-from huntsman.drp.services.calexp import CalexpQualityMonitor
+from huntsman.drp.services.calexp import QualityMonitor
 
 
 def test_calexp_quality_monitor(exposure_collection_real_data, master_calib_collection_real_data,
@@ -15,7 +15,7 @@ def test_calexp_quality_monitor(exposure_collection_real_data, master_calib_coll
 
     n_to_process = exposure_collection_real_data.count_documents({"observation_type": "science"})
 
-    m = CalexpQualityMonitor(status_interval=5, queue_interval=5, config=config)
+    m = QualityMonitor.from_config(config, status_interval=5, queue_interval=5)
     m.start()
 
     i = 0

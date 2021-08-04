@@ -16,7 +16,7 @@ def ingest_file(filename, exposure_collection, **kwargs):
 class FileIngestor(ProcessQueue):
     """ Class to watch for new file entries in database and process their metadata. """
 
-    def __init__(self, directory=None, nproc=None, *args, **kwargs):
+    def __init__(self, directory, nproc=1, *args, **kwargs):
         """
         Args:
             directory (str): The top level directory to watch for new files, so they can
@@ -27,16 +27,10 @@ class FileIngestor(ProcessQueue):
         """
         super().__init__(*args, **kwargs)
 
-        ingestor_config = self.config.get("ingestor", {})
-
         # Set the number of processes
-        if nproc is None:
-            nproc = ingestor_config.get("nproc", 1)
-        self._nproc = int(nproc)
+        self.nproc = int(nproc)
 
         # Set the monitored directory
-        if directory is None:
-            directory = ingestor_config["directory"]
         self._directory = directory
         self.logger.debug(f"Ingesting files in directory: {self._directory}")
 
