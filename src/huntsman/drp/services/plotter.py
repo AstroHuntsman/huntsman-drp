@@ -10,6 +10,9 @@ from panoptes.utils.time import CountdownTimer
 from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.collection import ExposureCollection, CalibCollection
 
+
+__all__ = ("PlotterService",)
+
 FILTER_KEY = "physical_filter"
 
 

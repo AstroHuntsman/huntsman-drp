@@ -75,7 +75,7 @@ def parse_pipeline_name(pipeline, extension=".yaml"):
 
 def pipetask_run(pipeline_name, root_directory, input_collections=None, output_collection=None,
                  dataIds=None, args_str=None, register_dataset_types=True, config=None,
-                 instrument=None, **kwargs):
+                 instrument=None, nproc=1, **kwargs):
     """ Use the LSST pipetask cli to run a pipeline.
     Args:
         pipeline_name (str): The pipeline name to run.
@@ -89,6 +89,7 @@ def pipetask_run(pipeline_name, root_directory, input_collections=None, output_c
         config (dict, optional): Config overrides for LSST tasks.
         instrument (str, optional): The full python class name of the instrument. Used for
             applying default config overrides.
+        nproc (int, optional): The number of processes to use. Default: 1.
         **kwargs: Parsed to _run_pipetask_cmd.
     """
     pipeline_filename = parse_pipeline_name(pipeline_name)
@@ -96,6 +97,7 @@ def pipetask_run(pipeline_name, root_directory, input_collections=None, output_c
     args_str = "" if args_str is None else args_str + " "
     args_str += f"-p {pipeline_filename}"
     args_str += f" -b {root_directory}"
+    args_str += f" --processes {int(nproc)}"
 
     # Add instrument if provided
     # This will be used to apply instrument config overrides
@@ -108,15 +110,19 @@ def pipetask_run(pipeline_name, root_directory, input_collections=None, output_c
         for k, v in config.items():
             args_str += f" --config {k}={v}"
 
+    # if this flag is provided, will define new datasetTypes in the Butler registry
     if register_dataset_types:
         args_str += " --register-dataset-types"
 
+    # These are the directories containing the input data
     if input_collections is not None:
         args_str += f" --input {','.join([i for i in input_collections])}"
 
+    # These are the directories in which the output goes
     if output_collection is not None:
         args_str += f" --output {output_collection}"
 
+    # If provided, these are the specific dataIds to process
     if dataIds is not None:
         args_str += " " + _dataIds_to_query_str(dataIds)
 

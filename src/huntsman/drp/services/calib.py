@@ -1,18 +1,24 @@
+import os
 import time
 import datetime
 from copy import copy
-from threading import Thread, Event
+from multiprocessing.pool import ThreadPool
 
-from huntsman.drp.base import HuntsmanBase
+from huntsman.drp.services.base import ProcessQueue
 from huntsman.drp.utils.date import current_date, parse_date, date_to_ymd
 from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.collection import ExposureCollection, CalibCollection
 
 
-class CalibService(HuntsmanBase):
+__all__ = ("CalibService",)
 
-    def __init__(self, date_begin=None, validity=None, min_exps_per_calib=None,
-                 max_exps_per_calib=None, nproc=None, **kwargs):
+
+class CalibService(ProcessQueue):
+
+    _pool_class = ThreadPool  # Use ThreadPool as LSST code makes its own subprocesses
+
+    def __init__(self, date_begin=None, validity=1, min_exps_per_calib=1,
+                 max_exps_per_calib=None, remake_existing=False, **kwargs):
         """
         Args:
             date_begin (datetime.datetime, optional): Make calibs for this date and after. If None
@@ -23,80 +29,68 @@ class CalibService(HuntsmanBase):
                 to be created. Default: 1.
             max_exps_per_calib (int, optional): No more than this many raw docs will contribute to
                 a single calib. If None (default), no upper-limit is applied.
-            nproc (int, optional): The number of processes to use. Default: 1.
+            remake_existing (bool, optional): If True, remake existing calibs. Default: False.
         """
         super().__init__(**kwargs)
 
-        self._ordered_calib_types = self.config["calibs"]["types"]
+        # If this is true then existing calibs will be remade
+        self.remake_existing = bool(remake_existing)
 
-        # Set the validity, which determines the date period for which calibs are valid
-        validity = self.config["calibs"].get("validity", 1) if validity is None else validity
+        # Set the validity, which determines the frquency that calibs are made
         self.validity = datetime.timedelta(days=validity)
 
+        # Set the start date for the calibs
         date_begin = current_date() - self.validity if date_begin is None else date_begin
-        # Strip off time info, just use ymd
         self.date_begin = parse_date(date_to_ymd(date_begin))
 
-        # Get calib maker config
-        config = self.config.get("calib_maker", {})
-        self._nproc = config.get("nproc", 1)
-
-        if min_exps_per_calib is None:
-            min_exps_per_calib = config.get("min_exps_per_calib", 1)
+        # Private attributes
+        self._ordered_calib_types = self.config["calibs"]["types"]
         self._min_exps_per_calib = min_exps_per_calib
-
-        if max_exps_per_calib is None:
-            max_exps_per_calib = config.get("max_exps_per_calib", None)
         self._max_exps_per_calib = max_exps_per_calib
+        self._date = copy(self.date_begin)  # Gets incremented
 
         # Create collection client objects
         self.exposure_collection = ExposureCollection(config=self.config, logger=self.logger)
         self.calib_collection = CalibCollection(config=self.config, logger=self.logger)
 
-        # Create threads
-        self._stop_threads = Event()
-        self._calib_thread = Thread(target=self._run)
-
-    # Properties
-
-    @property
-    def is_running(self):
-        """ Check if the asynchronous calib processing loop is running.
-        Returns:
-            bool: True if running, else False.
-        """
-        return self._calib_thread.is_alive()
-
-    @property
-    def threads_stopping(self):
-        """ Return True if threads should stop, else False. """
-        return self._stop_threads.is_set()
-
     # Public methods
 
-    def start(self):
-        """ Start the asynchronous calib processing loop. """
-        self.logger.info(f"Starting {self}.")
-        self._stop_threads.clear()
-        self._calib_thread.start()
-
-    def stop(self):
-        """ Stop the asynchronous calib processing loop.
-        Note that this will block until any ongoing processing has finished.
+    def date_is_valid(self, date):
+        """ Check if the date is valid and can be processed now.
+        Args:
+            date (datetime.datetime): The date.
+        Returns:
+            bool: True if valid, else False.
         """
-        self.logger.info(f"Stopping {self}.")
-        self._stop_threads.set()
-        try:
-            self._calib_thread.join()
-            self.logger.info("Calib maker stopped.")
-        except RuntimeError:
-            pass
+        return current_date() >= date + self.validity
+
+    def sleep_until_date_is_valid(self, date, interval=5):
+        """ Sleep until current_date >= date + validity.
+        This ensures required files will be present in the exposure collection before creating
+        the calibs.
+        Args:
+            date (datetime.datetime): The date.
+            interval (float, optional): The sleep interval in seconds. Default: 5.
+        """
+        if not self.date_is_valid(date):
+
+            valid_date = date + self.validity
+            self.logger.info(f"Waiting for date: {valid_date}")
+
+            while not self.date_is_valid(date):
+                if self.threads_stopping:
+                    return
+                time.sleep(interval)
+
+            self.logger.info(f"Finished waiting for date: {valid_date}")
 
     def process_date(self, date, **kwargs):
         """ Create all master calibs for a given calib date.
         Args:
             date (object): The calib date.
         """
+        self.logger.info(f"Preparing to construct calibs for {date}.")
+
         # Calculate date range from date and validity
         date = parse_date(date)
         date_min = date - self.validity
@@ -115,13 +109,38 @@ class CalibService(HuntsmanBase):
                                 f" {date}. Skipping.")
             return
 
+        # Check that some bias frames exist
+        # This allows us to quickly skip dates that we cannot process
+        if not any([d["datasetType"] == "bias" for d in calib_docs]):
+            self.logger.warning(f"No possible bias calibs for date={date}. Skipping.")
+            return
+
+        # Figure out which calibs we can ingest / skip processing
+        calib_docs_ingest = []
+        if self.remake_existing:
+            calib_docs_process = calib_docs
+        else:
+            calib_docs_process = []
+            for calib_doc in calib_docs:
+                # Get the archived filename. This may not actually exist yet.
+                filename = self.calib_collection.get_calib_filename(calib_doc)
+                if os.path.isfile(filename):
+                    calib_doc["filename"] = filename
+                    calib_docs_ingest.append(calib_doc)
+                else:
+                    calib_docs_process.append(calib_doc)
+            self.logger.debug(f"Skipping {len(calib_docs_ingest)} existing calibs for {date}.")
+
         # Get documents matching the calib docs
         exp_docs = []
-        for calib_doc in calib_docs:
+        for calib_doc in calib_docs_process:
 
             docs = self.exposure_collection.get_matching_raw_calibs(
                 calib_doc, sort_date=date, **find_kwargs)
 
+            self.logger.debug(f"Found {len(docs)} raw exposures for calib {calib_doc}")
+
+            # Limit the number of documents per calib
             if self._max_exps_per_calib is not None:
                 if len(docs) > self._max_exps_per_calib:
                     self.logger.warning(
@@ -129,19 +148,24 @@ class CalibService(HuntsmanBase):
                         f" exceeds maximum. Limiting to first {self._max_exps_per_calib}.")
                     docs = docs[:self._max_exps_per_calib]
 
+            # Make sure there are enough exposures to make the calib
             if self._min_exps_per_calib is not None:
                 if len(docs) < self._min_exps_per_calib:
                     self.logger.warning(
                         f"Number of matching exposures for calib {calib_doc} ({len(docs)})"
-                        f" exceeds minimum ({self._min_exps_per_calib}). Skipping.")
+                        f" lower than minimum ({self._min_exps_per_calib}). Skipping.")
                     docs = None
 
             exp_docs.append(docs)
 
         # Construct the calibs and archive them
-        self._process_documents(calib_docs, exp_docs, begin_date=date_min, end_date=date_max)
+        self.logger.info(f"Constructing calibs for {date}.")
+        self._process_documents(calib_docs_process, exp_docs, calib_docs_ingest=calib_docs_ingest,
+                                begin_date=date_min, end_date=date_max)
 
-    def _process_documents(self, calib_docs, exp_docs, **kwargs):
+    # Private methods
+
+    def _process_documents(self, calib_docs, exp_docs, calib_docs_ingest=None, **kwargs):
         """ Create calibs from raw exposures using the LSST stack.
         Args:
             calib_docs (list of CalibDocument): The calibs to process.
@@ -151,17 +175,23 @@ class CalibService(HuntsmanBase):
         """
         with TemporaryButlerRepository(config=self.config) as br:
 
+            # Ingest master calibs that we are not processing
+            if calib_docs_ingest:
+                br.ingest_calib_docs(calib_docs_ingest)
+
             # Loop over calib types in order
             for calib_type in self._ordered_calib_types:
 
                 # Loop over calib docs of the correct type
                 for calib_doc, docs in zip(calib_docs, exp_docs):
-
                     if calib_doc["datasetType"] != calib_type:
                         continue
-
-                    if not docs:
+                    elif not docs:
                         continue
+
+                    # Break out of loop if necessary
+                    if self.threads_stopping:
+                        return
 
                     # Ingest the raw docs
                     br.ingest_raw_files([d["filename"] for d in docs])
@@ -171,10 +201,17 @@ class CalibService(HuntsmanBase):
                     dataIds = [br.document_to_dataId(d) for d in docs]
 
                     # Process calibs one by one
-                    # This does not make full use of LSST quantum graph processing but gives us more
-                    # control.
+                    # This does not make full use of LSST quantum graph but gives us more control
                     self.logger.info(f"Constructing {calib_type} for {calib_doc}.")
-                    br.construct_calibs(calib_type, dataIds=dataIds, **kwargs)
+                    try:
+                        br.construct_calibs(calib_type, dataIds=dataIds, nproc=1, **kwargs)
+
+                    # Log error and continue making the other calibs
+                    # This may lead to further errors down the line but it is the best we can do
+                    except Exception as err:
+                        self.logger.error(
+                            f"Error while constructing {calib_type} for {calib_doc}: {err!r}")
+                        continue
 
                     # Use butler to get the calib filename
                     filename = br.get_filenames(calib_type, dataId=calibId)[0]
@@ -184,45 +221,23 @@ class CalibService(HuntsmanBase):
                     self.calib_collection.archive_master_calib(filename=filename,
                                                                metadata=calib_doc)
 
-    def sleep_until_date_is_valid(self, date, interval=5):
-        """ Sleep until current_date >= date + validity.
-        This ensures required files will be present in the exposure collection before creating
-        the calibs.
-        Args:
-            date (datetime.datetime): The date.
-            interval (float, optional): The sleep interval in seconds. Default: 5.
+    def _get_objs(self):
+        """ Queue all dates that are valid and have not already been queued.
+        Waits for next date to become valid when called.
         """
-        valid_date = date + self.validity
-        if valid_date > date:
+        self.sleep_until_date_is_valid(self._date)
 
-            self.logger.info(f"Waiting for date: {valid_date}")
+        valid_dates = []
+        while self.date_is_valid(self._date):
+            valid_dates.append(copy(self._date))
+            self._date += self.validity
 
-            while current_date() < valid_date:
-                if self.threads_stopping:
-                    return
-                time.sleep(interval)
+        return valid_dates
 
-            self.logger.info(f"Finished waiting for date: {valid_date}")
-
-    # Private methods
-
-    def _run(self):
-        """ Continually process calibs and increment date. """
-        date = copy(self.date_begin)
-
-        while True:
-            # Wait for the date to become vald e.g. if the date is in the future
-            self.sleep_until_date_is_valid(date)
-
-            if self.threads_stopping:
-                return
-
-            # Attempt to make the calibs for the date
-            try:
-                self.process_date(date)
-            except Exception as err:
-                self.logger.error(f"Error making master calibs for date={date}: {err!r}")
-
-            # Increment the date to the next validity period
-            finally:
-                date += 2 * self.validity
+    def _async_process_objects(self):
+        """ Wrapper for abstract method.
+        NOTE: We can use class method here only because we are using ThreadPool not Pool.
+        """
+        def process_func(date, calib_collection, exposure_collection):
+            return self.process_date(date)
+        return super()._async_process_objects(process_func=process_func)

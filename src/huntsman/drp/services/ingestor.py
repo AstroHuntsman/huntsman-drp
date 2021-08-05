@@ -16,7 +16,7 @@ def ingest_file(filename, exposure_collection, **kwargs):
 class FileIngestor(ProcessQueue):
     """ Class to watch for new file entries in database and process their metadata. """
 
-    def __init__(self, directory=None, nproc=None, *args, **kwargs):
+    def __init__(self, directory, nproc=1, *args, **kwargs):
         """
         Args:
             directory (str): The top level directory to watch for new files, so they can
@@ -27,18 +27,15 @@ class FileIngestor(ProcessQueue):
         """
         super().__init__(*args, **kwargs)
 
-        ingestor_config = self.config.get("ingestor", {})
-
         # Set the number of processes
-        if nproc is None:
-            nproc = ingestor_config.get("nproc", 1)
-        self._nproc = int(nproc)
+        self.nproc = int(nproc)
 
         # Set the monitored directory
-        if directory is None:
-            directory = ingestor_config["directory"]
         self._directory = directory
         self.logger.debug(f"Ingesting files in directory: {self._directory}")
+
+        # Create container for failed files
+        self.files_failed = set()
 
     def _async_process_objects(self, *args, **kwargs):
         """ Continually process objects in the queue. """
@@ -55,7 +52,12 @@ class FileIngestor(ProcessQueue):
         files_ingested = set(self.exposure_collection.find(doc_filter, key="filename"))
 
         # Identify files that require processing
-        files_to_process = files_in_directory - files_ingested
+        files_to_process = files_in_directory - files_ingested - self.files_failed
         self.logger.debug(f"Found {len(files_to_process)} files requiring processing.")
 
         return files_to_process
+
+    def _on_failure(self, filename):
+        """ Callback function for failed file ingestion. """
+        self.logger.debug(f"Adding {filename} to failed files.")
+        self.files_failed.add(filename)

@@ -19,13 +19,14 @@ pyro:
 
 # Config for collections
 collections:
+  # Exposure collections contain metadata for raw exposures
   ExposureCollection:
     name: "huntsman_exposures"  # The name of the mongodb collection
     required_fields:  # Required fields must be present in an inserted document
       - filename
     index_fields:
       - filename
-
+  # Calib collections contain metadata for master calibs
   CalibCollection:
     name: "huntsman_calibs"
     required_fields:
@@ -47,9 +48,9 @@ calibs:
     - defects
     - dark
     - flat
-  validity: 30
   # These columns are for matching raw calibs with raw science frames
   # They are defined in lsst/cp_pipe and also here for convenience
+  # If these are changed then all of the archived calibs will need to be renamed
   required_fields:
     flat:
       - instrument

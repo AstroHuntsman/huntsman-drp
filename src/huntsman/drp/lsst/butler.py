@@ -54,6 +54,9 @@ class ButlerRepository(HuntsmanBase):
         self._instrument = None
         self._initialise_repository()
 
+    def __str__(self):
+        return f"{self.__class__.__name__} ({self.root_directory})"
+
     # Properties
 
     @property
@@ -151,7 +154,7 @@ class ButlerRepository(HuntsmanBase):
         for datasetRef in datasetRefs:
             dataId = datasetRef.dataId
             if as_dict:
-                dataId = dataId.to_simple().dict()["dataId"]
+                dataId = utils.dataId_to_dict(dataId)
             dataIds.append(dataId)
         return dataIds
 
@@ -163,6 +166,8 @@ class ButlerRepository(HuntsmanBase):
             skip_existing (bool, optional): If True (default), do not attempt to ingest exposures
                 that are already present. Else, an error is raised.
             **kwargs: Parsed to self.get_butler.
+        Returns:
+            list of dict: List of failed dataIds.
         """
         filenames = set([os.path.abspath(os.path.realpath(_)) for _ in filenames])
         self.logger.debug(f"Ingesting {len(filenames)} files into {self}.")
@@ -170,13 +175,30 @@ class ButlerRepository(HuntsmanBase):
         kwargs.update({"writeable": True})
         butler = self.get_butler(run=self._raw_collection, **kwargs)
 
+        failed_dataIds = []
+
+        # Define callback for failed ingestion
+        def on_ingest_failure(rawExposureData, exception):
+            dataId = utils.dataId_to_dict(rawExposureData.dataId)
+            self.logger.warning(f"Failure during butler ingestion: {dataId}: {exception!r}")
+            failed_dataIds.append(dataId)
+
+        # Create the configured task instance
         task = self._make_task(RawIngestTask,
                                butler=butler,
-                               config_overrides={"transfer": transfer})
-        task.run(filenames, skip_existing_exposures=skip_existing)
+                               config_overrides={"transfer": transfer},
+                               on_ingest_failure=on_ingest_failure)
+
+        # Ingest the files. If there is an error on one file, other files will still be ingested
+        try:
+            task.run(filenames, skip_existing_exposures=skip_existing)
+        except RuntimeError as err:
+            self.logger.error(f"{err}. Proceeding anyway.")
 
         if define_visits:
             self.define_visits()
+
+        return failed_dataIds
 
     def ingest_calibs(self, datasetType, filenames, collection=None, begin_date=None,
                       end_date=None, **kwargs):
@@ -208,6 +230,17 @@ class ButlerRepository(HuntsmanBase):
 
         # Certify the calibs
         self._certify_calibrations(datasetType, collection, begin_date, end_date)
+
+    def ingest_calib_docs(self, calib_docs, **kwargs):
+        """ Convenience function to ingest master calibs from calib documents.
+        Args:
+            calib_docs (list): The list of CalibDocuments.
+            **kwargs: Parsed to self.ingest_calibs.
+        """
+        datasetTypes = set([d["datasetType"] for d in calib_docs])
+        for datasetType in datasetTypes:
+            filenames = [d["filename"] for d in calib_docs if d["datasetType"] == datasetType]
+            self.ingest_calibs(datasetType, filenames, **kwargs)
 
     def ingest_reference_catalogue(self, filenames, **kwargs):
         """ Ingest the reference catalogue into the repository.

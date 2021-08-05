@@ -7,6 +7,8 @@ from huntsman.drp.lsst.butler import TemporaryButlerRepository
 from huntsman.drp.refcat import RefcatClient
 from huntsman.drp.metrics.calexp import metric_evaluator
 
+__all__ = ("QualityMonitor",)
+
 # This is a boolean value that gets inserted into the DB
 # If it is True, the calexp will be queued for processing
 # This allows us to trigger re-processing without having to delete existing information
@@ -79,7 +81,7 @@ def _process_document(document, exposure_collection, calib_collection, timeout, 
         raise RuntimeError(f"Metric evaluation unsuccessful for {document}.")
 
 
-class CalexpQualityMonitor(ProcessQueue):
+class QualityMonitor(ProcessQueue):
     """ Class to continually evauate and archive calexp quality metrics for raw exposures that
     have not already been processed. Intended to run as a docker service.
     """
@@ -98,7 +100,7 @@ class CalexpQualityMonitor(ProcessQueue):
         # Set the number of processes
         if nproc is None:
             nproc = calexp_config.get("nproc", 1)
-        self._nproc = int(nproc)
+        self.nproc = int(nproc)
         self.logger.debug(f"Calexp monitor using {nproc} processes.")
 
         # Specify timeout for calexp processing

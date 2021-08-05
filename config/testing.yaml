@@ -30,6 +30,9 @@ pyro:
   refcat:
     name: test_refcat
 
+CalibService:
+  validity: 9999
+
 plotter:
   - directory_prefix: "test1"
     plot_configs:

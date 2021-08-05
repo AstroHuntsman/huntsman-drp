@@ -14,7 +14,7 @@ import queue
 from functools import partial
 from threading import Thread
 from contextlib import suppress
-from multiprocessing import Pool
+from multiprocessing import Pool, Event
 from multiprocessing import JoinableQueue as Queue
 from abc import ABC, abstractmethod
 
@@ -33,15 +33,14 @@ def _wrap_process_func(i, func):
     global exposure_collection
     global input_queue
     global output_queue
-    global stop_queue
+    global stop_event
 
     logger = exposure_collection.logger
 
     while True:
 
         # Check if we should break out of the loop
-        with suppress(queue.Empty):
-            stop_queue.get_nowait()
+        if stop_event.is_set():
             break
 
         # Get an object from the queue
@@ -69,7 +68,7 @@ def _wrap_process_func(i, func):
         gc.collect()
 
 
-def _init_pool(function, config, in_queue, out_queue, stp_queue):
+def _init_pool(function, config, in_queue, out_queue, stp_event):
     """ Initialise the process pool.
     This function is required because we need to share the queue objects with each process and
     they cannot be parsed directly. Additionally create Collection objects here so that they do not
@@ -86,12 +85,12 @@ def _init_pool(function, config, in_queue, out_queue, stp_queue):
     global calib_collection
     global input_queue
     global output_queue
-    global stop_queue
+    global stop_event
 
     # Assign global objects
     input_queue = in_queue
     output_queue = out_queue
-    stop_queue = stp_queue
+    stop_event = stp_event
 
     exposure_collection = ExposureCollection(config=config)
 
@@ -119,7 +118,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         """
         super().__init__(*args, **kwargs)
 
-        self._nproc = 1 if not nproc else int(nproc)
+        self.nproc = 1 if not nproc else int(nproc)
 
         # Setup the exposure collections
         if exposure_collection is None:
@@ -135,7 +134,6 @@ class ProcessQueue(HuntsmanBase, ABC):
         # Make queues
         self._input_queue = Queue()
         self._output_queue = Queue()
-        self._stop_queue = Queue()
 
         # Setup threads
         self._status_thread = Thread(target=self._async_monitor_status)
@@ -146,7 +144,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         # Starting values
         self._n_processed = 0
         self._n_failed = 0
-        self._stop = False
+        self._stop_event = Event()
         self._queued_objs = set()
 
         atexit.register(self.stop)  # This gets called when python is quit
@@ -177,10 +175,23 @@ class ProcessQueue(HuntsmanBase, ABC):
                   "output_queue": self._output_queue.qsize()}
         return status
 
+    @property
+    def threads_stopping(self):
+        """ Return True if threads should stop, else False. """
+        return self._stop_event.is_set()
+
+    @threads_stopping.setter
+    def threads_stopping(self, value):
+        """ Set to True if threads should stop, else False. """
+        if value:
+            self._stop_event.set()
+        else:
+            self._stop_event.clear()
+
     def start(self):
         """ Start the service. """
         self.logger.info(f"Starting {self}.")
-        self._stop = False
+        self.threads_stopping = False
         for thread in self._threads:
             thread.start()
 
@@ -190,10 +201,7 @@ class ProcessQueue(HuntsmanBase, ABC):
             blocking (bool, optional): If True (default), blocks until all threads have joined.
         """
         self.logger.info(f"Stopping {self}.")
-        self._stop = True
-
-        for _ in range(self._nproc):
-            self._stop_queue.put("stop")
+        self.threads_stopping = True
 
         if blocking:
             for thread in self._threads:
@@ -214,7 +222,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         self.logger.debug("Starting status thread.")
 
         while True:
-            if self._stop:
+            if self.threads_stopping:
                 self.logger.debug("Stopping status thread.")
                 break
 
@@ -227,7 +235,7 @@ class ProcessQueue(HuntsmanBase, ABC):
             # Sleep before reporting status again
             timer = CountdownTimer(duration=self._status_interval)
             while not timer.expired():
-                if self._stop:
+                if self.threads_stopping:
                     break
                 time.sleep(1)
 
@@ -238,7 +246,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         self.logger.debug("Starting queue thread.")
 
         while True:
-            if self._stop:
+            if self.threads_stopping:
                 self.logger.debug("Stopping queue thread.")
                 break
 
@@ -247,14 +255,13 @@ class ProcessQueue(HuntsmanBase, ABC):
             # Update files to process
             self.logger.debug("Adding new objects to queue.")
             for obj in objs_to_process:
-
                 if obj not in self._queued_objs:  # Make sure queue objs are unique
                     self._queued_objs.add(obj)
                     self._input_queue.put(obj)
 
             timer = CountdownTimer(duration=self._queue_interval)
             while not timer.expired():
-                if self._stop:
+                if self.threads_stopping:
                     break
                 time.sleep(1)
 
@@ -266,7 +273,7 @@ class ProcessQueue(HuntsmanBase, ABC):
         Args:
             process_func (Function): Univariate function to parallelise.
         """
-        self.logger.debug(f"Starting processing with {self._nproc} processes.")
+        self.logger.debug(f"Starting processing with {self.nproc} processes.")
 
         wrapped_func = partial(_wrap_process_func, func=process_func)
 
@@ -274,15 +281,15 @@ class ProcessQueue(HuntsmanBase, ABC):
                           self.config,
                           self._input_queue,
                           self._output_queue,
-                          self._stop_queue)
+                          self._stop_event)
 
         # Avoid Pool context manager to make multiprocessing coverage work
-        pool = self._pool_class(self._nproc, initializer=_init_pool, initargs=pool_init_args)
+        pool = self._pool_class(self.nproc, initializer=_init_pool, initargs=pool_init_args)
 
         try:
-            pool.map_async(wrapped_func, range(self._nproc))
+            pool.map_async(wrapped_func, range(self.nproc))
 
-            while not (self._stop and self._output_queue.empty()):
+            while not (self.threads_stopping and self._output_queue.empty()):
                 self._process_results()
 
             self.logger.debug("Terminating process pool.")
@@ -302,6 +309,12 @@ class ProcessQueue(HuntsmanBase, ABC):
 
         obj = result["obj"]
         success = result["success"]
+
+        if hasattr(self, "_on_failure"):
+            try:
+                self._on_failure(obj)
+            except Exception as err:
+                self.logger.error(f"Error in on_failure callback for {obj}: {err!r}")
 
         success_or_fail = "success" if success else "fail"
         self.logger.info(f"Finished processing {obj} ({success_or_fail}).")

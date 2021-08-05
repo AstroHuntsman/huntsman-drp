@@ -18,8 +18,8 @@ def ingestor(tempdir_and_exposure_collection_with_uningested_files, config):
 
     tempdir, exposure_collection = tempdir_and_exposure_collection_with_uningested_files
 
-    ingestor = FileIngestor(queue_interval=10, status_interval=5, directory=tempdir, config=config)
-
+    ingestor = FileIngestor.from_config(config, queue_interval=10, status_interval=5,
+                                        directory=tempdir)
     yield ingestor
 
     ingestor.stop()
