@@ -125,6 +125,9 @@ def reference_image_stats(filename, data, header, **kwargs):
     if ref_image is None:
         return {}
 
+    # Hack because for some reason LSST likes to add a pixel one each axis of master calibs
+    ref_image = ref_image[:data.shape[0], :data.shape[1]]
+
     # First, we need to scale the data to the reference image
     def chi2(scaling):
         x = scaling * data

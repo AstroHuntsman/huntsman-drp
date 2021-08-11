@@ -107,7 +107,7 @@ def exposure_collection_real_data(session_config):
 
 
 @pytest.fixture(scope="session")
-def master_calib_collection_real_data(session_config):
+def calib_collection_real_data(session_config):
     """ Make a master calib table by reducing real calib data.
     TODO: Store created files so they can be copied in for quicker tests.
     """

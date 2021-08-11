@@ -57,7 +57,7 @@ class CalibCollection(Collection):
 
         # If there are no matches, raise an error
         if len(calib_docs) == 0:
-            raise FileNotFoundError(f"No matching {observation_type} for {document}.")
+            raise FileNotFoundError(f"No matching {observation_type} for {document} in {self}.")
 
         # Choose the one with the nearest date
         date = parse_date(document["observing_day"])

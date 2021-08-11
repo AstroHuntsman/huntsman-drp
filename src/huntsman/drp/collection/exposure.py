@@ -235,7 +235,7 @@ class ExposureCollection(Collection):
                     self.logger.debug(f"Found reference calib for {filename}")
 
                 except Exception as err:
-                    self.logger.error(f"Unable to find reference calib for {filename}: {err!r}")
+                    self.logger.warning(f"Unable to find reference calib for {filename}: {err!r}")
 
         # Calculate metrics
         metrics, success = metric_evaluator.evaluate(
