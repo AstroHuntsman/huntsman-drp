@@ -103,6 +103,7 @@ def flipped_asymmetry(filename, data, header):
     # Horizontal flip
     data_flip = data[:, ::-1]
     std_horizontal = (data - data_flip).std()
+
     # Vertical flip
     data_flip = data[::-1, :]
     std_vertical = (data - data_flip).std()

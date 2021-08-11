@@ -25,6 +25,11 @@ class ExposureCollection(Collection):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        # Ignore certain metrics if required
+        metrics_ignore = self.config.get("raw_metrics_ignore", ())
+        for metric_name in metrics_ignore:
+            metric_evaluator.remove_function(metric_name)
+
     # Public methods
 
     def insert_one(self, document, *args, **kwargs):
@@ -55,43 +60,53 @@ class ExposureCollection(Collection):
         """
         self.logger.debug(f"Ingesting file into {self}: {filename}.")
 
+        document = {"filename": filename}
         try:
-            data = read_fits_data(filename)
-            original_header = read_fits_header(filename)
+            document["metrics"], success = self._calculate_metrics(filename, **kwargs)
+            document[self._metric_success_flag] = success
         except Exception as err:
-            self.logger.warning(f"Problem reading FITS file: {err!r}")
-            metrics = {}
-            success = False
-        else:
-            # Ignore certain metrics if required
-            metrics_ignore = self.config.get("raw_metrics_ignore", ())
-            for metric_name in metrics_ignore:
-                metric_evaluator.remove_function(metric_name)
+            self.logger.error(f"Error calculating metrics for {filename}: {err!r}")
+            document[self._metric_success_flag] = False
 
-            # Get the metrics
-            metrics, success = metric_evaluator.evaluate(filename, header=original_header,
-                                                         data=data, **kwargs)
-
-        # Read the header
-        # NOTE: The header is currently modified if WCS is measured
-        header = read_fits_header(filename)
-
-        # Parse the FITS header
-        # NOTE: Parsed info goes in the top-level of the mongo document
-        parsed_header = parse_fits_header(header)
-
-        document = {"filename": filename, self._metric_success_flag: success}
-        document.update(parsed_header)
-
-        # NOTE: Metrics go in a sub-level of the mongo document
-        document["metrics"] = metrics
+        # Try and update the document with the parsed header
+        # NOTE: We read the header again because it may have been modified
+        try:
+            parsed_header = parse_fits_header(read_fits_header(filename))
+            document.update(parsed_header)
+        # Log error and insert document into DB anyway
+        except Exception as err:
+            self.logger.error(f"Error parsing header for {filename}: {err!r}")
 
         # Use filename query as metrics etc can change
         self.replace_one({"filename": filename}, document, upsert=True)
 
         # Raise an exception if not success
-        if not success:
+        if not document[self._metric_success_flag]:
             raise RuntimeError(f"Metric evaluation unsuccessful for {filename}.")
+
+    def _calculate_metrics(self, filename, header, **kwargs):
+        """
+        """
+        # Read the file
+        data = read_fits_data(filename)
+        header = read_fits_header(filename)
+        parsed_header = parse_fits_header(header)
+
+        # Get a reference image from the calib collection
+        ref_image = None
+        if "observation_type" in parsed_header:
+            if parsed_header["observation_type"] in self.config["calibs"]["types"]:
+                try:
+                    ref_image = self.calib_collection.get_reference_calib(parsed_header)
+                except Exception as err:
+                    self.logger.error(f"Unable to find reference calib for {filename}: {err!r}")
+
+        # Calculate metrics
+        metrics, success = metric_evaluator.evaluate(
+            filename, header=header, parsed_header=parsed_header, data=data, ref_image=ref_image,
+            **kwargs)
+
+        return metrics, success
 
     def get_matching_raw_calibs(self, calib_document, sort_date=None, **kwargs):
         """ Return matching set of calib IDs for a given calib document.

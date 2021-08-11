@@ -26,6 +26,39 @@ class CalibCollection(Collection):
         # Set the calib archive directory
         self.archive_dir = self.config["directories"]["calib"]
 
+        # Fields used to match raw documents with calib documents
+        self._matching_fields_by_type = self.config["calibs"]["required_fields"]
+
+        self._calib_types = self.config["calibs"]["types"]
+
+    def get_reference_calib(self, document, observation_type=None, **kwargs):
+        """ Get a reference
+        """
+        # Make sure document is of a valid raw calib type
+        if observation_type is None:
+            observation_type = document["observation_type"]
+        if observation_type not in self._calib_types:
+            raise ValueError(f"observation_type {observation_type} not in {self._calib_types}")
+
+        self.logger.debug(f"Finding best matching {observation_type} for {document}.")
+
+        # Find matching calib docs
+        matching_keys = self._matching_fields_by_type[observation_type]
+        doc_filter = {k: document[k] for k in matching_keys[observation_type]}
+        doc_filter["datasetType"] = observation_type
+        calib_docs = self.find(doc_filter, **kwargs)
+
+        # If there are no matches, raise an error
+        if len(calib_docs) == 0:
+            raise FileNotFoundError(f"No matching {observation_type} for {document}.")
+
+        # Choose the one with the nearest date
+        date = parse_date(document["observing_day"])
+        dates = [parse_date(_["date"]) for _ in calib_docs]
+        timediffs = [abs(date - d) for d in dates]
+
+        return calib_docs[np.argmin(timediffs)]
+
     def get_matching_calibs(self, document, **kwargs):
         """ Return best matching set of calibs for a given document.
         Args:
@@ -39,29 +72,11 @@ class CalibCollection(Collection):
         """
         self.logger.debug(f"Finding best matching calibs for {document}.")
 
-        matching_keys = self.config["calibs"]["required_fields"]
-
-        # Specify valid date range
-        date = parse_date(document["observing_day"])
-
+        # Get best matching calib for each calib type
         best_calibs = {}
-        for calib_type in self.config["calibs"]["types"]:
-
-            doc_filter = {k: document[k] for k in matching_keys[calib_type]}
-            doc_filter["datasetType"] = calib_type
-
-            # Find matching docs within valid date range
-            calib_docs = self.find(doc_filter, **kwargs)
-
-            # If there are no matches, raise an error
-            if len(calib_docs) == 0:
-                raise FileNotFoundError(f"No matching master {calib_type} for {doc_filter}.")
-
-            # Choose the one with the nearest date
-            date = parse_date(document["observing_day"])
-            dates = [parse_date(_["date"]) for _ in calib_docs]
-            timediffs = [abs(date - d) for d in dates]
-            best_calibs[calib_type] = calib_docs[np.argmin(timediffs)]
+        for calib_type in self._calib_types:
+            best_calibs[calib_type] = self.get_reference_calib(
+                document, observation_type=calib_type, **kwargs)
 
         return best_calibs
 
