@@ -10,27 +10,6 @@ from huntsman.drp.utils.fits import read_fits_header, parse_fits_header
 from pymongo.errors import ServerSelectionTimeoutError, DuplicateKeyError
 
 
-def test_ingest_ref_image(exposure_collection_real_data, ref_calib_collection):
-    """ Test that we can evaluate metrics that use a reference calib.
-    """
-    exposure_collection = exposure_collection_real_data
-    exposure_collection.ref_calib_collection = ref_calib_collection
-
-    doc = exposure_collection.find({"observation_type": "flat"})[0]
-    exposure_collection.delete_one(doc)
-
-    # Add the doc as a reference calib
-    exposure_collection.ref_calib_collection.insert_one(doc)
-    calib_doc = exposure_collection.ref_calib_collection.get_matching_calib(doc)
-    assert calib_doc is not None
-
-    # Try re-ingesting the doc and make sure it matched with the reference calib
-    exposure_collection.ingest_file(doc["filename"])
-    new_doc = exposure_collection.find_one({"filename": doc["filename"]})
-
-    assert "ref_scaled_chi2r" in new_doc["metrics"]
-
-
 def test_mongodb_wrong_host_name(config):
     """ Test if an error is raised if the mongodb hostname is incorrect. """
     modified_config = copy.deepcopy(config)
@@ -173,3 +152,24 @@ def test_ingest_duplicate_fpack(exposure_collection):
     exposure_collection.insert_one(doc2)
     with pytest.raises(DuplicateKeyError):
         exposure_collection.insert_one(doc1)
+
+
+def test_ingest_ref_image(exposure_collection_real_data, ref_calib_collection):
+    """ Test that we can evaluate metrics that use a reference calib.
+    """
+    exposure_collection = exposure_collection_real_data
+    exposure_collection.ref_calib_collection = ref_calib_collection
+
+    doc = exposure_collection.find({"observation_type": "flat"})[0]
+    exposure_collection.delete_one(doc)
+
+    # Add the doc as a reference calib
+    exposure_collection.ingest_file(doc["filename"])
+    calib_doc = exposure_collection.ref_calib_collection.get_matching_calib(doc)
+    assert calib_doc is not None
+
+    # Try re-ingesting the doc and make sure it matched with the reference calib
+    exposure_collection.ingest_file(doc["filename"])
+    new_doc = exposure_collection.find_one({"filename": doc["filename"]})
+
+    assert "ref_scaled_chi2r" in new_doc["metrics"]

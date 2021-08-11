@@ -4,6 +4,7 @@ import shutil
 import numpy as np
 
 from huntsman.drp.utils.date import parse_date, date_to_ymd
+from huntsman.drp.utils.fits import read_fits_header, parse_fits_header
 from huntsman.drp.collection.collection import Collection
 from huntsman.drp.document import CalibDocument, ExposureDocument
 
@@ -165,3 +166,15 @@ class ReferenceCalibCollection(BaseCalibCollection):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def ingest_file(self, filename):
+        """ Ingest a reference calib.
+        Args:
+            filename (str): The filename.
+        """
+        document = {"filename": filename}
+
+        header = read_fits_header(filename)
+        document.update(parse_fits_header(header))
+
+        self.replace_one({"filename": filename}, document, upsert=True)
