@@ -164,7 +164,7 @@ def test_ingest_ref_image(exposure_collection_real_data, ref_calib_collection):
     exposure_collection.delete_one(doc)
 
     # Add the doc as a reference calib
-    exposure_collection.ingest_file(doc["filename"])
+    exposure_collection.ref_calib_collection.ingest_file(doc["filename"])
     calib_doc = exposure_collection.ref_calib_collection.get_matching_calib(doc)
     assert calib_doc is not None
 
