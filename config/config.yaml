@@ -45,7 +45,7 @@ collections:
     name: "huntsman_reference_calibs"
     required_fields:
       - "filename"
-      - "observing_day"
+      - "date"
       - "observation_type"
       - "instrument"
       - "detector"

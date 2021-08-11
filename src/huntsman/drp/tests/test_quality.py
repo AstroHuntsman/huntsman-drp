@@ -3,13 +3,13 @@ import time
 from huntsman.drp.services.quality import QualityMonitor
 
 
-def test_calexp_quality_monitor(exposure_collection_real_data, master_calib_collection_real_data,
+def test_calexp_quality_monitor(exposure_collection_real_data, calib_collection_real_data,
                                 testing_refcat_server, config):
     """ Test that the quality monitor is able to calculate and archive calexp metrics. """
 
     # Make sure the service uses the correct collections
     raw_name = exposure_collection_real_data.collection_name
-    calib_name = master_calib_collection_real_data.collection_name
+    calib_name = calib_collection_real_data.collection_name
     config["collections"]["ExposureCollection"]["name"] = raw_name
     config["collections"]["CalibCollection"]["name"] = calib_name
 

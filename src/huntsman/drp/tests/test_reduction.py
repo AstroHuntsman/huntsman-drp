@@ -17,27 +17,27 @@ def config_file_offsetsky(config):
 
 
 @pytest.mark.skip()
-def test_lsst_reduction(exposure_collection_real_data, master_calib_collection_real_data, config,
+def test_lsst_reduction(exposure_collection_real_data, calib_collection_real_data, config,
                         config_file_lsst, testing_refcat_server):
 
     # TODO: Implement more rigorous test in future
 
     reduction = create_from_file(config_file_lsst,
                                  exposure_collection=exposure_collection_real_data,
-                                 calib_collection=master_calib_collection_real_data,
+                                 calib_collection=calib_collection_real_data,
                                  config=config)
 
     reduction.run(makeplots=True)
 
 # @pytest.mark.skip()
-def test_offsetsky_reduction(exposure_collection_real_data, master_calib_collection_real_data,
+def test_offsetsky_reduction(exposure_collection_real_data, calib_collection_real_data,
                              config, config_file_offsetsky, testing_refcat_server):
 
     # TODO: Implement more rigorous test in future
 
     reduction = create_from_file(config_file_offsetsky,
                                  exposure_collection=exposure_collection_real_data,
-                                 calib_collection=master_calib_collection_real_data,
+                                 calib_collection=calib_collection_real_data,
                                  config=config)
 
     reduction.run(makeplots=True)
