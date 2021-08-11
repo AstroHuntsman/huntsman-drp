@@ -89,7 +89,7 @@ def exposure_collection(tmp_path_factory, config):
     exposure_collection.delete_all(really=True)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def exposure_collection_real_data(session_config):
     """
     Create a temporary directory populated with fake FITS images, then parse the images into the
