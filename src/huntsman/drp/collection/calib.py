@@ -18,7 +18,7 @@ class CalibCollection(Collection):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Set required fields with type dependency
+        # Set required fields with type dependency, used for validating inserted documents
         # This is useful for e.g. requiring a filter name for flats but not for biases
         self._required_fields_by_type = self.config["collections"][self.__class__.__name__][
                 "required_fields_by_type"]
@@ -43,8 +43,7 @@ class CalibCollection(Collection):
         self.logger.debug(f"Finding best matching {observation_type} for {document}.")
 
         # Find matching calib docs
-        matching_keys = self._matching_fields_by_type[observation_type]
-        doc_filter = {k: document[k] for k in matching_keys[observation_type]}
+        doc_filter = {k: document[k] for k in self._matching_fields_by_type[observation_type]}
         doc_filter["datasetType"] = observation_type
         calib_docs = self.find(doc_filter, **kwargs)
 
@@ -54,8 +53,7 @@ class CalibCollection(Collection):
 
         # Choose the one with the nearest date
         date = parse_date(document["observing_day"])
-        dates = [parse_date(_["date"]) for _ in calib_docs]
-        timediffs = [abs(date - d) for d in dates]
+        timediffs = [abs(date - parse_date(d["date"])) for d in calib_docs]
 
         return calib_docs[np.argmin(timediffs)]
 
@@ -96,7 +94,7 @@ class CalibCollection(Collection):
         subdir = os.path.join(date_ymd, datasetType)
 
         # Get ordered fields used to create archived filename
-        required_fields = sorted(self.config["calibs"]["required_fields"][datasetType])
+        required_fields = sorted(self._matching_fields_by_type[datasetType])
 
         # Create the archive filename
         basename = datasetType + "_"

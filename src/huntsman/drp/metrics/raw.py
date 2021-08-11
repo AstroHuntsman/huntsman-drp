@@ -1,5 +1,6 @@
 from contextlib import suppress
 
+from scipy.optimize import minimize
 from astropy import stats
 from astropy.wcs import WCS
 
@@ -70,7 +71,7 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=Fal
 
 
 @metric_evaluator.add_function
-def clipped_stats(filename, data, header):
+def clipped_stats(filename, data, header, **kwargs):
     """Return sigma-clipped image statistics.
     Args:
         filename (str): The filename.
@@ -91,7 +92,7 @@ def clipped_stats(filename, data, header):
 
 
 @metric_evaluator.add_function
-def flipped_asymmetry(filename, data, header):
+def flipped_asymmetry(filename, data, header, **kwargs):
     """ Calculate the asymmetry statistics by flipping data in x and y directions.
     Args:
         filename (str): The filename.
@@ -108,3 +109,30 @@ def flipped_asymmetry(filename, data, header):
     data_flip = data[::-1, :]
     std_vertical = (data - data_flip).std()
     return {"flip_asymm_h": std_horizontal, "flip_asymm_v": std_vertical}
+
+
+@metric_evaluator.add_function
+def reference_image_stats(filename, data, header, **kwargs):
+    """ Compare an image to a reference image.
+    Args:
+        filename (str): The filename.
+        data (np.array): The data array.
+        header (abc.Mapping): The parsed FITS header.
+    Returns:
+        dict: The dict containing the metrics.
+    """
+    ref_image = kwargs.get("ref_image", None)
+    if ref_image is None:
+        return {}
+
+    # First, we need to scale the data to the reference image
+    def chi2(scaling):
+        x = scaling * data
+        return ((x - ref_image) ** 2 / ref_image).sum()
+
+    scaling = minimize(chi2, x0=[1]).x[0]
+
+    # Now calculate the reduced chi2 statistic
+    chi2red = chi2(scaling) / data.size
+
+    return {"ref_scaled_chi2r": chi2red}

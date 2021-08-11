@@ -39,6 +39,7 @@ class MetricEvaluator():
         for func in self.functions:
             try:
                 # Evaluate the function
+                self.logger.debug(f"Calculating metric: {func.__name__}")
                 result = func(*args, **kwargs)
 
                 # Make sure the keys are unique
@@ -46,7 +47,7 @@ class MetricEvaluator():
                     raise RuntimeError(f"Duplicate key in evaluation of {func.__name__}")
 
                 # Update the output dict
-                results.update(func(*args, **kwargs))
+                results.update(result)
 
             except Exception as err:
                 self.logger.warning(f"Exception while evaluating metric {func.__name__}: {err!r}")
