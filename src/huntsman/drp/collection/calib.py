@@ -31,8 +31,16 @@ class CalibCollection(Collection):
 
         self._calib_types = self.config["calibs"]["types"]
 
-    def get_reference_calib(self, document, observation_type=None, **kwargs):
-        """ Get a reference
+    def get_matching_calib(self, document, observation_type=None, **kwargs):
+        """ Return best matching calib for a given document.
+        Args:
+            document (ExposureDocument): The document to match with.
+            **kwargs: Parsed to self.find.
+        Returns:
+            CalibDocument: The best matching calib.
+        Raises:
+            FileNotFoundError: If there is no matching calib of any type.
+            TODO: Make new MissingCalibError and raise instead.
         """
         # Make sure document is of a valid raw calib type
         if observation_type is None:
@@ -73,7 +81,7 @@ class CalibCollection(Collection):
         # Get best matching calib for each calib type
         best_calibs = {}
         for calib_type in self._calib_types:
-            best_calibs[calib_type] = self.get_reference_calib(
+            best_calibs[calib_type] = self.get_matching_calib(
                 document, observation_type=calib_type, **kwargs)
 
         return best_calibs

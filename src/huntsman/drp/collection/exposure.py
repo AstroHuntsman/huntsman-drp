@@ -178,8 +178,8 @@ class ExposureCollection(Collection):
 
     def clear_calexp_metrics(self):
         """ Clear all calexp metrics from the collection.
-        This is useful e.g. to trigger them for reprocessing. """
-
+        This is useful e.g. to trigger them for reprocessing.
+        """
         self.logger.info(f"Clearing all calexp metrics from {self}.")
 
         self._collection.update_many({}, {"$unset": {"metrics.calexp": ""}})
@@ -229,7 +229,7 @@ class ExposureCollection(Collection):
         if "observation_type" in parsed_header:
             if parsed_header["observation_type"] in self.config["calibs"]["types"]:
                 try:
-                    ref_doc = self.calib_collection.get_reference_calib(parsed_header)
+                    ref_doc = self.calib_collection.get_matching_calib(parsed_header)
                     ref_image = read_fits_data(ref_doc["filename"])
 
                     self.logger.debug(f"Found reference calib for {filename}")
