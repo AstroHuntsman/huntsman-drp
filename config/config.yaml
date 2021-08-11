@@ -40,6 +40,20 @@ collections:
         - "physical_filter"
     index_fields:
       - filename
+  # ReferenceCalibCollection stores examples of good raw calibs for quality control
+  ReferenceCalibCollection:
+    name: "huntsman_reference_calibs"
+    required_fields:
+      - "filename"
+      - "observing_day"
+      - "observation_type"
+      - "instrument"
+      - "detector"
+    required_fields_by_type:
+      flat:
+        - "physical_filter"
+    index_fields:
+      - filename
 
 # Config items for calibs
 calibs:

@@ -3,7 +3,7 @@ import time
 from copy import deepcopy
 
 from huntsman.drp.core import get_config
-from huntsman.drp.collection import ExposureCollection
+from huntsman.drp.collection import ReferenceCalibCollection, ExposureCollection
 from huntsman.drp import refcat as rc
 from huntsman.drp.utils import testing
 
@@ -118,6 +118,14 @@ def calib_collection_real_data(session_config):
     # Remove the metadata from the DB ready for other tests
     calib_collection.delete_all(really=True)
     assert not calib_collection.find()
+
+
+@pytest.fixture(scope="function")
+def ref_calib_collection(config):
+    collection = ReferenceCalibCollection.from_config(config)
+    yield collection
+    collection.delete_all(really=True)
+    assert not collection.find()
 
 
 @pytest.fixture(scope="function")

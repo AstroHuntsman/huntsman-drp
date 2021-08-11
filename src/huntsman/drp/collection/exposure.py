@@ -7,7 +7,7 @@ from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
 from huntsman.drp.utils.date import parse_date
 from huntsman.drp.utils.fits import read_fits_data, read_fits_header, parse_fits_header
 from huntsman.drp.collection.collection import Collection
-from huntsman.drp.collection.calib import CalibCollection
+from huntsman.drp.collection.calib import ReferenceCalibCollection
 from huntsman.drp.document import ExposureDocument, CalibDocument
 from huntsman.drp.metrics.raw import metric_evaluator
 
@@ -31,7 +31,7 @@ class ExposureCollection(Collection):
         for metric_name in metrics_ignore:
             metric_evaluator.remove_function(metric_name)
 
-        self.calib_collection = CalibCollection.from_config(self.config)
+        self.ref_calib_collection = ReferenceCalibCollection.from_config(self.config)
 
     # Public methods
 
@@ -229,7 +229,7 @@ class ExposureCollection(Collection):
         if "observation_type" in parsed_header:
             if parsed_header["observation_type"] in self.config["calibs"]["types"]:
                 try:
-                    ref_doc = self.calib_collection.get_matching_calib(parsed_header)
+                    ref_doc = self.ref_calib_collection.get_matching_calib(parsed_header)
                     ref_image = read_fits_data(ref_doc["filename"])
 
                     self.logger.debug(f"Found reference calib for {filename}")

@@ -5,15 +5,16 @@ import numpy as np
 
 from huntsman.drp.utils.date import parse_date, date_to_ymd
 from huntsman.drp.collection.collection import Collection
-from huntsman.drp.document import CalibDocument
+from huntsman.drp.document import CalibDocument, ExposureDocument
 
-__all__ = ("CalibCollection",)
+__all__ = ("CalibCollection", "ReferenceCalibCollection",)
 
 
-class CalibCollection(Collection):
-    """ Table to store metadata for master calibs. """
+class BaseCalibCollection(Collection):
+    """ Base class for calib collections. """
 
     _DocumentClass = CalibDocument
+    _dataset_type_key = "datasetType"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -22,9 +23,6 @@ class CalibCollection(Collection):
         # This is useful for e.g. requiring a filter name for flats but not for biases
         self._required_fields_by_type = self.config["collections"][self.__class__.__name__][
                 "required_fields_by_type"]
-
-        # Set the calib archive directory
-        self.archive_dir = self.config["directories"]["calib"]
 
         # Fields used to match raw documents with calib documents
         self._matching_fields_by_type = self.config["calibs"]["required_fields"]
@@ -52,7 +50,7 @@ class CalibCollection(Collection):
 
         # Find matching calib docs
         doc_filter = {k: document[k] for k in self._matching_fields_by_type[observation_type]}
-        doc_filter["datasetType"] = observation_type
+        doc_filter[self._dataset_type_key] = observation_type
         calib_docs = self.find(doc_filter, **kwargs)
 
         # If there are no matches, raise an error
@@ -86,6 +84,30 @@ class CalibCollection(Collection):
 
         return best_calibs
 
+    # Private methods
+
+    def _validate_document(self, document):
+        """ Validate a document for insersion.
+        Args:
+            document (Document): The document to validate.
+        Raises:
+            ValueError: If the document is invalid.
+        """
+        super()._validate_document(document)
+        required_fields = self._required_fields_by_type.get(document[self._dataset_type_key])
+        if required_fields:
+            super()._validate_document(document, required_fields=required_fields)
+
+
+class CalibCollection(BaseCalibCollection):
+    """ Collection to store metadata for master calibs. """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Set the calib archive directory
+        self.archive_dir = self.config["directories"]["calib"]
+
     def get_calib_filename(self, metadata, extension=".fits"):
         """ Get the archived calib filename from metadata.
         Args:
@@ -94,7 +116,7 @@ class CalibCollection(Collection):
         Returns:
             str: The archived filename.
         """
-        datasetType = metadata["datasetType"]
+        datasetType = metadata[self._dataset_type_key]
 
         # LSST calib filenames do not include calib date, so add as parent directory
         # Also store in subdirs of datasetType
@@ -134,16 +156,12 @@ class CalibCollection(Collection):
         # Use replace operation with upsert because old document may already exist
         self.replace_one({"filename": archive_filename}, metadata, upsert=True)
 
-    # Private methods
 
-    def _validate_document(self, document):
-        """ Validate a document for insersion.
-        Args:
-            document (Document): The document to validate.
-        Raises:
-            ValueError: If the document is invalid.
-        """
-        super()._validate_document(document)
-        required_fields = self._required_fields_by_type.get(document["datasetType"])
-        if required_fields:
-            super()._validate_document(document, required_fields=required_fields)
+class ReferenceCalibCollection(BaseCalibCollection):
+    """ Collection to store metadata for reference calibs. """
+
+    _DocumentClass = ExposureDocument
+    _dataset_type_key = "observation_type"  # We are using raw calibs here
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
