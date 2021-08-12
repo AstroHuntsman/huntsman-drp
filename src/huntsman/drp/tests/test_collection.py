@@ -172,4 +172,4 @@ def test_ingest_ref_image(exposure_collection_real_data, ref_calib_collection):
     exposure_collection.ingest_file(doc["filename"])
     new_doc = exposure_collection.find_one({"filename": doc["filename"]})
 
-    assert "ref_scaled_chi2r" in new_doc["metrics"]
+    assert "ref_chi2r_scaled" in new_doc["metrics"]
