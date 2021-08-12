@@ -98,7 +98,8 @@ class CalibService(ProcessQueue):
 
         # Specify common find kwargs
         find_kwargs = {"date_min": date_min,
-                       "date_max": date_max}
+                       "date_max": date_max,
+                       "quality_filter": True}
         find_kwargs.update(kwargs)
 
         # Get set of calib docs we can make from the set of exposure docs
