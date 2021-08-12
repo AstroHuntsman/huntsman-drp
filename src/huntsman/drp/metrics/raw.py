@@ -133,6 +133,7 @@ def reference_image_stats(filename, data, header, **kwargs):
     scaling = minimize(chi2, x0=[1]).x[0]
 
     # Now calculate the reduced chi2 statistic
-    chi2red = chi2(scaling) / data.size
+    chi2red = chi2(1) / data.size
+    chi2red_scaled = chi2(scaling) / data.size
 
-    return {"ref_scaled_chi2r": chi2red}
+    return {"ref_chi2r": chi2red, "ref_chi2r_scaled": chi2red_scaled}
