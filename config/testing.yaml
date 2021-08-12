@@ -25,6 +25,8 @@ mongodb:
   collections:
     ExposureCollection:
       name: "test_real_data"
+    ReferenceCalibCollection:
+      name: "huntsman_reference_calibs_test"
 
 pyro:
   refcat:

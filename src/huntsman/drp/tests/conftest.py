@@ -3,7 +3,7 @@ import time
 from copy import deepcopy
 
 from huntsman.drp.core import get_config
-from huntsman.drp.collection import ExposureCollection
+from huntsman.drp.collection import ReferenceCalibCollection, ExposureCollection
 from huntsman.drp import refcat as rc
 from huntsman.drp.utils import testing
 
@@ -89,7 +89,7 @@ def exposure_collection(tmp_path_factory, config):
     exposure_collection.delete_all(really=True)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def exposure_collection_real_data(session_config):
     """
     Create a temporary directory populated with fake FITS images, then parse the images into the
@@ -107,7 +107,7 @@ def exposure_collection_real_data(session_config):
 
 
 @pytest.fixture(scope="session")
-def master_calib_collection_real_data(session_config):
+def calib_collection_real_data(session_config):
     """ Make a master calib table by reducing real calib data.
     TODO: Store created files so they can be copied in for quicker tests.
     """
@@ -118,6 +118,14 @@ def master_calib_collection_real_data(session_config):
     # Remove the metadata from the DB ready for other tests
     calib_collection.delete_all(really=True)
     assert not calib_collection.find()
+
+
+@pytest.fixture(scope="function")
+def ref_calib_collection(config):
+    collection = ReferenceCalibCollection.from_config(config)
+    yield collection
+    collection.delete_all(really=True)
+    assert not collection.find()
 
 
 @pytest.fixture(scope="function")

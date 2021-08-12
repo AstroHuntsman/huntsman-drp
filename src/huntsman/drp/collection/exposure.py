@@ -7,6 +7,7 @@ from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
 from huntsman.drp.utils.date import parse_date
 from huntsman.drp.utils.fits import read_fits_data, read_fits_header, parse_fits_header
 from huntsman.drp.collection.collection import Collection
+from huntsman.drp.collection.calib import ReferenceCalibCollection
 from huntsman.drp.document import ExposureDocument, CalibDocument
 from huntsman.drp.metrics.raw import metric_evaluator
 
@@ -24,6 +25,13 @@ class ExposureCollection(Collection):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # Ignore certain metrics if required
+        metrics_ignore = self.config.get("raw_metrics_ignore", ())
+        for metric_name in metrics_ignore:
+            metric_evaluator.remove_function(metric_name)
+
+        self.ref_calib_collection = ReferenceCalibCollection.from_config(self.config)
 
     # Public methods
 
@@ -55,42 +63,28 @@ class ExposureCollection(Collection):
         """
         self.logger.debug(f"Ingesting file into {self}: {filename}.")
 
+        document = {"filename": filename}
         try:
-            data = read_fits_data(filename)
-            original_header = read_fits_header(filename)
+            document["metrics"], success = self._calculate_metrics(filename, **kwargs)
+            document[self._metric_success_flag] = success
         except Exception as err:
-            self.logger.warning(f"Problem reading FITS file: {err!r}")
-            metrics = {}
-            success = False
-        else:
-            # Ignore certain metrics if required
-            metrics_ignore = self.config.get("raw_metrics_ignore", ())
-            for metric_name in metrics_ignore:
-                metric_evaluator.remove_function(metric_name)
+            self.logger.error(f"Error calculating metrics for {filename}: {err!r}")
+            document[self._metric_success_flag] = False
 
-            # Get the metrics
-            metrics, success = metric_evaluator.evaluate(filename, header=original_header,
-                                                         data=data, **kwargs)
-
-        # Read the header
-        # NOTE: The header is currently modified if WCS is measured
-        header = read_fits_header(filename)
-
-        # Parse the FITS header
-        # NOTE: Parsed info goes in the top-level of the mongo document
-        parsed_header = parse_fits_header(header)
-
-        document = {"filename": filename, self._metric_success_flag: success}
-        document.update(parsed_header)
-
-        # NOTE: Metrics go in a sub-level of the mongo document
-        document["metrics"] = metrics
+        # Try and update the document with the parsed header
+        # NOTE: We read the header again because it may have been modified
+        try:
+            parsed_header = parse_fits_header(read_fits_header(filename))
+            document.update(parsed_header)
+        # Log error and insert document into DB anyway
+        except Exception as err:
+            self.logger.error(f"Error parsing header for {filename}: {err!r}")
 
         # Use filename query as metrics etc can change
         self.replace_one({"filename": filename}, document, upsert=True)
 
         # Raise an exception if not success
-        if not success:
+        if not document[self._metric_success_flag]:
             raise RuntimeError(f"Metric evaluation unsuccessful for {filename}.")
 
     def get_matching_raw_calibs(self, calib_document, sort_date=None, **kwargs):
@@ -184,8 +178,8 @@ class ExposureCollection(Collection):
 
     def clear_calexp_metrics(self):
         """ Clear all calexp metrics from the collection.
-        This is useful e.g. to trigger them for reprocessing. """
-
+        This is useful e.g. to trigger them for reprocessing.
+        """
         self.logger.info(f"Clearing all calexp metrics from {self}.")
 
         self._collection.update_many({}, {"$unset": {"metrics.calexp": ""}})
@@ -212,3 +206,42 @@ class ExposureCollection(Collection):
         filters.append({"observation_type": {"$nin": data_types}})
 
         return mongo.mongo_logical_or(filters)
+
+    def _calculate_metrics(self, filename, **kwargs):
+        """ Calculate metrics for a file, typically on ingestion.
+        This function will query the calib collection for reference images.
+        Args:
+            filename (str): The filename.
+            **kwargs: Parsed to metric_evaluator.evaluate.
+        Returns:
+            dict: The dictionary of metrics.
+            bool: True if the metric calculation was successful, else False.
+        """
+        self.logger.debug(f"Calculating metrics for {filename}")
+
+        # Read the file
+        data = read_fits_data(filename)
+        header = read_fits_header(filename)
+        parsed_header = parse_fits_header(header)
+
+        # Get a reference image from the calib collection
+        ref_image = None
+        if "observation_type" in parsed_header:
+            if parsed_header["observation_type"] in self.config["calibs"]["types"]:
+                try:
+                    ref_doc = self.ref_calib_collection.get_matching_calib(parsed_header)
+                    ref_image = read_fits_data(ref_doc["filename"])
+
+                    self.logger.debug(f"Found reference calib for {filename}")
+
+                except Exception as err:
+                    self.logger.warning(f"Unable to find reference calib for {filename}: {err!r}")
+
+        # Calculate metrics
+        metrics, success = metric_evaluator.evaluate(
+            filename, header=header, parsed_header=parsed_header, data=data, ref_image=ref_image,
+            **kwargs)
+
+        self.logger.debug(f"Finished calculating metrics for {filename}, success={success}")
+
+        return metrics, success

@@ -121,7 +121,7 @@ def create_test_calib_collection(config=None):
     if config is None:
         config = get_config()
 
-    calib_collection = CalibCollection(config=config, collection_name="calib-test")
+    calib_collection = CalibCollection.from_config(config=config, collection_name="calib-test")
     calib_collection.delete_all(really=True)
     assert not calib_collection.find()
 
@@ -139,6 +139,7 @@ def create_test_calib_collection(config=None):
 
             globstr = f'*/{datasetType}/*.fits'
             fnames = [y for x in os.walk(calibdir) for y in glob(os.path.join(x[0], globstr))]
+            assert len(fnames) != 0
 
             # Ingest calibs
             br.ingest_calibs(datasetType, fnames)
