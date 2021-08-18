@@ -75,7 +75,7 @@ def parse_pipeline_name(pipeline, extension=".yaml"):
 
 def pipetask_run(pipeline_name, root_directory, input_collections=None, output_collection=None,
                  dataIds=None, args_str=None, register_dataset_types=True, config=None,
-                 instrument=None, nproc=1, **kwargs):
+                 instrument=None, nproc=1, start_method="spawn", **kwargs):
     """ Use the LSST pipetask cli to run a pipeline.
     Args:
         pipeline_name (str): The pipeline name to run.
@@ -90,6 +90,7 @@ def pipetask_run(pipeline_name, root_directory, input_collections=None, output_c
         instrument (str, optional): The full python class name of the instrument. Used for
             applying default config overrides.
         nproc (int, optional): The number of processes to use. Default: 1.
+        start_method (str, optional): The multiprocessing start method to use. Default: "spawn".
         **kwargs: Parsed to _run_pipetask_cmd.
     """
     pipeline_filename = parse_pipeline_name(pipeline_name)
@@ -125,6 +126,10 @@ def pipetask_run(pipeline_name, root_directory, input_collections=None, output_c
     # If provided, these are the specific dataIds to process
     if dataIds is not None:
         args_str += " " + _dataIds_to_query_str(dataIds)
+
+    # Set the start method
+    if start_method is not None:
+        args_str += f" --start-method {start_method}"
 
     return _run_pipetask_cmd(command_str="run", args_str=args_str, **kwargs)
 
