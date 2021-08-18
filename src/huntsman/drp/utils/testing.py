@@ -158,6 +158,7 @@ def create_test_calib_collection(config=None):
 
         # Archive the files
         for filename, calibId in zip(filenames, calibIds):
+            calibId["raw_filenames"] = ["not_a_real_file"]
             calib_collection.archive_master_calib(filename, calibId)
 
     assert calib_collection.find()

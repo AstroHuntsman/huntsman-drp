@@ -144,8 +144,9 @@ class ProcessQueue(HuntsmanBase, ABC):
         # Starting values
         self._n_processed = 0
         self._n_failed = 0
+        self._total_queued = 0
         self._stop_event = Event()
-        self._queued_objs = set()
+        self._queued_objs = set()  # Set to keep track of what objects are in the queue
 
         atexit.register(self.stop)  # This gets called when python is quit
 
@@ -163,16 +164,26 @@ class ProcessQueue(HuntsmanBase, ABC):
     @property
     def status(self):
         """ Return a status dictionary.
+        NOTE: status call is not thread-safe, so minor inconsistencies are possible in the numbers.
         Returns:
             dict: The status dictionary.
         """
+        n_processed = self._n_processed
+        n_input = self._input_queue.qsize()
+        n_output = self._output_queue.qsize()
+        total_queued = self._total_queued
+
+        pending = total_queued - n_processed - n_input - n_output
+
         status = {"status_thread": self._status_thread.is_alive(),
                   "queue_thread": self._queue_thread.is_alive(),
                   "process_thread": self._process_thread.is_alive(),
-                  "processed": self._n_processed,
+                  "processed": n_processed,
+                  "total_queued": total_queued,
+                  "pending": pending,
                   "failed": self._n_failed,
-                  "input_queue": self._input_queue.qsize(),
-                  "output_queue": self._output_queue.qsize()}
+                  "input_queue": n_input,
+                  "output_queue": n_output}
         return status
 
     @property
@@ -256,8 +267,15 @@ class ProcessQueue(HuntsmanBase, ABC):
             self.logger.debug("Adding new objects to queue.")
             for obj in objs_to_process:
                 if obj not in self._queued_objs:  # Make sure queue objs are unique
+
+                    # Add the object to the set of objects currently being processed
                     self._queued_objs.add(obj)
+
+                    # Queue the object for processing
                     self._input_queue.put(obj)
+
+                    # Increment the total number of objects we have queued
+                    self._total_queued += 1
 
             timer = CountdownTimer(duration=self._queue_interval)
             while not timer.expired():
