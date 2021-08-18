@@ -195,7 +195,8 @@ class CalibService(ProcessQueue):
                         return
 
                     # Ingest the raw docs
-                    br.ingest_raw_files([d["filename"] for d in docs])
+                    raw_filenames = [d["filename"] for d in docs]
+                    br.ingest_raw_files(raw_filenames)
 
                     self.logger.debug("Converting documents into LSST dataIds.")
                     calibId = br.document_to_dataId(calib_doc, datasetType=calib_type)
@@ -217,10 +218,13 @@ class CalibService(ProcessQueue):
                     # Use butler to get the calib filename
                     filename = br.get_filenames(calib_type, dataId=calibId)[0]
 
+                    # Create calib metadata
+                    metadata = calib_doc.copy()
+                    metadata["raw_filenames"] = raw_filenames
+
                     # Archive the calib in the calib collection
                     self.logger.info(f"Archiving {calib_type} for {calib_doc}.")
-                    self.calib_collection.archive_master_calib(filename=filename,
-                                                               metadata=calib_doc)
+                    self.calib_collection.archive_master_calib(filename=filename, metadata=metadata)
 
     def _get_objs(self):
         """ Queue all dates that are valid and have not already been queued.
