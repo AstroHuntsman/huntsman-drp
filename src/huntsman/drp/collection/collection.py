@@ -49,8 +49,8 @@ class Collection(HuntsmanBase):
         return f"{self.__class__.__name__} ({self.collection_name})"
 
     # Public methods
-
-    def find(self, document_filter=None, key=None, quality_filter=False, limit=None, **kwargs):
+    def find(self, document_filter=None, key=None, quality_filter=False, limit=None, sort_by=None,
+             sort_direction=pymongo.ASCENDING, **kwargs):
         """Get data for one or more matches in the table.
         Args:
             document_filter (dict, optional): A dictionary containing key, value pairs to be
@@ -61,6 +61,9 @@ class Collection(HuntsmanBase):
             quality_filter (bool, optional): If True, only return documents that satisfy quality
                 cuts. Default: False.
             limit (int): Limit the number of returned documents to this amount.
+            sort_by (str, optional): If provided, sort results by this key. Default: None.
+            sort_direction (int, optional): The sorting direction. Use pymongo.ASCENDING or
+                pymongo.DESCENDING. Default: pymongo.ASCENDING.
             **kwargs: Parsed to make_mongo_date_constraint.
         Returns:
             result (list): List of DataIds or key values if key is specified.
@@ -84,10 +87,20 @@ class Collection(HuntsmanBase):
 
         self.logger.debug(f"Performing mongo find operation with filter: {mongo_filter}.")
 
-        # Do the mongo query and get results
+        # Do the mongo query
         cursor = self._collection.find(mongo_filter, {"_id": False})
+
+        # Sort results
+        if sort_by is not None:
+            self.logger.debug(f"Sorting results by {sort_by}")
+            cursor.sort(sort_by, sort_direction)
+
+        # Limit results
         if limit is not None:
+            self.logger.debug(f"Limiting results to {limit} matches")
             cursor = cursor.limit(limit)
+
+        # Retrieve the documents
         documents = list(cursor)
 
         self.logger.debug(f"Find operation returned {len(documents)} results.")
