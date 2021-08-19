@@ -17,7 +17,7 @@ class CalibService(ProcessQueue):
 
     _pool_class = ThreadPool  # Use ThreadPool as LSST code makes its own subprocesses
 
-    def __init__(self, date_begin=None, validity=1, min_exps_per_calib=1,
+    def __init__(self, date_begin=None, validity=1, min_exps_per_calib=None,
                  max_exps_per_calib=None, remake_existing=False, **kwargs):
         """
         Args:
@@ -25,10 +25,11 @@ class CalibService(ProcessQueue):
                 (default), use current date - validity.
             validity (int, optional): Make calibs on this interval in days. Will get from config
                 if not provided, with default of 1.
-            min_exps_per_calib (int, optional): Calibs must match with at least this many raw docs
-                to be created. Default: 1.
-            max_exps_per_calib (int, optional): No more than this many raw docs will contribute to
-                a single calib. If None (default), no upper-limit is applied.
+            min_exps_per_calib (dict, optional): Dict of datasetType: int. Calibs must match with
+                at least this many raw docs to be created. Default: 1.
+            max_exps_per_calib (dict, optional): Dict of datasetType: int. No more than this many
+                raw docs will contribute to a single calib. If None (default), no upper-limit is
+                applied.
             remake_existing (bool, optional): If True, remake existing calibs. Default: False.
         """
         super().__init__(**kwargs)
@@ -45,13 +46,15 @@ class CalibService(ProcessQueue):
 
         # Private attributes
         self._ordered_calib_types = self.config["calibs"]["types"]
-        self._min_exps_per_calib = min_exps_per_calib
-        self._max_exps_per_calib = max_exps_per_calib
+        self._min_exps_per_calib = {} if min_exps_per_calib is None else min_exps_per_calib
+        self._max_exps_per_calib = {} if max_exps_per_calib is None else max_exps_per_calib
         self._date = copy(self.date_begin)  # Gets incremented
 
         # Create collection client objects
-        self.exposure_collection = ExposureCollection(config=self.config, logger=self.logger)
-        self.calib_collection = CalibCollection(config=self.config, logger=self.logger)
+        self.exposure_collection = ExposureCollection.from_config(
+            config=self.config, logger=self.logger)
+        self.calib_collection = CalibCollection.from_config(
+            config=self.config, logger=self.logger)
 
     # Public methods
 
@@ -141,20 +144,25 @@ class CalibService(ProcessQueue):
 
             self.logger.debug(f"Found {len(docs)} raw exposures for calib {calib_doc}")
 
+            # Get min/max exposures from datasetType
+            datasetType = calib_doc["datasetType"]
+            min_exps_per_calib = self._min_exps_per_calib.get(datasetType, 1)
+            max_exps_per_calib = self._max_exps_per_calib.get(datasetType, None)
+
             # Limit the number of documents per calib
-            if self._max_exps_per_calib is not None:
-                if len(docs) > self._max_exps_per_calib:
+            if max_exps_per_calib is not None:
+                if len(docs) > max_exps_per_calib:
                     self.logger.warning(
                         f"Number of matching exposures for calib {calib_doc} ({len(docs)})"
-                        f" exceeds maximum. Limiting to first {self._max_exps_per_calib}.")
-                    docs = docs[:self._max_exps_per_calib]
+                        f" exceeds maximum. Limiting to first {max_exps_per_calib}.")
+                    docs = docs[:max_exps_per_calib]
 
             # Make sure there are enough exposures to make the calib
-            if self._min_exps_per_calib is not None:
-                if len(docs) < self._min_exps_per_calib:
+            if min_exps_per_calib is not None:
+                if len(docs) < min_exps_per_calib:
                     self.logger.warning(
                         f"Number of matching exposures for calib {calib_doc} ({len(docs)})"
-                        f" lower than minimum ({self._min_exps_per_calib}). Skipping.")
+                        f" lower than minimum ({min_exps_per_calib}). Skipping.")
                     docs = None
 
             exp_docs.append(docs)
