@@ -82,7 +82,7 @@ calibs:
       - detector
 
 refcat:
-  tap_url: http://api.skymapper.nci.org.au/aus/tap/
+  tap_url: https://api.skymapper.nci.org.au/aus/tap/
   tap_table: dr3.master
   ra_key: raj2000
   dec_key: dej2000
