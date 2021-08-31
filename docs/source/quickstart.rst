@@ -51,7 +51,7 @@ Dot notation can be used to query for nested items, e.g.:
 
   document_filter = {"metrics.has_wcs": True}
 
-For more advanced queries, we can use ``mongodb query operators <https://docs.mongodb.com/manual/reference/operator/query/>``_, which are specified as part of the
+For more advanced queries, we can use `mongodb query operators <https://docs.mongodb.com/manual/reference/operator/query/>`_, which are specified as part of the
 document filter. For example, to query for files with exposure times greater than one second, we can do:
 
 .. code-block:: python

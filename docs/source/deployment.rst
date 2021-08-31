@@ -35,3 +35,26 @@ Then, start the services:
 .. code-block:: console
 
    $ docker-compose --env_file <env_file> up
+
+Once the services are running, connect to the docker control container like this:
+
+.. code-block:: console
+
+  $ docker exec -it hunts-drp-control /bin/bash
+
+Logs
+----
+
+The log directory is mapped into the docker containers using the environment variable specified in
+the .env file. However, it is often more convenient to work with the docker logs directly. For example,
+to follow the logs from the running `hunts-calib-maker` service, do:
+
+.. code-block:: console
+
+   $ docker logs --follow hunts-calib-maker
+
+You can also search the docker logs for something specific, like:
+
+.. code-block:: console
+
+   $ docker logs hunts-calib-maker | grep "something specific"
