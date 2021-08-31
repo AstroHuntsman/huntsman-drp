@@ -72,4 +72,24 @@ to python dictionaries, but they are hashable (can be contained in sets) and fac
 "dot" notation for nested items.
 
 Getting calibration files
--------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Calibration files can be obtained using a ``CalibCollection`` instance, e.g.:
+
+.. code-block:: python
+
+  from huntsman.drp.collection import CalibCollection
+  collection = CalibCollection.from_config()
+  calib_docs = collection.find({"datasetType": "flat"})
+
+Here, ``datasetType`` specifies the type of calib, e.g. bias, defects, dark, flat. Alternatively,
+a complete set of calibration documents that match a document in the ``ExposureCollection`` can be
+obtained like this:
+
+.. code-block:: python
+
+  calib_docs = collection.get_matching_calibs(exposure_document)
+
+Master calibration files are stored in :ref:`the archive directory<archive-directory>`.
+If you want to download the files to your local machine, you will need to download them from the
+archive directory mounted on the host system.

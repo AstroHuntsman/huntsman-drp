@@ -1,9 +1,6 @@
 Deployment
 ==========
 
-mongodb
--------
-
 |project| is currently deployed on AAO's ``dccompute3``, which is accessed via VPN or web browser.
 AAO hosts the ``mongodb`` server required by |project| on ``dccompute3``,
 which is not otherwise included in the package.
@@ -41,6 +38,17 @@ Once the services are running, connect to the docker control container like this
 .. code-block:: console
 
   $ docker exec -it hunts-drp-control /bin/bash
+
+.. _archive-directory:
+
+The archive directory
+---------------------
+
+Since |project| is deployed using docker, we need to be able to share data between the containers
+and the host machine. This is accomplished by mounting the archive directory into the containers.
+The archive directory is intended to contain all data products produced by the DRP, including master
+calibration files and reduction outputs. The location of the archive directory on the host machine
+is specified in the .env file.
 
 Logs
 ----
