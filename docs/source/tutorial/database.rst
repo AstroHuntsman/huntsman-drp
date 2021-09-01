@@ -1,5 +1,6 @@
-Quick Start
-===========
+============
+The database
+============
 
 |project| uses a `mongodb <https://www.mongodb.com/>`_ database to store file metadata. ``mongodb``
 databases store nested metadata similar to python dictionaries. It is recommended to familiarise
@@ -12,7 +13,7 @@ The relevant terminology is as follows:
 **Collection**: A collection is similar to a table in a standard database, but contains a set of documents rather than rows. Documents in a collection do not have to share the same data structure.
 
 Collections
------------
+===========
 
 |project| implements the ``Collection`` class as a wrapper around ``mongodb`` collections to ensure
 standardisation of the database. ``Collection`` instances are used to perform all database operations,
@@ -35,7 +36,7 @@ Using ``from_config`` ensures that the class instances will be correctly initial
 Once a ``Collection`` instance is created, it automatically connects to the ``mongodb`` client and is ready for use.
 
 Querying for files
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~
 
 File queries are performed using **document filters**, which are simple python dictionaries. For example
 to find all one-second exposures taken using the ``g_band`` filter, one can do:
@@ -72,7 +73,7 @@ to python dictionaries, but they are hashable (can be contained in sets) and fac
 "dot" notation for nested items.
 
 Getting calibration files
-^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Calibration files can be obtained using a ``CalibCollection`` instance, e.g.:
 

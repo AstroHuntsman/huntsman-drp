@@ -1,3 +1,4 @@
+==========
 Deployment
 ==========
 
@@ -9,7 +10,7 @@ If you want to deploy on a different machine, you will need to set up the ``mong
 This can be accomplished by following the instructions on their `website <https://www.mongodb.com/>`_.
 
 Config
-------
+======
 
 The ``docker-compose`` file as well as deployment-specific config override files are located in
 `huntsman-config <https://github.com/AstroHuntsman/huntsman-config>`_, which can be obtained via:
@@ -19,7 +20,7 @@ The ``docker-compose`` file as well as deployment-specific config override files
    $ git pull https://github.com/AstroHuntsman/huntsman-config
 
 Running the services
---------------------
+====================
 
 Once the config files have been downloaded, pull the latest docker images via:
 
@@ -42,7 +43,7 @@ Once the services are running, connect to the docker control container like this
 .. _archive-directory:
 
 The archive directory
----------------------
+=====================
 
 Since |project| is deployed using docker, we need to be able to share data between the containers
 and the host machine. This is accomplished by mounting the archive directory into the containers.
@@ -51,7 +52,7 @@ calibration files and reduction outputs. The location of the archive directory o
 is specified in the .env file.
 
 Logs
-----
+====
 
 The log directory is mapped into the docker containers using the environment variable specified in
 the .env file. However, it is often more convenient to work with the docker logs directly. For example,

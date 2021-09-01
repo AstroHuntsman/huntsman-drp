@@ -24,10 +24,11 @@ Contents
 ========
 
 .. toctree::
-    :maxdepth: 2
+   :maxdepth: 2
 
-   installation
-   quickstart
+   overview
+   lsst
+   tutorial/index
    deployment
    contributing
 
