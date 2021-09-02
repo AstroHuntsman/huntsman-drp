@@ -19,6 +19,8 @@ automatically:
 
 - **Data quality monitoring**: The gathering and storing of data quality metrics from calibrated images, like the PSF FWHM and magnitude zero point.
 
+.. automodule:: huntsman.drp.collection
+    :members:
 
 Contents
 ========

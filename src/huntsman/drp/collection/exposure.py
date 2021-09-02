@@ -39,7 +39,8 @@ class ExposureCollection(Collection):
         """ Override to make sure the document does not clash with an fpacked version.
         Args:
             document (ExposureDocument): The document to insert.
-            *args, **kwargs: Parsed to super().insert_one
+            *args: Parsed to super().insert_one.
+            **kwargs: Parsed to super().insert_one.
         Raises:
             DuplicateKeyError: If a .fz / .fits duplicate already exists.
         """
@@ -91,7 +92,7 @@ class ExposureCollection(Collection):
         """ Return matching set of calib IDs for a given calib document.
         Args:
             calib_document (CalibDocument): The calib document to match with.
-            sort_date (object, optional)
+            sort_date (object, optional):
             **kwargs
         Returns:
             list of ExposureDocument: The matching raw calibs ordered by increasing time diff.
@@ -124,6 +125,7 @@ class ExposureCollection(Collection):
 
     def get_calib_docs(self, date, quality_filter=True, **kwargs):
         """ Get all possible CalibDocuments from a set of ExposureDocuments.
+
         Args:
             date (object): The calib date.
             documents (list of ExposureDocument, optional): The list of documents to process.

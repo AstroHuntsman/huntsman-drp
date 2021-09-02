@@ -136,6 +136,7 @@ class CalibCollection(BaseCalibCollection):
 
     def archive_master_calib(self, filename, metadata):
         """ Copy the FITS files into the archive directory and update the entry in the DB.
+
         Args:
             filename (str): The filename of the calib to archive, which is copied into the archive
                 dir.
