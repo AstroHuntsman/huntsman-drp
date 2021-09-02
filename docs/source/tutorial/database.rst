@@ -1,6 +1,6 @@
-============
-The database
-============
+==================
+Using the database
+==================
 
 |project| uses a `mongodb <https://www.mongodb.com/>`_ database to store file metadata. ``mongodb``
 databases store nested metadata similar to python dictionaries. It is recommended to familiarise
@@ -94,3 +94,6 @@ obtained like this:
 Master calibration files are stored in :ref:`the archive directory<archive-directory>`.
 If you want to download the files to your local machine, you will need to download them from the
 archive directory mounted on the host system.
+
+Documents
+=========

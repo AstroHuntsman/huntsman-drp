@@ -12,12 +12,19 @@ This can be accomplished by following the instructions on their `website <https:
 Config
 ======
 
-The ``docker-compose`` file as well as deployment-specific config override files are located in
-`huntsman-config <https://github.com/AstroHuntsman/huntsman-config>`_, which can be obtained via:
+Deployment-specific config override files are located in `huntsman-config <https://github.com/AstroHuntsman/huntsman-config>`_, which can be obtained via:
 
 .. code-block:: console
 
    $ git pull https://github.com/AstroHuntsman/huntsman-config
+
+There are three important config files used by |project|:
+
+1. The local config override ``.yaml`` file: This is used to override config items in the default config file.
+
+2. The ``docker-compose.yaml`` file: This contains configuration for the docker services and volumes.
+
+3. The ``.env`` file: This is used by ``docker-compose`` to setup environment variables between the docker host and containers.
 
 Running the services
 ====================
@@ -49,14 +56,14 @@ Since |project| is deployed using docker, we need to be able to share data betwe
 and the host machine. This is accomplished by mounting the archive directory into the containers.
 The archive directory is intended to contain all data products produced by the DRP, including master
 calibration files and reduction outputs. The location of the archive directory on the host machine
-is specified in the .env file.
+is specified in the ``.env`` file.
 
 Logs
 ====
 
 The log directory is mapped into the docker containers using the environment variable specified in
-the .env file. However, it is often more convenient to work with the docker logs directly. For example,
-to follow the logs from the running `hunts-calib-maker` service, do:
+the ``.env`` file. However, it is often more convenient to work with the docker logs directly. For example,
+to follow the logs from the running `zhunts-calib-maker`` service, do:
 
 .. code-block:: console
 
