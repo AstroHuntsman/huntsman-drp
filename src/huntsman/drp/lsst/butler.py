@@ -477,7 +477,7 @@ class ButlerRepository(HuntsmanBase):
         return taskClass(config=config, **kwargs)
 
 
-class TemporaryButlerRepository():
+class TemporaryButlerRepository(HuntsmanBase):
     """ Class to return a ButlerRepository in a temporary directory.
     Used as a context manager.
     """

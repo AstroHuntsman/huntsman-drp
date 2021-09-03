@@ -56,6 +56,11 @@ collections:
     index_fields:
       - filename
 
+# Config items for the QualityMonitor service
+QualityMonitor:
+  pipeline_config:  # LSST task overrides
+    "calibrate:doDeblend": false  # Turn off deblending to save compute resources
+
 # Config items for calibs
 calibs:
   types:  # In order of creation
