@@ -10,6 +10,7 @@ from huntsman.drp.collection.collection import Collection
 from huntsman.drp.collection.calib import ReferenceCalibCollection
 from huntsman.drp.document import ExposureDocument, CalibDocument
 from huntsman.drp.metrics.raw import metric_evaluator
+from huntsman.drp.document import CalibDocument, ExposureDocument
 
 __all__ = ("ExposureCollection",)
 
