@@ -32,6 +32,7 @@ jobs:
       env:
         DRP: /opt/lsst/software/stack/huntsman-drp
       run: |
+        mkdir -p ${HTML} && chmod -R 777 ${HTML}
         docker run --rm -v ${HTML}:${DRP}/docs/build/html huntsmanarray/drp-lsst:develop ${DRP}/scripts/build-docs.sh
     -
       name: Publish docs
