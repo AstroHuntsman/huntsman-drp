@@ -3,9 +3,9 @@ on:
   push:
     branches:
     - develop
+env:
+  HTML: ${{ github.workspace }}/html
 jobs:
-  env:
-    HTML: ${{ github.workspace }}/html
   build:
     runs-on: ubuntu-latest
     steps:
