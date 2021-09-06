@@ -25,3 +25,16 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         dockerfile: docker/ingestor/Dockerfile
+    -
+      name: Build docs
+      image: huntsmanarray/drp-lsst:develop
+      env:
+        DRP: /opt/lsst/software/stack/huntsman-drp
+        DOCS: ${{ github.workspace }}/html
+      run: |
+        docker run --rm -v ${DOCS}:${DRP}/docs/build/html huntsmanarray/drp-lsst:develop ${DRP}/scripts/build-docs.sh
+    -
+      name: Publish docs
+      uses: actions/checkout@v2
+      with:
+        ref: gh-pages
