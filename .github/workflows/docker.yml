@@ -3,8 +3,6 @@ on:
   push:
     branches:
     - develop
-env:
-  HTML: ${{ github.workspace }}/html
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,6 +29,7 @@ jobs:
       name: Build docs
       env:
         DRP: /opt/lsst/software/stack/huntsman-drp
+        HTML: ${{ github.workspace }}/html
       run: |
         mkdir -p ${HTML} && chmod -R 777 ${HTML}
         docker run --rm -v ${HTML}:${DRP}/docs/build/html huntsmanarray/drp-lsst:develop ${DRP}/scripts/build-docs.sh
@@ -39,5 +38,5 @@ jobs:
       uses: JamesIves/github-pages-deploy-action@4.1.5
       with:
         branch: gh-pages
-        folder: ${HTML}
+        folder: html
         target-folder: html
