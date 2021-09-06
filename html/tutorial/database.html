@@ -1,0 +1,302 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>Using the database &mdash; huntsman-drp 0.1 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Calibration files" href="calibration.html" />
+    <link rel="prev" title="Tutorial" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> huntsman-drp
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../lsst.html">Integration with LSST</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Tutorial</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#contents">Contents</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Using the database</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#collections">Collections</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#documents">Documents</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="calibration.html">Calibration files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reduction.html">Data reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="visualisation.html">Data visualisation</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../deployment.html">Deployment</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../module.html">Module Reference</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">huntsman-drp</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="index.html">Tutorial</a> &raquo;</li>
+        
+      <li>Using the database</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/tutorial/database.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="using-the-database">
+<h1>Using the database<a class="headerlink" href="#using-the-database" title="Permalink to this headline">¶</a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">huntsman-drp</span></code> uses a <a class="reference external" href="https://www.mongodb.com/">mongodb</a> database to store file metadata. <code class="docutils literal notranslate"><span class="pre">mongodb</span></code>
+databases store nested metadata similar to python dictionaries. It is recommended to familiarise
+yourself with the basics <code class="docutils literal notranslate"><span class="pre">mongodb</span></code> before proceeding.</p>
+<p>The relevant terminology is as follows:</p>
+<p><strong>Document</strong>: A single item in the database. This is in some sense equivalent to a “row” in a standard database table, but can contain nested / hierarchical data.</p>
+<p><strong>Collection</strong>: A collection is similar to a table in a standard database, but contains a set of documents rather than rows. Documents in a collection do not have to share the same data structure.</p>
+<div class="section" id="collections">
+<h2>Collections<a class="headerlink" href="#collections" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">huntsman-drp</span></code> implements the <code class="docutils literal notranslate"><span class="pre">Collection</span></code> class as a wrapper around <code class="docutils literal notranslate"><span class="pre">mongodb</span></code> collections to ensure
+standardisation of the database. <code class="docutils literal notranslate"><span class="pre">Collection</span></code> instances are used to perform all database operations,
+including inserting, deleting, modifying and searching for documents.</p>
+<p>The following <code class="docutils literal notranslate"><span class="pre">Collection</span></code> subclasses are currently implemented:</p>
+<p><code class="docutils literal notranslate"><span class="pre">ExposureCollection</span></code>: This is used to store metadata for all exposures, with each document corresponding to a single exposure.</p>
+<p><code class="docutils literal notranslate"><span class="pre">CalibCollection</span></code>: This stores metadata for master calibration files. Each document corresponds to a single calibration file.</p>
+<p>Collection instances should be created like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huntsman.drp.collection</span> <span class="kn">import</span> <span class="n">ExposureCollection</span>
+<span class="n">collection</span> <span class="o">=</span> <span class="n">ExposureCollection</span><span class="o">.</span><span class="n">from_config</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Using <code class="docutils literal notranslate"><span class="pre">from_config</span></code> ensures that the class instances will be correctly initialised from the config file.
+Once a <code class="docutils literal notranslate"><span class="pre">Collection</span></code> instance is created, it automatically connects to the <code class="docutils literal notranslate"><span class="pre">mongodb</span></code> client and is ready for use.</p>
+<div class="section" id="querying-for-files">
+<h3>Querying for files<a class="headerlink" href="#querying-for-files" title="Permalink to this headline">¶</a></h3>
+<p>File queries are performed using <strong>document filters</strong>, which are simple python dictionaries. For example
+to find all one-second exposures taken using the <code class="docutils literal notranslate"><span class="pre">g_band</span></code> filter, one can do:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">document_filter</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;physical_filter&quot;</span><span class="p">:</span> <span class="s2">&quot;g_band&quot;</span><span class="p">,</span> <span class="s2">&quot;exposure_time&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+<span class="n">docs</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">document_filter</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Dot notation can be used to query for nested items, e.g.:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">document_filter</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;metrics.has_wcs&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+</pre></div>
+</div>
+<p>For more advanced queries, we can use <a class="reference external" href="https://docs.mongodb.com/manual/reference/operator/query/">mongodb query operators</a>, which are specified as part of the
+document filter. For example, to query for files with exposure times greater than one second, we can do:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">document_filter</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;exposure_time&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;$gt&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}}</span>
+</pre></div>
+</div>
+<p>There are also various key word arguments that can be used with <code class="docutils literal notranslate"><span class="pre">collection.find</span></code>. For example, to
+query in a date range, we can do:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">docs</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="n">date_min</span><span class="o">=</span><span class="s2">&quot;2021-01-01&quot;</span><span class="p">,</span> <span class="n">date_max</span><span class="o">=</span><span class="s2">&quot;2021-02-01&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Please see the <code class="docutils literal notranslate"><span class="pre">Collection</span></code> API for more details.</p>
+<p>The return value from <code class="docutils literal notranslate"><span class="pre">Collection.find</span></code> is a list of <code class="docutils literal notranslate"><span class="pre">Document</span></code> objects. These behave very similarly
+to python dictionaries, but they are hashable (can be contained in sets) and facilitate <code class="docutils literal notranslate"><span class="pre">get</span></code> calls with
+“dot” notation for nested items.</p>
+</div>
+<div class="section" id="getting-calibration-files">
+<h3>Getting calibration files<a class="headerlink" href="#getting-calibration-files" title="Permalink to this headline">¶</a></h3>
+<p>Calibration files can be obtained using a <code class="docutils literal notranslate"><span class="pre">CalibCollection</span></code> instance, e.g.:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huntsman.drp.collection</span> <span class="kn">import</span> <span class="n">CalibCollection</span>
+<span class="n">collection</span> <span class="o">=</span> <span class="n">CalibCollection</span><span class="o">.</span><span class="n">from_config</span><span class="p">()</span>
+<span class="n">calib_docs</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">find</span><span class="p">({</span><span class="s2">&quot;datasetType&quot;</span><span class="p">:</span> <span class="s2">&quot;flat&quot;</span><span class="p">})</span>
+</pre></div>
+</div>
+<p>Here, <code class="docutils literal notranslate"><span class="pre">datasetType</span></code> specifies the type of calib, e.g. bias, defects, dark, flat. Alternatively,
+a complete set of calibration documents that match a document in the <code class="docutils literal notranslate"><span class="pre">ExposureCollection</span></code> can be
+obtained like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">calib_docs</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">get_matching_calibs</span><span class="p">(</span><span class="n">exposure_document</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Master calibration files are stored in <a class="reference internal" href="../deployment.html#archive-directory"><span class="std std-ref">the archive directory</span></a>.
+If you want to download the files to your local machine, you will need to download them from the
+archive directory mounted on the host system.</p>
+</div>
+</div>
+<div class="section" id="documents">
+<h2>Documents<a class="headerlink" href="#documents" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="calibration.html" class="btn btn-neutral float-right" title="Calibration files" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index.html" class="btn btn-neutral float-left" title="Tutorial" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, danjampro, fergusL, lspitler.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
