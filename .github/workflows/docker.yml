@@ -29,7 +29,6 @@ jobs:
         dockerfile: docker/ingestor/Dockerfile
     -
       name: Build docs
-      image: huntsmanarray/drp-lsst:develop
       env:
         DRP: /opt/lsst/software/stack/huntsman-drp
       run: |
