@@ -118,4 +118,7 @@ config/*_local*
 nifi/src
 logs/
 
+# Docs
+docs/source/_autosummary/
+
 =======
