@@ -38,7 +38,7 @@ def test_file_ingestor(ingestor, tempdir_and_exposure_collection_with_uningested
 
     ingestor.start()
     i = 0
-    timeout = 20
+    timeout = 40
 
     while (i < timeout):
         if ingestor.is_running and ingestor.status["processed"] == n_to_process:
