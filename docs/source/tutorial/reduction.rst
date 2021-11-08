@@ -2,8 +2,7 @@
 Data reduction
 ==============
 
-The LSST stack can be used to perform data reduction. It is not within the scope of this documentation
-to provide a tutorial for the LSST stack because one already exists `here <https://pipelines.lsst.io/getting-started/data-setup.html>`_.
+The LSST stack can be used to perform data reduction. It is not within the scope of this documentation to provide a tutorial for the LSST stack because one already exists `here <https://pipelines.lsst.io/getting-started/data-setup.html>`_.
 However, the DRP can be used to setup a new Butler Repository and automatically ingest the science and master calibration files required by the user.
 
 The automated approach
@@ -49,8 +48,7 @@ First, create a Butler Repository instance:
 
   repo = ButlerRepository(directory_name)
 
-The directory name can be any valid directory name. Typically this should be within the pre-existing
-"reductions" directory, which is mounted into the Docker containers.
+The directory name can be any valid directory name. Typically this should be within the pre-existing "reductions" directory, which is mounted into the Docker containers.
 
 One can then query for the science files they want to process and ingest them into the repo:
 
