@@ -45,8 +45,8 @@
 <li class="toctree-l3"><a class="reference internal" href="database.html">Using the database</a></li>
 <li class="toctree-l3"><a class="reference internal" href="calibration.html">Calibration files</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Data reduction</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#the-manual-approach">The manual approach</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#the-automated-approach">The automated approach</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#the-manual-approach">The manual approach</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="visualisation.html">Data visualisation</a></li>
@@ -87,9 +87,16 @@
              
   <section id="data-reduction">
 <h1>Data reduction<a class="headerlink" href="#data-reduction" title="Permalink to this headline"></a></h1>
-<p>The LSST stack can be used to perform data reduction. It is not within the scope of this documentation
-to provide a tutorial for the LSST stack because one already exists: &lt;<a class="reference external" href="https://pipelines.lsst.io/getting-started/data-setup.html">https://pipelines.lsst.io/getting-started/data-setup.html</a>&gt;.
+<p>The LSST stack can be used to perform data reduction. It is not within the scope of this documentation to provide a tutorial for the LSST stack because one already exists <a class="reference external" href="https://pipelines.lsst.io/getting-started/data-setup.html">here</a>.
 However, the DRP can be used to setup a new Butler Repository and automatically ingest the science and master calibration files required by the user.</p>
+<section id="the-automated-approach">
+<h2>The automated approach<a class="headerlink" href="#the-automated-approach" title="Permalink to this headline"></a></h2>
+<p>A ready-made Butler repository can be constructed using <code class="code docutils literal notranslate"><span class="pre">huntsman.drp.reduction.lsst.LsstDataReduction</span></code> and subclasses.
+This includes ingestion of the science files, master calibration files as well as the catalogue of reference objects for photometry / astrometry.</p>
+<p>The basic usage looks like this:</p>
+<p>This will create the Butler Repository in the “test_reduction” reduction of the “reductions” directory specified in the config.</p>
+<p>Alternatively, we can create reduction instances from a yaml config file:</p>
+</section>
 <section id="the-manual-approach">
 <h2>The manual approach<a class="headerlink" href="#the-manual-approach" title="Permalink to this headline"></a></h2>
 <p>First, create a Butler Repository instance:</p>
@@ -98,35 +105,43 @@ However, the DRP can be used to setup a new Butler Repository and automatically 
 <span class="n">repo</span> <span class="o">=</span> <span class="n">ButlerRepository</span><span class="p">(</span><span class="n">directory_name</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>the directory name can be any valid directory name. Typically this should be within the pre-existing
-“reductions” directory, which is mounted into the Docker containers.</p>
+<p>The directory name can be any valid directory name. Typically this should be within the pre-existing “reductions” directory, which is mounted into the Docker containers.</p>
 <p>One can then query for the science files they want to process and ingest them into the repo:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huntsman.drp.collection</span> <span class="kn">import</span> <span class="n">ExposureCollection</span>
 
 <span class="n">collection</span> <span class="o">=</span> <span class="n">ExposureCollection</span><span class="o">.</span><span class="n">from_config</span><span class="p">()</span>
 
-<span class="n">docs</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">find</span><span class="p">({</span><span class="s2">&quot;observation_type&quot;</span><span class="p">:</span> <span class="s2">&quot;science&quot;</span><span class="p">,</span> <span class="s2">&quot;field&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;in&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CenA, CentaurusA&quot;</span><span class="p">]})</span>
+<span class="n">docs</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">find</span><span class="p">({</span><span class="s2">&quot;observation_type&quot;</span><span class="p">:</span> <span class="s2">&quot;science&quot;</span><span class="p">,</span> <span class="s2">&quot;field&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;in&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CenA, CentaurusA&quot;</span><span class="p">]}})</span>
 
 <span class="n">repo</span><span class="o">.</span><span class="n">ingest_raw_files</span><span class="p">([</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;filename&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">docs</span><span class="p">])</span>
 </pre></div>
 </div>
 <p>We can automatically find the best set of calibs for these science files and ingest them:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">calib_docs</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huntsman.drp.collection</span> <span class="kn">import</span> <span class="n">CalibCollection</span>
+
+<span class="n">calib_collection</span> <span class="o">=</span> <span class="n">CalibCollection</span><span class="o">.</span><span class="n">from_config</span><span class="p">()</span>
+
+<span class="n">calib_docs</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="n">docs</span><span class="p">:</span>
-    <span class="n">cdocs</span> <span class="o">=</span> <span class="n">calib_collection</span><span class="o">.</span><span class="n">get_matching_calibs</span><span class="p">(</span><span class="n">doc</span><span class="p">))</span>
+    <span class="n">cdocs</span> <span class="o">=</span> <span class="n">calib_collection</span><span class="o">.</span><span class="n">get_matching_calibs</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span>
     <span class="n">calib_docs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">cdocs</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
 
 <span class="n">repo</span><span class="o">.</span><span class="n">ingest_calib_docs</span><span class="p">(</span><span class="n">calib_docs</span><span class="p">)</span>
 </pre></div>
 </div>
+<p>Now use the reference catalogue client to download reference sources and ingest them into the repo:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huntsman.drp.refcat</span> <span class="kn">import</span> <span class="n">RefcatClient</span>
+
+<span class="n">refcat_client</span> <span class="o">=</span> <span class="n">RefcatClient</span><span class="o">.</span><span class="n">from_config</span><span class="p">()</span>
+
+<span class="n">refcat_client</span><span class="o">.</span><span class="n">make_from_documents</span><span class="p">(</span><span class="n">docs</span><span class="p">,</span> <span class="n">filename</span><span class="o">=</span><span class="n">refcat_filename</span><span class="p">)</span>
+
+<span class="bp">self</span><span class="o">.</span><span class="n">butler_repo</span><span class="o">.</span><span class="n">ingest_reference_catalogue</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_refcat_filename</span><span class="p">])</span>
+</pre></div>
+</div>
 <p>Once the files are ingested into the repository, one can do the remainder of the processing using
-the LSST stack directly. Additionally, there are several convenience functions in the <cite>ButlerRepository</cite>
-class that may be used to process the data, e.g. <cite>construct_skymap</cite> and <cite>construct_calexps</cite>. However,
-it is recommended to use the former approach because it is more flexible.</p>
-</section>
-<section id="the-automated-approach">
-<h2>The automated approach<a class="headerlink" href="#the-automated-approach" title="Permalink to this headline"></a></h2>
-<p>Please see the class <cite>huntsman.drp.recuction.lsst.LsstDataReduction</cite>, which attempts to automate the above process. This should be considered experimental.</p>
+the LSST stack directly. There are also several methods in the <cite>ButlerRepository</cite>
+class that may be used to process the data, e.g. <cite>construct_skymap</cite> and <cite>construct_calexps</cite>.</p>
 </section>
 </section>
 
