@@ -13,7 +13,7 @@ This includes ingestion of the science files, master calibration files as well a
 
 The basic usage looks like this:
 
-.. code-bock:: python
+.. code-block:: python
 
   from huntsman.drp.reduction.lsst import LsstDataReduction as Reduction
 
@@ -28,13 +28,13 @@ This will create the Butler Repository in the "test_reduction" reduction of the 
 
 Alternatively, we can create reduction instances from a yaml config file:
 
-.. code-bock:: python
+.. code-block:: python
 
    from huntsman.drp.reduction import create_from_file
 
    reduction = create_from_file(reduction_filename)
 
- Please see the :code:`Reduction` API for further details.
+Please see the :code:`Reduction` API for further details.
 
 
 The manual approach
@@ -91,4 +91,4 @@ Now use the reference catalogue client to download reference sources and ingest 
 
 Once the files are ingested into the repository, one can do the remainder of the processing using
 the LSST stack directly. There are also several methods in the `ButlerRepository`
-class that may be used to process the data, e.g. `construct_skymap` and `construct_calexps`.
+class that may be used to process the data, e.g. :code:`construct_skymap` and :code:`construct_calexps`.

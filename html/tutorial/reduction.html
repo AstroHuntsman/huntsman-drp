@@ -94,8 +94,24 @@ However, the DRP can be used to setup a new Butler Repository and automatically 
 <p>A ready-made Butler repository can be constructed using <code class="code docutils literal notranslate"><span class="pre">huntsman.drp.reduction.lsst.LsstDataReduction</span></code> and subclasses.
 This includes ingestion of the science files, master calibration files as well as the catalogue of reference objects for photometry / astrometry.</p>
 <p>The basic usage looks like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huntsman.drp.reduction.lsst</span> <span class="kn">import</span> <span class="n">LsstDataReduction</span> <span class="k">as</span> <span class="n">Reduction</span>
+
+<span class="n">query</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;observation_type&quot;</span><span class="p">:</span> <span class="s2">&quot;science&quot;</span><span class="p">,</span> <span class="s2">&quot;field&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;in&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CenA, CentaurusA&quot;</span><span class="p">]}}</span>
+
+<span class="n">reduction</span> <span class="o">=</span> <span class="n">Reduction</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;test_reduction&quot;</span><span class="p">,</span>
+                      <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">)</span>
+
+<span class="n">reduction</span><span class="o">.</span><span class="n">prepare</span><span class="p">()</span>
+</pre></div>
+</div>
 <p>This will create the Butler Repository in the “test_reduction” reduction of the “reductions” directory specified in the config.</p>
 <p>Alternatively, we can create reduction instances from a yaml config file:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">huntsman.drp.reduction</span> <span class="kn">import</span> <span class="n">create_from_file</span>
+
+<span class="n">reduction</span> <span class="o">=</span> <span class="n">create_from_file</span><span class="p">(</span><span class="n">reduction_filename</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Please see the <code class="code docutils literal notranslate"><span class="pre">Reduction</span></code> API for further details.</p>
 </section>
 <section id="the-manual-approach">
 <h2>The manual approach<a class="headerlink" href="#the-manual-approach" title="Permalink to this headline"></a></h2>
@@ -141,7 +157,7 @@ This includes ingestion of the science files, master calibration files as well a
 </div>
 <p>Once the files are ingested into the repository, one can do the remainder of the processing using
 the LSST stack directly. There are also several methods in the <cite>ButlerRepository</cite>
-class that may be used to process the data, e.g. <cite>construct_skymap</cite> and <cite>construct_calexps</cite>.</p>
+class that may be used to process the data, e.g. <code class="code docutils literal notranslate"><span class="pre">construct_skymap</span></code> and <code class="code docutils literal notranslate"><span class="pre">construct_calexps</span></code>.</p>
 </section>
 </section>
 
