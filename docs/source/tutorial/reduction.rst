@@ -43,7 +43,12 @@ We can automatically find the best set of calibs for these science files and ing
 
   repo.ingest_calib_docs(calib_docs)
 
+Once the files are ingested into the repository, one can do the remainder of the processing using
+the LSST stack directly. Additionally, there are several convenience functions in the `ButlerRepository`
+class that may be used to process the data, e.g. `construct_skymap` and `construct_calexps`. However,
+it is recommended to use the former approach because it is more flexible.
+
 The automated approach
 ======================
 
-Experimental!
+Please see the class `huntsman.drp.recuction.lsst.LsstDataReduction`, which attempts to automate the above process. This should be considered experimental.
