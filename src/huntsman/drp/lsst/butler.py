@@ -226,7 +226,7 @@ class ButlerRepository(HuntsmanBase):
         dimension_names = self.get_dimension_names(datasetType, required=True)
 
         utils.ingest_calibs(butler, datasetType, filenames=filenames, collection=collection,
-                            dimension_names=dimension_names, **kwargs)
+                            dimension_names=dimension_names, logger=self.logger, **kwargs)
 
         # Certify the calibs
         self._certify_calibrations(datasetType, collection, begin_date, end_date)
@@ -303,7 +303,7 @@ class ButlerRepository(HuntsmanBase):
                 dataIds = self.get_dataIds("raw", where="exposure.observation_type='dark'")
             else:
                 dataIds = self.get_dataIds(
-                        "raw", where=f"exposure.observation_type='{datasetType}'")
+                    "raw", where=f"exposure.observation_type='{datasetType}'")
 
         self.logger.info(f"Making master {datasetType}(s) from {len(dataIds)} dataIds.")
 

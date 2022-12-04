@@ -5,6 +5,8 @@ from huntsman.drp.reduction.base import ReductionBase
 from huntsman.drp.lsst.butler import ButlerRepository
 from huntsman.drp.lsst.utils.pipeline import plot_quantum_graph
 
+from huntsman.drp.utils.date import validity_range, get_date_range_from_docs
+
 
 class LsstReduction(ReductionBase):
     """ Data reduction using LSST stack. """
@@ -47,7 +49,12 @@ class LsstReduction(ReductionBase):
 
         # Ingest master calibs into butler repository
         for datasetType, docs in self.calib_docs.items():
-            self.butler_repo.ingest_calibs(datasetType, [d["filename"] for d in docs])
+            dates = get_date_range_from_docs(docs)
+            begin_date, end_date = validity_range(
+                dates, validity=int(self.config['CalibService']['validity']))
+            self.butler_repo.ingest_calibs(
+                datasetType, [d["filename"] for d in docs],
+                begin_date=begin_date, end_date=end_date)
 
         # Ingest reference catalogue
         self.butler_repo.ingest_reference_catalogue([self._refcat_filename])

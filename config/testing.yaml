@@ -4,11 +4,11 @@ directories:
 exposure_sequence:
   start_date: "2020-02-04"
   n_cameras: 2
-  n_days: 2   # Simulate this number of nights
-  n_flat: 2   # Per (filter, camera) pair per night
-  n_bias: 2   # Per camera per night
-  n_dark: 2   # Per (exposure time, camera) pair per night
-  n_science: 1  # Per (camera, field, filter) combination per night
+  n_days: 2 # Simulate this number of nights
+  n_flat: 2 # Per (filter, camera) pair per night
+  n_bias: 2 # Per camera per night
+  n_dark: 2 # Per (exposure time, camera) pair per night
+  n_science: 1 # Per (camera, field, filter) combination per night
   exptime_flat: 30
   exptime_science: 60
   filters:
@@ -17,9 +17,9 @@ exposure_sequence:
   size_x: 100
   size_y: 100
   dtype: uint16
-  saturate: 4096  # ADU
-  bias: 32  # ADU
-  pixel_size: 1.2  # Arcseconds per pixel
+  saturate: 4096 # ADU
+  bias: 32 # ADU
+  pixel_size: 1.2 # Arcseconds per pixel
 
 mongodb:
   collections:
@@ -59,3 +59,11 @@ plotter:
 
 raw_metrics_ignore:
   - get_wcs
+  - reference image stats
+
+reference_calib_filenames:
+  - "/opt/lsst/software/stack/huntsman-drp/tests/data/raw/bias_0.fits"
+  - "/opt/lsst/software/stack/huntsman-drp/tests/data/raw/dark_0.fits"
+  - "/opt/lsst/software/stack/huntsman-drp/tests/data/raw/flat_0.fits"
+  - "/opt/lsst/software/stack/huntsman-drp/tests/data/raw/science_0.fits"
+  - "/opt/lsst/software/stack/huntsman-drp/tests/data/raw/sky_offset_0.fits"

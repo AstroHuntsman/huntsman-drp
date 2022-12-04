@@ -12,6 +12,7 @@ from huntsman.drp.base import HuntsmanBase
 from huntsman.drp.utils.date import parse_date, current_date_ymd
 from huntsman.drp.collection import ExposureCollection, CalibCollection
 from huntsman.drp.utils.ingest import METRIC_SUCCESS_FLAG
+from huntsman.drp.utils.date import validity_range, get_date_range_from_files
 
 
 EXPTIME_BIAS = 1E-32  # Minimum exposure time for ZWO cameras is > 0
@@ -142,7 +143,10 @@ def create_test_calib_collection(config=None):
             assert len(fnames) != 0
 
             # Ingest calibs
-            br.ingest_calibs(datasetType, fnames)
+            unique_calib_dates = get_date_range_from_files(fnames)
+            begin_date, end_date = validity_range(
+                unique_calib_dates, validity=config['CalibService']['validity'])
+            br.ingest_calibs(datasetType, fnames, begin_date=begin_date, end_date=end_date)
 
             # Get the calib dataIds
             dataIds = br.get_dataIds(datasetType)
