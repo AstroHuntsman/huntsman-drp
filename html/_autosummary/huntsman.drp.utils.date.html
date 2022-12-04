@@ -87,11 +87,11 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="../module.html">Module Reference</a> &raquo;</li>
-          <li><a href="huntsman.drp.html">huntsman.drp</a> &raquo;</li>
-          <li><a href="huntsman.drp.utils.html">huntsman.drp.utils</a> &raquo;</li>
-      <li>huntsman.drp.utils.date</li>
+      <li><a href="../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../module.html">Module Reference</a></li>
+          <li class="breadcrumb-item"><a href="huntsman.drp.html">huntsman.drp</a></li>
+          <li class="breadcrumb-item"><a href="huntsman.drp.utils.html">huntsman.drp.utils</a></li>
+      <li class="breadcrumb-item active">huntsman.drp.utils.date</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/_autosummary/huntsman.drp.utils.date.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -120,11 +120,20 @@
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">date_to_ymd</span></code>(object)</p></td>
 <td><p>Convert a date to YYYY:MM:DD format.</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_date_range_from_docs</span></code>(docs)</p></td>
+<td><p>Take a list of calib docs and determine the set of unique calib dates.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_date_range_from_files</span></code>(fnames)</p></td>
+<td><p>Take a list of fits file names and extract the <cite>DATE-OBS</cite> keyword value from the headers and determine the set of unique dates in the list.</p></td>
+</tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_mongo_date_constraint</span></code>([date, date_min, ...])</p></td>
 <td><p>Convenience function to make a mongo date constraint.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">parse_date</span></code>(date)</p></td>
 <td><p>Parse a date as a <cite>datetime.datetime</cite>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">validity_range</span></code>(dates[, validity])</p></td>
+<td><p>Take a list of calib docs to be ingested into a butler repo and determine the max and min dates and then add or subtract the validity parameter to produce the min and max valid dates for the calibs.</p></td>
 </tr>
 </tbody>
 </table>

@@ -87,11 +87,11 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-          <li><a href="../module.html">Module Reference</a> &raquo;</li>
-          <li><a href="huntsman.drp.html">huntsman.drp</a> &raquo;</li>
-          <li><a href="huntsman.drp.utils.html">huntsman.drp.utils</a> &raquo;</li>
-      <li>huntsman.drp.utils.header</li>
+      <li><a href="../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../module.html">Module Reference</a></li>
+          <li class="breadcrumb-item"><a href="huntsman.drp.html">huntsman.drp</a></li>
+          <li class="breadcrumb-item"><a href="huntsman.drp.utils.html">huntsman.drp.utils</a></li>
+      <li class="breadcrumb-item active">huntsman.drp.utils.header</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/_autosummary/huntsman.drp.utils.header.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -120,7 +120,7 @@
 <td><p>Return the type of observation (e.g. science, bias, dark, flat). :param header: The FITS header. :type header: abc.Mapping :param get_used_cards: If True, return the keys used to obtain alt / az. This                        is used e.g. by LSST translator classes. Default: False. :type get_used_cards: bool, optional.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">header_to_radec</span></code>(header[, get_used_cards])</p></td>
-<td><p>Get the ra dec of the field centre from the FITS header. If a celestial WCS is present, will try and use that first. If not, will use approximate telescope pointing. :param header: The FITS header. :type header: abc.Mapping :param get_used_cards: If True, return the keys used to obtain alt / az. This                        is used e.g. by LSST translator classes. Default: False. :type get_used_cards: bool, optional.</p></td>
+<td><p>Get the ra dec of the field centre from the FITS header. If a celestial WCS is present, will try and use that first. If not, will use approximate telescope pointing. If a telescope pointing was not captured in the header, return None. :param header: The FITS header. :type header: abc.Mapping :param get_used_cards: If True, return the keys used to obtain alt / az. This                        is used e.g. by LSST translator classes. Default: False. :type get_used_cards: bool, optional.</p></td>
 </tr>
 </tbody>
 </table>

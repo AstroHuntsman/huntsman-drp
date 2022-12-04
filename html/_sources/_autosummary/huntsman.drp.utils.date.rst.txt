@@ -16,8 +16,11 @@ huntsman.drp.utils.date
       current_date
       current_date_ymd
       date_to_ymd
+      get_date_range_from_docs
+      get_date_range_from_files
       make_mongo_date_constraint
       parse_date
+      validity_range
    
    
 
