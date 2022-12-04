@@ -18,7 +18,7 @@ RUN apt-get update -y && \
     conda init bash && \
     . ~/.bashrc && \
     # Create the conda env
-    conda install numpy astropy ipython pymongo matplotlib pyyaml pandas && \
+    conda install numpy astropy ipython scipy pymongo matplotlib pyyaml pandas && \
     # Install extra packages
     pip install astroquery panoptes-utils && \
     # Downgrade coverage version to avoid pytest issues
