@@ -1,6 +1,6 @@
-ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-w_latest
+# OLDV ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-w_latest
+ARG base_image=lsstsqre/centos:7-stack-lsst_distrib-w_2021_45-20211104T021640Z
 FROM ${base_image}
-
 # Build args
 ARG user=lsst
 
