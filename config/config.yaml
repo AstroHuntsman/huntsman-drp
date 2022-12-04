@@ -12,17 +12,17 @@ mongodb:
 
 # Configurations for Pyro services
 pyro:
-  host: localhost  # Hostname of the Pyro server
-  port: 6563  # Port of the pyro name server
-  refcat:  # kwargs that are parsed to init function of refcat client
+  host: localhost # Hostname of the Pyro server
+  port: 6563 # Port of the pyro name server
+  refcat: # kwargs that are parsed to init function of refcat client
     name: "refcat"
 
 # Config for collections
 collections:
   # Exposure collections contain metadata for raw exposures
   ExposureCollection:
-    name: "huntsman_exposures"  # The name of the mongodb collection
-    required_fields:  # Required fields must be present in an inserted document
+    name: "huntsman_exposures" # The name of the mongodb collection
+    required_fields: # Required fields must be present in an inserted document
       - filename
     index_fields:
       - filename
@@ -58,12 +58,12 @@ collections:
 
 # Config items for the QualityMonitor service
 QualityMonitor:
-  pipeline_config:  # LSST task overrides
-    "calibrate:doDeblend": false  # Turn off deblending to save compute resources
+  pipeline_config: # LSST task overrides
+    "calibrate:doDeblend": false # Turn off deblending to save compute resources
 
 # Config items for calibs
 calibs:
-  types:  # In order of creation
+  types: # In order of creation
     - bias
     - defects
     - dark
@@ -131,7 +131,7 @@ plotter:
 # Camera info, mainly used by obs_huntsman
 # TODO: Move to obs_huntsman?
 cameras:
-  plate_scale: 527.54167  # arcsec/mm
+  plate_scale: 527.54167 # arcsec/mm
   default_preset: "zwo"
   presets:
     zwo:
@@ -140,7 +140,7 @@ cameras:
       saturation: 4094
       gain: 1.145
       read_noise: 2.4
-      pixel_size: 0.0024  # mm (?)
+      pixel_size: 0.0024 # mm (?)
       overscan: 0
   devices:
     - camera_name: "1815420013090900"

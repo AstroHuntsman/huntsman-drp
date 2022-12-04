@@ -17,11 +17,11 @@ query:
 # Examples can be found here: https://github.com/lsst/ap_pipe
 pipeline:
   description: "Calibrate raw exposures and make coadds"
-  tasks:
+  #tasks:
   # Import default processCcd pipeline
   # More info here: https://github.com/lsst/pipe_base
   imports:
-   - location: ${OBS_HUNTSMAN}/pipelines/processCcd.yaml
+    - location: ${OBS_HUNTSMAN}/pipelines/processCcd.yaml
   tasks:
     makeWarp:
       class: lsst.pipe.tasks.makeCoaddTempExp.MakeWarpTask

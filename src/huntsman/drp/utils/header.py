@@ -8,7 +8,7 @@ from huntsman.drp.utils.date import parse_date
 def header_to_radec(header, get_used_cards=False):
     """ Get the ra dec of the field centre from the FITS header.
     If a celestial WCS is present, will try and use that first. If not, will use approximate
-    telescope pointing.
+    telescope pointing. If a telescope pointing was not captured in the header, return None.
     Args:
         header (abc.Mapping): The FITS header.
         get_used_cards (bool, optional): If True, return the keys used to obtain alt / az. This
@@ -38,7 +38,14 @@ def header_to_radec(header, get_used_cards=False):
     except Exception:
         ra_key = "RA-MNT"
         dec_key = "DEC-MNT"
-        radec = SkyCoord(ra=header[ra_key] * u.deg, dec=header[dec_key] * u.deg)
+        ra = header[ra_key]
+        dec = header[dec_key]
+        # Sometimes headers don't contain mount RA/DEC
+        bad_vals = ('', None)
+        if any(val in bad_vals for val in (ra, dec)):
+            radec = None
+        else:
+            radec = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
         used_keys = set([ra_key, dec_key])
 
     if get_used_cards:
@@ -88,7 +95,10 @@ def header_to_altaz(header, get_used_cards=False):
     frame = AltAz(obstime=obstime, location=location)
 
     # Perform the transform
-    altaz = radec.transform_to(frame)
+    if radec is None:
+        altaz = None
+    else:
+        altaz = radec.transform_to(frame)
 
     used_keys.update(["DATE-OBS"])
     if get_used_cards:

@@ -71,7 +71,8 @@ def ingest_datasets(butler, datasetType, datasets, collection, transfer="copy"):
     butler.ingest(*datasets, transfer=transfer, run=collection)
 
 
-def ingest_calibs(butler, datasetTypeName, filenames, collection, dimension_names, **kwargs):
+def ingest_calibs(
+        butler, datasetTypeName, filenames, collection, dimension_names, logger, **kwargs):
     """ Ingest master calibs into a Butler collection.
     Args:
         butler (lsst.daf.butler.Butler): The butler object.

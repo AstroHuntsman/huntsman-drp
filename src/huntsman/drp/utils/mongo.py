@@ -1,4 +1,5 @@
-from collections import abc, MutableMapping
+from collections import abc
+from collections.abc import MutableMapping
 from copy import deepcopy
 from collections import defaultdict
 

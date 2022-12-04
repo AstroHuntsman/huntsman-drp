@@ -43,11 +43,17 @@ def parse_fits_header(header, **kwargs):
 
     # Extract simplified AltAz
     with suppress(KeyError):
-        md["alt"], md["az"] = md.pop("altaz_begin")
+        if md["altaz_begin"] is None:
+            md["alt"], md["az"] = None, None
+        else:
+            md["alt"], md["az"] = md.pop("altaz_begin")
 
     # Extract simplified RaDec
     with suppress(KeyError):
-        md["ra"], md["dec"] = md.pop("tracking_radec")
+        if md["tracking_radec"] is None:
+            md["ra"], md["dec"] = None, None
+        else:
+            md["ra"], md["dec"] = md.pop("tracking_radec")
 
     # Make some extra fields that are used by LSST
     with suppress(KeyError):

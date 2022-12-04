@@ -1,7 +1,7 @@
 """ The translator class is responsible for converting FITS header values into standardised
 quantities understood by the LSST stack, as defined in the ObservationInfo class. """
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from astropy.time import Time
 from astropy import units as u
@@ -176,7 +176,7 @@ class HuntsmanTranslator(FitsTranslator):
             astropy.time.Time: Time corresponding to the end of the observation.
         """
         exptime = get_quantity_value(self.to_exposure_time(), u.second)
-        return self.to_datetime_begin() + exptime
+        return self.to_datetime_begin() + timedelta(seconds=exptime)
 
     @cache_translation
     def to_observation_type(self):
