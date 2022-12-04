@@ -1,4 +1,4 @@
-ARG base_image=huntsmanarray/panoptes-plate-solver
+ARG base_image=huntsmanarray/panoptes-plate-solver:develop
 FROM ${base_image}
 
 ENV PATH="/root/miniconda3/bin:${PATH}"
