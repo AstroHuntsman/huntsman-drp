@@ -41,7 +41,8 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=Fal
                         '--downsample': downsample}
 
         # Try and get the Mount RA/DEC info to speed up the solve
-        if ("RA-MNT" in header) and ("DEC-MNT" in header):
+        bad_vals = ('', None)
+        if ("RA-MNT" in header and header["RA-MNT"] not in bad_vals) and ("DEC-MNT" in header and header["DEC-MNT"] not in bad_vals):
             solve_kwargs['--ra'] = header["RA-MNT"]
             solve_kwargs['--dec'] = header["DEC-MNT"]
             solve_kwargs['--radius'] = radius
