@@ -30,8 +30,8 @@ def test_get_wcs_no_solve(filename_with_wcs, header_with_wcs):
     assert result["has_wcs"]
 
 
-def test_cosmic_ray_density(data):
-    result = raw.cosmic_ray_density(data)
+def test_cosmic_ray_density(filename_with_wcs, data):
+    result = raw.cosmic_ray_density(filename_with_wcs, data)
     assert "cosmic_ray_density" in result
     assert "cr_count" in result['cosmic_ray_density']
     assert "cr_density" in result['cosmic_ray_density']
