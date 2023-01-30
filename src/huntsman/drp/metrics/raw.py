@@ -38,7 +38,7 @@ def get_wcs(filename, header, timeout=300, downsample=4, radius=3, remake_wcs=Fa
     if make_wcs or remake_wcs:
         # Create list of args to pass to solve_field
         solve_opts = ['--cpulimit', str(timeout),
-                      '--downsample', downsample]
+                      '--downsample', str(downsample)]
 
         # Try and get the Mount RA/DEC info to speed up the solve
         bad_vals = ('', None)
