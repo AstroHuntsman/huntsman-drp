@@ -1,12 +1,21 @@
 from contextlib import suppress
 
+import numpy as np
+from scipy import signal, ndimage
 from scipy.optimize import minimize
-from astropy import stats
+from astroscrappy import detect_cosmics
+
+from astropy.coordinates import EarthLocation, AltAz
+from astropy.io.fits import getheader
 from astropy.wcs import WCS
+from astropy import units as u
+from astropy import stats
 
 from panoptes.utils.images.fits import get_solve_field
 
-from huntsman.drp.utils.fits import parse_fits_header
+from huntsman.drp.core import get_config
+from huntsman.drp.utils.date import parse_date
+from huntsman.drp.utils.fits import parse_fits_header, image_cutout
 from huntsman.drp.metrics.evaluator import MetricEvaluator
 
 metric_evaluator = MetricEvaluator()
@@ -50,6 +59,7 @@ def get_wcs(filename, header, timeout=300, downsample=4, radius=3, remake_wcs=Fa
         get_solve_field(filename, timeout=timeout, solve_opts=solve_opts)
 
     # Check if the header now contians a wcs solution
+    header = getheader(filename)
     wcs = WCS(header)
     has_wcs = wcs.has_celestial
 
@@ -137,3 +147,122 @@ def reference_image_stats(filename, data, header, **kwargs):
     chi2red_scaled = chi2(scaling) / data.size
 
     return {"ref_chi2r": chi2red, "ref_chi2r_scaled": chi2red_scaled}
+
+
+@metric_evaluator.add_function
+def alt_az(filename, data, header, **kwargs):
+    """ Get the alt az of the observation from the header.
+    Args:
+        filename (str): The filename.
+        data (np.array): The data array.
+        header (abc.Mapping): The parsed FITS header.
+    Returns:
+        dict: The dict containing the metrics.
+    """
+    # Skip if observation_type is not science
+    header = getheader(filename)
+    parsed_header = parse_fits_header(header)
+    if parsed_header["observation_type"] != "science":
+        return {}
+
+    # If there is no wcs, we can't get the ra/dec so skip
+    has_wcs = False
+    with suppress(Exception):
+        wcs = WCS(header)
+        has_wcs = wcs.has_celestial
+
+    if not has_wcs:
+        return {}
+
+    # get image dimensions
+    img_dim = wcs.array_shape
+    # get the ra,dec of the centre of the image
+    radec = wcs.pixel_to_world(img_dim[1]/2, img_dim[0]/2)
+
+    # Get the location of the observation
+    try:
+        lat = header["LAT-OBS"] * u.deg
+        lon = header["LONG-OBS"] * u.deg
+        elevation = header["ELEV-OBS"] * u.m
+        location = EarthLocation(lat=lat, lon=lon, height=elevation)
+
+        # Create the Alt/Az frame
+        obstime = parse_date(header["DATE-OBS"])
+        frame = AltAz(obstime=obstime, location=location)
+
+        # Perform the transform
+        altaz = radec.transform_to(frame)
+
+        return {"alt": altaz.alt.to_value("deg"), "az": altaz.az.to_value("deg")}
+    except Exception:
+        # if something goes wrong just skip
+        return {}
+
+
+@metric_evaluator.add_function
+def detect_star_trails(filename, data, **kwargs):
+    """ Measure the autocorrelation signal of an image to determine if any star trailing
+    or "double star" effects are present (due to bad tracking or mid exposure shaking of array).
+
+    Args:
+        data (array): Image data as stored as an array.
+
+    Returns:
+        (dict): Dictionary containing the calculated metric values.
+    """
+    # TODO? create config entry for hardcoded values
+    config = get_config()['raw_metric_parameters']['detect_star_trails']
+    # take of log of image so faint sources are easier to detect
+    cutoutimg = np.log10(image_cutout(data, **config['cutout']).astype(float))
+
+    # subtract off background
+    mean, median, std = stats.sigma_clipped_stats(cutoutimg, sigma=config['sigma_clip'])
+    cutoutimg = cutoutimg - median
+
+    # create a binary mask of pixels above a threshold level
+    mask = np.zeros(cutoutimg.shape)
+    mask[np.where(cutoutimg > std)] = 1
+
+    # thin out the mask with a binary erosion (get rid of hotpixels/cosmic rays)
+    be_size = config['binary_erosion_size']
+    mask = 1 * ndimage.binary_erosion(mask, structure=np.ones((be_size, be_size)))
+
+    # calculate autocorrelation of the mask
+    ac = signal.correlate2d(mask, mask, boundary='symm', mode='same')
+
+    # extract metrics from autocorr image
+    total_mean = np.nanmean(ac)
+    # measure the sum in the central region of the autocorr image
+    autocorr_box_size = config['autocorr_signal_box_size']
+    length = config['cutout']['length']
+    start = int(length / 2 - autocorr_box_size)
+    stop = int(length / 2 + autocorr_box_size)
+    centre_mean = np.nanmean(ac[start:stop, start:stop])
+    return {'autocorr': {'total_mean': total_mean, 'centre_mean': centre_mean}}
+
+
+@metric_evaluator.add_function
+def cosmic_ray_density(filename, data, **kwargs):
+    """ Measure the cosmic ray count/density within a subset of an image.
+
+    https://astroscrappy.readthedocs.io/en/latest/api/astroscrappy.detect_cosmics.html#astroscrappy.detect_cosmics
+
+    Args:
+        data (array): Image data as stored as an array.
+
+    Returns:
+        (dict): Dictionary containing the calculated metric values.
+    """
+    config = get_config()
+    cam_config = config['cameras']['presets']['zwo']
+    cr_config = config['raw_metric_parameters']['cosmic_ray_density']
+    cutoutimg = image_cutout(data, **cr_config['cutout'])
+    mask, cleaned_img = detect_cosmics(cutoutimg,
+                                       gain=cam_config['gain'],
+                                       readnoise=cam_config['read_noise'],
+                                       satlevel=cam_config['saturation'],
+                                       **cr_config['detect_cosmics']
+                                       )
+    cr_count = np.sum(1 * mask)
+    cr_density = cr_count / (mask.shape[0] * mask.shape[1])
+    return {'cosmic_ray_density': {'cr_count': cr_count, 'cr_density': cr_density}}

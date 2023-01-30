@@ -35,7 +35,7 @@ RUN yum install -y wget vim sudo && \
   echo "https://:@s3.lsst.codes" >> ~/.git-credentials && \
   # Install extra python stuff into LSST conda env
   source ${LSST_HOME}/loadLSST.bash && \
-  pip install ipython pymongo astroquery panoptes-utils pyro5 && \
+  pip install ipython pymongo astroquery panoptes-utils pyro5 astroscrappy && \
   # Clone obs_huntsman into the image (install handled by EUPS)
   cd "${LSST_HOME}" && \
   git clone https://github.com/AstroHuntsman/obs_huntsman.git && \
