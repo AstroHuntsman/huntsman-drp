@@ -13,7 +13,7 @@ metric_evaluator = MetricEvaluator()
 
 
 @metric_evaluator.add_function
-def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=False, **kwargs):
+def get_wcs(filename, header, timeout=300, downsample=4, radius=3, remake_wcs=False, **kwargs):
     """ Function to call get_solve_field on a file and verify if a WCS solution could be found.
     Args:
         filename (str): The filename.
@@ -36,19 +36,18 @@ def get_wcs(filename, header, timeout=60, downsample=4, radius=5, remake_wcs=Fal
 
     # Make the WCS if it doesn't already exist
     if make_wcs or remake_wcs:
-        # Create dict of args to pass to solve_field
-        solve_kwargs = {'--cpulimit': str(timeout),
-                        '--downsample': downsample}
+        # Create list of args to pass to solve_field
+        solve_opts = ['--cpulimit', str(timeout),
+                      '--downsample', downsample]
 
         # Try and get the Mount RA/DEC info to speed up the solve
         bad_vals = ('', None)
         if ("RA-MNT" in header and header["RA-MNT"] not in bad_vals) and ("DEC-MNT" in header and header["DEC-MNT"] not in bad_vals):
-            solve_kwargs['--ra'] = header["RA-MNT"]
-            solve_kwargs['--dec'] = header["DEC-MNT"]
-            solve_kwargs['--radius'] = radius
-
+            solve_opts += ['--ra', header["RA-MNT"],
+                           '--dec', header["DEC-MNT"],
+                           '--radius', radius]
         # Solve for wcs
-        get_solve_field(filename, **solve_kwargs)
+        get_solve_field(filename, timeout=timeout, solve_opts=solve_opts)
 
     # Check if the header now contians a wcs solution
     wcs = WCS(header)
