@@ -68,3 +68,28 @@ def parse_fits_header(header, **kwargs):
         md["date"] = parse_date(header["DATE-OBS"])
 
     return md
+
+
+def image_cutout(data, x=0.5, y=0.5, length=100):
+    """ Take an array and produce a square cutout centred on supplied coordinates (normalised by array size)
+    and a slide length (given in units of pixels).
+
+    NB: cutout will be forced to have an odd side length to ensure there is a central pixel.
+
+    Args:
+        data (array): Array from which to produce a cutout.
+        x (float): x coordinate for cenre of cutout (coordinates normalised by array size)
+        y (float): y coordinate for cenre of cutout (coordinates normalised by array size)
+        length (int): Side length of square cutout (units of pixels)
+
+    Returns:
+        cutout [array]: Square cutout of supplied array.
+    """
+    # create coordinates for centre of cutout
+    centre = (int(x * data.shape[0]), int(y * data.shape[1]))
+    # determine slice indices that will give an odd numbered side length
+    a = int(centre[0] - (1 + length // 2))
+    b = int(centre[0] + length // 2)
+    c = int(centre[1] - (1 + length // 2))
+    d = int(centre[1] + length // 2)
+    return data[a:b, c:d]

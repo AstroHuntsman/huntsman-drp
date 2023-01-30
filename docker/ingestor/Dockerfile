@@ -20,7 +20,7 @@ RUN apt-get update -y && \
     # Create the conda env
     conda install numpy astropy ipython scipy pymongo matplotlib pyyaml pandas && \
     # Install extra packages
-    pip install astroquery panoptes-utils && \
+    pip install astroquery panoptes-utils astroscrappy && \
     # Downgrade coverage version to avoid pytest issues
     pip uninstall -y coverage && \
     pip install coverage==4.5.4 && \

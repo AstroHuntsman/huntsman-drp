@@ -116,6 +116,25 @@ quality:
         greater_than: 0.13
         "$lt": 0.19
 
+raw_metric_parameters:
+  detect_star_trails:
+    cutout:
+      x: 0.35
+      y: 0.35
+      length: 200
+    binary_erosion_size: 3
+    autocorr_signal_box_size: 20
+    sigma_clip: 3
+  cosmic_ray_density:
+    cutout:
+      x: 0.35
+      y: 0.35
+      length: 200
+    detect_cosmics:
+      objlim: 2
+      sigclip: 5
+      sigfrac: 1
+
 plotter:
   # List of kwargs for individual plotters
   # kwargs are parsed directly to init function of each plotter
