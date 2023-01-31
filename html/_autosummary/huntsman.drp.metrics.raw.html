@@ -105,16 +105,25 @@
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">clipped_stats</span></code>(filename, data, header, **kwargs)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">alt_az</span></code>(filename, data, header, **kwargs)</p></td>
+<td><p>Get the alt az of the observation from the header.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">clipped_stats</span></code>(filename, data, header, **kwargs)</p></td>
 <td><p>Return sigma-clipped image statistics.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">flipped_asymmetry</span></code>(filename, data, header, ...)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">cosmic_ray_density</span></code>(filename, data, **kwargs)</p></td>
+<td><p>Measure the cosmic ray count/density within a subset of an image.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">detect_star_trails</span></code>(filename, data, **kwargs)</p></td>
+<td><p>Measure the autocorrelation signal of an image to determine if any star trailing or &quot;double star&quot; effects are present (due to bad tracking or mid exposure shaking of array).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">flipped_asymmetry</span></code>(filename, data, header, ...)</p></td>
 <td><p>Calculate the asymmetry statistics by flipping data in x and y directions.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_wcs</span></code>(filename, header[, timeout, ...])</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_wcs</span></code>(filename, header[, timeout, ...])</p></td>
 <td><p>Function to call get_solve_field on a file and verify if a WCS solution could be found.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reference_image_stats</span></code>(filename, data, ...)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reference_image_stats</span></code>(filename, data, ...)</p></td>
 <td><p>Compare an image to a reference image.</p></td>
 </tr>
 </tbody>

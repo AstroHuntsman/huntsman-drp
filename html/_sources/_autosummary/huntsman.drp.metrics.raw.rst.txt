@@ -13,7 +13,10 @@ huntsman.drp.metrics.raw
 
    .. autosummary::
    
+      alt_az
       clipped_stats
+      cosmic_ray_density
+      detect_star_trails
       flipped_asymmetry
       get_wcs
       reference_image_stats

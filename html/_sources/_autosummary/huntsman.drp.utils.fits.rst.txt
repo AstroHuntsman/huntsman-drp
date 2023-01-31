@@ -13,6 +13,7 @@ huntsman.drp.utils.fits
 
    .. autosummary::
    
+      image_cutout
       parse_fits_header
       read_fits_data
       read_fits_header

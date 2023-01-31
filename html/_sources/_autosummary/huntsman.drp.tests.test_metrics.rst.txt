@@ -13,8 +13,10 @@ huntsman.drp.tests.test\_metrics
 
    .. autosummary::
    
+      data
       filename_with_wcs
       header_with_wcs
+      test_cosmic_ray_density
       test_get_wcs_no_solve
    
    

@@ -110,13 +110,16 @@
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">parse_fits_header</span></code>(header, **kwargs)</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">image_cutout</span></code>(data[, x, y, length])</p></td>
+<td><p>Take an array and produce a square cutout centred on supplied coordinates (normalised by array size) and a slide length (given in units of pixels).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">parse_fits_header</span></code>(header, **kwargs)</p></td>
 <td><p>Use the translator class to parse the FITS header.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_fits_data</span></code>(filename[, dtype])</p></td>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_fits_data</span></code>(filename[, dtype])</p></td>
 <td><p>Read fits image into numpy array.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_fits_header</span></code>(filename, **kwargs)</p></td>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_fits_header</span></code>(filename, **kwargs)</p></td>
 <td><p>Read the FITS header for a given filename.</p></td>
 </tr>
 </tbody>
